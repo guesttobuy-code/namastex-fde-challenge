@@ -3,6 +3,15 @@
 
 Closes #
 
+## Endereço de retorno
+
+<!-- Para o auditor saber para QUEM devolver o veredito sem adivinhar pelo título da sessão.
+     Os dois primeiros vêm do registro da frente (governance/active-work/_frentes/<slug>.md). -->
+
+- **Frente:** `<slug>` · **Issue:** #
+- **Chat autor (`app_session_id`):** `local_...`
+- **Turno atual:** `turno:autor` | `turno:auditoria` | `turno:dono`
+
 ## O que mudou e por quê
 
 <!-- 3 a 6 linhas. O que a Análise de impacto (passo 2) aprovou — e só isso. -->
