@@ -85,3 +85,27 @@ def test_nome_conhecido_e_redigido_quando_informado():
 def test_texto_sem_pii_passa_intacto():
     texto = "Oi, queria fazer um seguro pro meu carro"
     assert redigir_texto(texto) == texto
+
+
+# --- Onde o (?i) é load-bearing de verdade, e onde não é (achado durante a auditoria do PLANO:
+# CPF/CEP/telefone são padrões só de dígito — sem letra, (?i) não muda o resultado deles; quem
+# precisa da flag é a placa, porque o char class é [a-z] e o dataset sempre gera maiúsculo). ---
+
+
+def test_padrao_de_cpf_nao_depende_de_case_por_nao_ter_letra():
+    import re
+
+    sem_flag = re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b")
+    assert sem_flag.sub("[X]", "cpf 389.083.863-43") == "cpf [X]"
+
+
+def test_padrao_de_placa_precisa_de_case_insensitive_porque_tem_letra():
+    import re
+
+    com_flag = re.compile(r"(?i)\b[a-z]{3}\d[a-z]\d{2}\b")
+    sem_flag = re.compile(r"\b[a-z]{3}\d[a-z]\d{2}\b")
+    assert com_flag.sub("[X]", "placa GGE4X30") == "placa [X]"
+    assert sem_flag.sub("[X]", "placa GGE4X30") == "placa GGE4X30", (
+        "sem (?i) o char class [a-z] não bate com a placa maiúscula do dataset — "
+        "é aqui que a flag realmente protege, não no CPF"
+    )

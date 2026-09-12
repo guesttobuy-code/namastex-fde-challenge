@@ -20,15 +20,26 @@ próprio quando informado explicitamente (`nomes_conhecidos`). `aplicacao/servic
 **única porta de entrada** para gravar um evento na trilha — nenhum código grava direto no
 `RepositorioDeTrilha`, então nenhum caminho de escrita escapa do redator.
 
-## O `(?i)` não é estilo, é a invariante
+## Por que a extração casa pelo FORMATO, não pela palavra "CPF"/"CEP"
 
 O gerador do dataset (`scripts/generate_dataset.py:113`) monta o bloco de PII com
 `", ".join(pii_bits).capitalize()`. Como `.capitalize()` só mantém maiúscula a **primeira** letra do
 bloco inteiro, qualquer `CPF`/`CEP` que não seja a primeira palavra vira `cpf`/`cep` minúsculo —
 medido ao vivo, com exemplos reais de `dataset/sample.jsonl` (`"cep 26703-384, cpf 389.083.863-43"`).
-Uma regex sem `(?i)` passaria despercebida em teste ingênuo e vazaria o valor real em produção. Todo
-padrão em `redator_pii.py` é `(?i)`, e o teste (`tests/dominio/test_redator_pii.py`) roda contra
-essas linhas reais, não só contra exemplo inventado.
+
+Uma extração que procurasse a palavra `"CPF:"` para achar o valor seguinte quebraria com isso. Por
+isso `redigir_texto` nunca âncora em palavra-rótulo: cada padrão casa pelo **formato** do próprio
+valor (dígitos e separadores) — `\d{3}\.\d{3}\.\d{3}-\d{2}` acha o CPF esteja ele depois de "CPF",
+"cpf" ou de nenhuma palavra. Dígito e pontuação não têm maiúscula/minúscula, então `(?i)` **não** é
+o que protege CPF/CEP/telefone — são padrões só de dígito, a flag é redundante ali (provado em
+`tests/dominio/test_redator_pii.py::test_padrao_de_cpf_nao_depende_de_case_por_nao_ter_letra`).
+
+Onde `(?i)` É a invariante de verdade: a **placa**, porque o char class do padrão é `[a-z]` e o
+dataset sempre gera a placa em maiúsculo (`GGE4X30`) — sem a flag, o padrão não bate
+(`test_padrao_de_placa_precisa_de_case_insensitive_porque_tem_letra`). E o **nome próprio**, via
+`re.IGNORECASE` explícito no loop de `nomes_conhecidos`. A flag continua em todo padrão por
+consistência, mesmo onde é redundante — não custa nada e evita alguém tirá-la "para simplificar" e
+quebrar a placa sem perceber.
 
 ## Limite conhecido, declarado (não escondido)
 
