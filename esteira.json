@@ -30,9 +30,5 @@
       "area:processo",
       "area:infra"
     ]
-  },
-  "pastas_proibidas": [
-    "C:/OUTROS PROJETOS - CLAUDE/Namastex-fde-challenge-Rafael Milfont - PRIVADO",
-    "C:/OUTROS PROJETOS - CLAUDE/_SONDAGEM-TEMP-CONSULTA-namastex-fde-challenge"
-  ]
+  }
 }

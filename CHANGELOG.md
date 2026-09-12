@@ -12,6 +12,10 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - Planejamento do projeto em `docs/`: proposta de design auditada externamente e plano da primeira frente; parecer da auditoria externa arquivado em `ai-logs/codex/` (#3)
 - Pasta `_local/` ignorada pelo git, para chaves, sondas e rascunhos, com o critério escrito em `_local/LEIA-ME.md` (#3)
 
+### Corrigido
+- **Dado pessoal em arquivo versionado (achado da auditoria fria, #17):** o `esteira.json` gravava o nome real do dono dentro de um caminho do campo `pastas_proibidas`, num repositório público. O campo inteiro saiu: era configuração de máquina, não pertence à entrega, e nada neste repositório o lia — a proteção que ele prometia era decorativa (#17)
+- **Rastreabilidade dos arquivos vindos do kit (achado da auditoria fria, #17):** comentários nos 63 arquivos de `scripts/esteira/` citam números de issue e ADR do repositório de ORIGEM, que aqui significam outra coisa. Criado `scripts/esteira/README.md` declarando a proveniência, as quatro adaptações locais com o motivo, o limite conhecido dos 8 guards que não medem este diretório, e a regra para quem mexer (#17)
+
 ### Alterado
 - `.gitignore`: ignora `_local/`, `_PRIVADO/` e `*.token`; e abre duas exceções conscientes, porque as regras herdadas engoliriam entregáveis do desafio — `.env.example` (documenta variáveis sem segredo) e `examples/*.log` (o log da execução completa) (#3)
 - `scripts/esteira/guards/companion-red-green.mjs`: os testes do diff passam a ser roteados **por extensão** — `.py` vai para o `pytest`, o resto vai para o `node --test` —, em vez de mandar tudo para o pytest só porque o projeto é Python. Antes, o teste Node que a própria esteira traz (`tests/esteira.test.mjs`) era entregue ao pytest, que coletava zero testes e saía 4; o guard traduzia isso como "pytest não instalado" e mandava instalar uma ferramenta que não faltava. Teste que não é `.py` no mesmo diff continua rodando: os dois resultados contam (#3)
