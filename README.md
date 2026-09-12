@@ -12,9 +12,12 @@ tomei, com o porquê** — na mesma ordem em que o enunciado diz que vai olhar
 
 ## 1. Em uma frase, e como rodar
 
-Um agente determinístico (sem LLM, de propósito — ver [§8](#8-como-a-ia-foi-usada) e [§9](#9-o-que-ficou-de-fora-e-por-quê))
-que conversa com um lead, cota um seguro de veículo contra a `/quote` real, decide sozinho quando dá
-e encaminha pra um humano com motivo explícito quando não dá.
+Um agente que conversa com um lead, cota um seguro de veículo contra a `/quote` real, decide sozinho
+quando dá e encaminha pra um humano com motivo explícito quando não dá. O caminho de decisão
+(`src/dominio/politica.py`) é 100% determinístico — sem relógio, sem rede, sem LLM — de propósito
+(docstring de `src/interfaces/cli.py:1-7`); se um adaptador de LLM real entrou nesta entrega para
+outra parte do fluxo (extração/redação de texto, nunca a decisão), o estado final está na
+[issue #9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) e em [§9](#9-o-que-ficou-de-fora-e-por-quê).
 
 ```bash
 # 1. sobe a API de cotação (comando do enunciado, docs/DESAFIO.md)
@@ -226,7 +229,7 @@ Escopo cortado por prazo (3 dias), sempre com issue aberta e razão declarada �
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
 | Especificação formal das 6 telas do mock (inclusive "Avaliação") | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
-| Adaptador de LLM real | política é 100% determinística de propósito nesta entrega; só existe um dublê de teste | [#9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) |
+| Adaptador de LLM real | **em aberto no momento em que este README foi escrito** (12/09) — a política de decisão é e continua 100% determinística; um LLM, se entrar, cobriria só extração/redação de texto, nunca preço/recusa/handoff. O desfecho real (entrou ou saiu declarado) está na issue, não aqui | [#9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) |
 | Dataset em camadas (Silver mascarado) | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
 
 **O mock de design (`docs/design/handoffs.html`) lista 8 motivos de handoff; o Enum real
