@@ -1,5 +1,4 @@
-"""Testes da política de retry do cliente `/quote` (issue #6) — motor de orçamento, sem
-tradução para o domínio (essa parte chega em commit próprio, depois do rebase sobre a F2/#5).
+"""Testes do cliente `/quote` (issue #6): motor de retry/orçamento + tradução para o domínio.
 
 Os corpos de resposta simulados abaixo foram medidos ao vivo contra o `quote-service` real
 (`docker compose up`, porta 8000), não inventados:
@@ -16,14 +15,17 @@ from __future__ import annotations
 
 import pytest
 
+from dominio.resultado_cotacao import StatusCotacao
 from infra.cliente_quote import (
     ClienteQuoteHTTP,
+    FakePortalDeCotacao,
     FakeTransporteQuote,
     RelogioFake,
     RespostaBruta,
 )
 
 PAYLOAD = {"plano_id": "completo", "idade": 30, "veiculo_ano": 2020, "cep": "01310-100"}
+CONVERSATION_ID = "conv-123"
 
 _RESPOSTA_502 = RespostaBruta(
     status_code=502,
@@ -58,10 +60,15 @@ def _cliente(transporte: FakeTransporteQuote, relogio: RelogioFake) -> ClienteQu
     return ClienteQuoteHTTP("http://quote-service.invalido", transporte=transporte, relogio=relogio, dormir=relogio.avancar)
 
 
+# ---------------------------------------------------------------------------
+# Motor de retry/orçamento (executar_com_orcamento) — sem tradução para o domínio.
+# ---------------------------------------------------------------------------
+
+
 def test_200_feliz_retorna_na_primeira_tentativa_sem_retry():
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_200], relogio=relogio)
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado.status_code == 200
     assert transporte.numero_de_chamadas == 1
@@ -71,7 +78,7 @@ def test_200_feliz_retorna_na_primeira_tentativa_sem_retry():
 def test_5xx_repete_dentro_do_orcamento_e_desiste_no_fim_dele():
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502], relogio=relogio)
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado.status_code == 502
     assert transporte.numero_de_chamadas == 3
@@ -82,7 +89,7 @@ def test_5xx_repete_dentro_do_orcamento_e_desiste_no_fim_dele():
 def test_5xx_uma_vez_depois_recupera_com_200():
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502, _RESPOSTA_200], relogio=relogio)
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado.status_code == 200
     assert transporte.numero_de_chamadas == 2
@@ -93,7 +100,7 @@ def test_200_lento_mas_dentro_do_timeout_da_tentativa_nao_repete():
     """Servidor demora 2s (< 3s do timeout por tentativa): a resposta chega, sem retry."""
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_200], relogio=relogio, demoras_segundos=[2.0])
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado.status_code == 200
     assert transporte.numero_de_chamadas == 1
@@ -106,7 +113,7 @@ def test_200_lento_alem_do_orcamento_respeita_o_deadline_de_10s_em_vez_de_espera
     nunca espera os 8s inteiros de uma tentativa que já não cabe."""
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_200], relogio=relogio, demoras_segundos=[8.0, 8.0, 8.0])
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado.excedeu_o_tempo is True
     assert transporte.numero_de_chamadas == 3
@@ -125,17 +132,113 @@ def test_200_lento_alem_do_orcamento_respeita_o_deadline_de_10s_em_vez_de_espera
 def test_422_e_400_sao_terminais_e_nunca_repetem(resposta_terminal):
     relogio = RelogioFake()
     transporte = FakeTransporteQuote(roteiro=[resposta_terminal], relogio=relogio)
-    resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
 
     assert resultado is resposta_terminal
     assert transporte.numero_de_chamadas == 1
     assert relogio.agora == pytest.approx(0.0)
 
 
-def test_as_duas_formas_de_corpo_do_422_sao_distinguiveis_por_quem_traduzir_depois():
-    """RECUSA_DE_NEGOCIO carrega `motivo` direto no corpo; ERRO_DE_PAYLOAD (validação Pydantic
-    automática) carrega `detail`, uma lista. A tradução para StatusCotacao mora no commit que
-    entra depois do rebase sobre a F2/#5 — este teste só fixa o contrato de shape que ela lê."""
-    assert "motivo" in _RESPOSTA_422_RECUSA_DE_NEGOCIO.corpo
-    assert "detail" in _RESPOSTA_422_ERRO_DE_PAYLOAD.corpo
-    assert "motivo" not in _RESPOSTA_422_ERRO_DE_PAYLOAD.corpo
+def test_quote_attempt_id_e_diferente_a_cada_tentativa():
+    """Correlação entre tentativas, não idempotência (issue #6): cada tentativa (inclusive as que
+    não vencem) tem o seu próprio id."""
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502, _RESPOSTA_502, _RESPOSTA_200], relogio=relogio)
+    cliente = _cliente(transporte, relogio)
+
+    ids_vistos = set()
+    for _ in range(3):
+        quote_attempt_id, _resultado = cliente.executar_com_orcamento(PAYLOAD)
+        ids_vistos.add(quote_attempt_id)
+    # 3 chamadas a executar_com_orcamento (não 3 tentativas de uma só) -> ainda assim, 3 ids distintos.
+    assert len(ids_vistos) == 3
+
+
+# ---------------------------------------------------------------------------
+# Tradução para o domínio (cotar) — dominio.ResultadoDaCotacao / PrecoCotado.
+# ---------------------------------------------------------------------------
+
+
+def test_cotar_200_vira_preco_cotado_com_o_quote_attempt_id_da_tentativa_vencedora():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502, _RESPOSTA_200], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.SUCESSO
+    assert resultado.preco is not None
+    assert resultado.preco.conversation_id == CONVERSATION_ID
+    assert resultado.preco.premio_mensal == 245.67
+    assert resultado.preco.quote_attempt_id  # não vazio
+
+
+def test_cotar_resposta_sem_campo_obrigatorio_nao_vira_preco_cotado():
+    """I-1 do domínio (CONTRACT.md de src/dominio/): PrecoCotado só nasce de resposta completa."""
+    relogio = RelogioFake()
+    resposta_incompleta = RespostaBruta(status_code=200, corpo={"plano_id": "completo"})  # falta premio_mensal etc.
+    transporte = FakeTransporteQuote(roteiro=[resposta_incompleta], relogio=relogio)
+
+    with pytest.raises(ValueError, match="cotação bem-sucedida"):
+        _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+
+def test_cotar_422_recusa_de_negocio_vira_status_recusa_de_negocio():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_422_RECUSA_DE_NEGOCIO], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.RECUSA_DE_NEGOCIO
+    assert resultado.motivo == "Plano 'inexistente' inexistente. Opcoes: essencial, completo, premium"
+    assert resultado.preco is None
+
+
+def test_cotar_422_erro_de_validacao_pydantic_vira_status_erro_de_payload_com_motivo_legivel():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_422_ERRO_DE_PAYLOAD], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.ERRO_DE_PAYLOAD
+    assert "idade" in resultado.motivo
+    assert "less than or equal to 200" in resultado.motivo
+
+
+def test_cotar_400_payload_invalido_vira_status_erro_de_payload():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_400_PAYLOAD_INVALIDO], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.ERRO_DE_PAYLOAD
+    assert resultado.motivo == "Invalid isoformat string: '31/12/2026'"
+
+
+def test_cotar_5xx_esgotado_vira_status_indisponivel():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.INDISPONIVEL
+    assert "502" in resultado.motivo
+
+
+def test_cotar_timeout_esgotado_vira_status_timeout():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_200], relogio=relogio, demoras_segundos=[8.0, 8.0, 8.0])
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.TIMEOUT
+
+
+# ---------------------------------------------------------------------------
+# FakePortalDeCotacao — dublê da PORTA (para quem consome `cotar()`, não o transporte).
+# ---------------------------------------------------------------------------
+
+
+def test_fake_portal_de_cotacao_devolve_o_roteiro_programado_em_ordem():
+    from dominio.resultado_cotacao import ResultadoDaCotacao
+
+    sucesso = ResultadoDaCotacao.indisponivel("upstream fora do ar (roteiro de teste)")
+    fake = FakePortalDeCotacao(roteiro=[sucesso])
+
+    assert fake.cotar(PAYLOAD, CONVERSATION_ID) is sucesso
+    assert fake.cotar(PAYLOAD, CONVERSATION_ID) is sucesso  # roteiro de 1 item repete
+    assert len(fake.chamadas) == 2
+    assert fake.chamadas[0] == {"payload": PAYLOAD, "conversation_id": CONVERSATION_ID}

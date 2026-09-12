@@ -1,10 +1,5 @@
-"""Motor de retry/orçamento do cliente HTTP da `/quote` (issue #6).
-
-A tradução para o domínio (`dominio.ResultadoDaCotacao`/`PrecoCotado`) ainda não mora aqui: a F2
-(#5) não tinha mergeado quando este módulo nasceu, e a matriz de impacto (LEI 11) proíbe importar
-branch alheia antes do merge. Este arquivo cobre só a parte que não depende de nada em voo — o
-transporte HTTP e a política de retry — exatamente como a encomenda da #6 pediu. A tradução entra
-em commit próprio depois do rebase sobre a #5 mergeada.
+"""Adaptador real da porta `PortalDeCotacao` (issue #6): HTTP contra a `/quote`, com o motor de
+retry/orçamento e a tradução para o domínio (`dominio.ResultadoDaCotacao`/`PrecoCotado`).
 
 Política de retry — decidida e medida na issue #3 (150 ciclos, serial, contra o serviço real em
 Docker), colada aqui e **nunca redecida**:
@@ -13,9 +8,18 @@ Docker), colada aqui e **nunca redecida**:
     orçamento total de ~10s (timeout da tentativa = min(3s, orçamento_restante)).
     5xx e timeout repetem; 422 e 400 são terminais e NUNCA repetem.
 
-`FakeTransporteQuote` é o dublê determinístico desta camada (issue #6): simula os corpos reais do
-quote-service — medidos ao vivo contra `quote-service/app/{main,quote_logic}.py` em execução — sem
-rede e sem esperar tempo de parede de verdade (usa `RelogioFake`, abaixo).
+Cada tentativa recebe o seu próprio `quote_attempt_id` (correlação entre tentativas, não
+idempotência — o quote-service não tem esse conceito). Os dois formatos de corpo do 422 medidos
+ao vivo contra `quote-service/app/main.py` são distinguidos em `_traduzir`: recusa de negócio
+(`{"error": "cotacao_recusada", "motivo": ...}`, de `CotacaoRecusada`) vira `RECUSA_DE_NEGOCIO`;
+validação automática do Pydantic (`{"detail": [...]}`) e o 400 de payload malformado
+(`{"error": "payload_invalido", "detalhe": ...}`, de `KeyError`/`ValueError`/`TypeError`) viram
+`ERRO_DE_PAYLOAD`.
+
+`FakeTransporteQuote` é o dublê determinístico do TRANSPORTE (para testar a política de retry sem
+rede) e `FakePortalDeCotacao` é o dublê determinístico da PORTA (para quem consome `cotar()` —
+CLI, testes de decisão — sem precisar montar respostas HTTP). Ambos no mesmo arquivo do adaptador
+real, no padrão de `infra/trilha_jsonl.py` (F4/#7).
 """
 from __future__ import annotations
 
@@ -23,8 +27,12 @@ import json
 import time
 import urllib.error
 import urllib.request
+import uuid
 from dataclasses import dataclass, field
 from typing import Callable
+
+from dominio.preco_cotado import PrecoCotado
+from dominio.resultado_cotacao import ResultadoDaCotacao
 
 TIMEOUT_POR_TENTATIVA_SEGUNDOS = 3.0
 MAX_TENTATIVAS = 3
@@ -99,20 +107,24 @@ class ClienteQuoteHTTP:
                 corpo = json.loads(resp.read().decode("utf-8"))
                 return RespostaBruta(status_code=resp.status, corpo=corpo)
 
-    def executar_com_orcamento(self, payload: dict) -> RespostaBruta:
+    def executar_com_orcamento(self, payload: dict) -> tuple[str, RespostaBruta]:
         """Tenta até `MAX_TENTATIVAS` vezes, sem nunca ultrapassar `ORCAMENTO_TOTAL_SEGUNDOS`.
         Só repete o que `_e_retentavel` aceita (5xx, timeout); qualquer outra resposta volta na
-        hora, sem consumir as tentativas restantes."""
+        hora, sem consumir as tentativas restantes. Devolve, junto com a resposta final, o
+        `quote_attempt_id` daquela tentativa específica (correlação, não idempotência — cada
+        tentativa recebe o seu próprio, mesmo dentro da mesma chamada a `cotar`)."""
         prazo_final = self._relogio() + ORCAMENTO_TOTAL_SEGUNDOS
+        quote_attempt_id = ""
         resposta = None
         for indice in range(MAX_TENTATIVAS):
             tempo_restante = prazo_final - self._relogio()
             if tempo_restante <= 0:
                 break
             timeout = min(TIMEOUT_POR_TENTATIVA_SEGUNDOS, tempo_restante)
+            quote_attempt_id = uuid.uuid4().hex
             resposta = self._transporte(payload, timeout)
             if not _e_retentavel(resposta):
-                return resposta
+                return quote_attempt_id, resposta
             e_a_ultima_tentativa = indice == MAX_TENTATIVAS - 1
             if e_a_ultima_tentativa:
                 break
@@ -120,7 +132,13 @@ class ClienteQuoteHTTP:
             if tempo_restante <= 0:
                 break
             self._dormir(min(ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS[indice], tempo_restante))
-        return resposta
+        return quote_attempt_id, resposta
+
+    def cotar(self, payload: dict, conversation_id: str) -> ResultadoDaCotacao:
+        """`PortalDeCotacao.cotar` — o único método que a `aplicacao` conhece. Roda o motor de
+        retry e traduz o resultado para o domínio (`_traduzir`, abaixo)."""
+        quote_attempt_id, resposta = self.executar_com_orcamento(payload)
+        return _traduzir(resposta, quote_attempt_id, conversation_id)
 
 
 class RelogioFake:
@@ -167,3 +185,58 @@ class FakeTransporteQuote:
     @property
     def numero_de_chamadas(self) -> int:
         return len(self.chamadas)
+
+
+def _resumir_erro_de_validacao(corpo: dict) -> str:
+    """Achata o corpo de validação automática do Pydantic (`{"detail": [{"loc": [...], "msg":
+    ...}, ...]}`, medido ao vivo contra `quote-service/app/main.py`) numa frase — é o `motivo`
+    que `ResultadoDaCotacao.erro_de_payload` carrega."""
+    detalhes = corpo.get("detail")
+    if not detalhes:
+        return "payload rejeitado (422 sem 'detail')"
+    partes = []
+    for item in detalhes:
+        campo = ".".join(str(p) for p in item.get("loc", ()) if p != "body")
+        msg = item.get("msg", "campo inválido")
+        partes.append(f"{campo}: {msg}" if campo else msg)
+    return "; ".join(partes)
+
+
+def _traduzir(resposta: RespostaBruta, quote_attempt_id: str, conversation_id: str) -> ResultadoDaCotacao:
+    """HTTP -> domínio. Os shapes vieram de medir `quote-service/app/{main,quote_logic}.py` ao
+    vivo (docker compose), não foram inventados — ver o docstring do módulo."""
+    if resposta.excedeu_o_tempo:
+        return ResultadoDaCotacao.timeout(
+            f"a /quote não respondeu dentro do orçamento de {ORCAMENTO_TOTAL_SEGUNDOS:.0f}s de retry"
+        )
+    corpo = resposta.corpo or {}
+    if resposta.status_code == 200:
+        return ResultadoDaCotacao.sucesso(PrecoCotado.de_resposta_http_200(quote_attempt_id, conversation_id, corpo))
+    if resposta.status_code == 422:
+        if "motivo" in corpo:
+            # {"error": "cotacao_recusada", "motivo": ...} -- CotacaoRecusada, recusa de negócio.
+            return ResultadoDaCotacao.recusa_de_negocio(corpo["motivo"])
+        # {"detail": [...]} -- validação automática do Pydantic contra QuoteRequest.
+        return ResultadoDaCotacao.erro_de_payload(_resumir_erro_de_validacao(corpo))
+    if resposta.status_code == 400:
+        # {"error": "payload_invalido", "detalhe": ...} -- KeyError/ValueError/TypeError em cotar().
+        return ResultadoDaCotacao.erro_de_payload(corpo.get("detalhe", "payload inválido (400 sem 'detalhe')"))
+    return ResultadoDaCotacao.indisponivel(
+        f"upstream respondeu {resposta.status_code} após esgotar as {MAX_TENTATIVAS} tentativas"
+    )
+
+
+@dataclass
+class FakePortalDeCotacao:
+    """Dublê determinístico da PORTA `PortalDeCotacao` (issue #6) — para quem consome `cotar()`
+    (a CLI, testes de política/decisão), não para testar o motor de retry (isso é
+    `FakeTransporteQuote`, acima). `roteiro` é a sequência de `ResultadoDaCotacao` prontos, um por
+    chamada — o último se repete se a lista acabar antes das chamadas feitas."""
+
+    roteiro: list[ResultadoDaCotacao]
+    chamadas: list[dict] = field(default_factory=list, init=False)
+
+    def cotar(self, payload: dict, conversation_id: str) -> ResultadoDaCotacao:
+        self.chamadas.append({"payload": payload, "conversation_id": conversation_id})
+        indice = min(len(self.chamadas) - 1, len(self.roteiro) - 1)
+        return self.roteiro[indice]
