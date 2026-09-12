@@ -61,7 +61,24 @@ export function rodarGuard(caminho, env = process.env) {
   // env limpo de GIT_* (hooks do git exportam GIT_DIR/GIT_INDEX_FILE e contaminam repos temporários dos self-tests)
   const limpo = Object.fromEntries(Object.entries(env).filter(([k]) => !/^GIT_/i.test(k)));
   const r = spawnSync(process.execPath, [caminho, '--self-test'], { encoding: 'utf8', timeout: 600_000, env: { ...limpo, npm_lifecycle_event: '' }, windowsHide: true });
-  return julgarSaida({ stdout: r.stdout, stderr: r.stderr, status: r.status });
+  // stdout/stderr do filho voltam junto do veredito (issue #27, causa 3) — main() os imprime quando
+  // reprova; sem isso o log do CI só tinha o resumo ("exit 1"), e reproduzir em container era a única
+  // forma de descobrir o que o guard já tinha impresso e foi descartado aqui.
+  return { ...julgarSaida({ stdout: r.stdout, stderr: r.stderr, status: r.status }), stdout: r.stdout, stderr: r.stderr };
+}
+
+// Imprime a saída do guard reprovado (issue #27, causa 3) — prioriza linhas com "✗" (os casos que
+// falharam), cai pras últimas linhas se o padrão não bater. "SELF-TEST OK" é mascarado como
+// "SELF-TEST OK[eco]" ao ecoar: hoje não vira falso-verde (julgarSaida olha o `status` do PROCESSO
+// PAI antes do texto — o eco é side-effect de imprimir, nunca entra em julgarSaida), mas é o
+// instrumento imprimindo, no seu próprio canal, a frase que ELE MESMO usa pra julgar (§5.1.7 do
+// método: "o instrumento não pode morar dentro do que ele mede") — a máscara fecha essa porta antes
+// que alguém mude a ordem das checagens de julgarSaida.
+function ecoarSaidaReprovada(stdout = '', stderr = '') {
+  const texto = `${stdout}${stderr}`.replace(/SELF-TEST OK/g, 'SELF-TEST OK[eco]');
+  const linhas = texto.split('\n').map((l) => l.trimEnd()).filter((l) => l !== '');
+  const comFalha = linhas.filter((l) => l.includes('✗'));
+  for (const l of (comFalha.length ? comFalha : linhas.slice(-15))) console.log(`      ${l}`);
 }
 
 // A lista ESPERADA (issue #17, mutante R1): se a pasta devolver menos do que isto, o runner reprova —
@@ -124,7 +141,10 @@ function main() {
   // SEMPRE contra a pasta-mãe real (PASTA_MAE), nunca contra o AQUI fake do self-test deste runner.
   const resultadosFora = SELFTESTS_FORA_DE_GUARDS.map((rel) => ({ g: rel, r: rodarGuard(join(PASTA_MAE, rel)) }));
   const resultados = [...resultadosGuards, ...resultadosFora];
-  for (const { g, r } of resultados) console.log(`  ${r.ok ? '✅' : '❌'} ${g.padEnd(28)} ${r.motivo}`);
+  for (const { g, r } of resultados) {
+    console.log(`  ${r.ok ? '✅' : '❌'} ${g.padEnd(28)} ${r.motivo}`);
+    if (!r.ok) ecoarSaidaReprovada(r.stdout, r.stderr);
+  }
   const rodados = resultados.length;
   const ruins = resultados.filter((x) => !x.r.ok).length;
   const totalEsperado = GUARDS_ESPERADOS.length + SELFTESTS_FORA_DE_GUARDS.length;
@@ -156,6 +176,24 @@ function selfTest() {
     const st = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { encoding: 'utf8', timeout: 120_000, env: { ...process.env, npm_lifecycle_event: '', RUN_SELFTESTS_DIR: comRed } }).status;
     check('PORTA: 1 guard vermelho entre os esperados → runner exit 1 (não mascara guard mudo)', st === 1);
   } finally { rmSync(comRed, { recursive: true, force: true }); }
+  // PORTA (issue #27, causa 3): a saída do guard reprovado aparece IMPRESSA pelo runner, não só o
+  // resumo "exit 1" — sem isso, reproduzir em container era a única forma de saber por que um guard
+  // caiu. Sem o conserto de rodarGuard/ecoarSaidaReprovada este caso reprova (vermelho-antes real).
+  const comEco = mkdtempSync(join(tmpdir(), 'rst-eco-'));
+  try {
+    const sinal = 'SINAL-DE-TESTE-CAUSA-3-ISSUE-27';
+    GUARDS_ESPERADOS.forEach((g, i) => writeFileSync(join(comEco, g), i === 0
+      // o sinal mora na MESMA linha do "✗" — igual a um guard de verdade, onde o motivo da falha é o
+      // texto do próprio caso (ecoarSaidaReprovada prioriza linhas com "✗"; uma 2ª linha em stderr,
+      // sem "✗", seria descartada pelo filtro e o caso nunca provaria nada).
+      ? `console.log('  ✗ caso fake que carrega o sinal: ${sinal}'); console.error('[fake] SELF-TEST FALHOU: 1/2'); process.exit(1);\n`
+      : "console.log('[fake] SELF-TEST OK — 2/2 casos (incl. 1 tentativas de bypass).'); process.exit(0);\n"));
+    const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { encoding: 'utf8', timeout: 120_000, env: { ...process.env, npm_lifecycle_event: '', RUN_SELFTESTS_DIR: comEco } });
+    check(
+      `PORTA (causa 3, issue #27): saída do guard reprovado aparece impressa pelo runner, não só o resumo — procurando "${sinal}"`,
+      r.stdout.includes(sinal),
+    );
+  } finally { rmSync(comEco, { recursive: true, force: true }); }
   // PORTA: self-test FORA de scripts/guards (scripts/reservar-numero.mjs, real) roda de verdade e conta
   // pro relatório/total — pasta de guards fake toda verde, RAIZ continua sendo a raiz REAL do repo.
   const comOk = mkdtempSync(join(tmpdir(), 'rst-ok-'));
