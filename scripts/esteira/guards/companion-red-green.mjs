@@ -25,7 +25,18 @@
  *   em esteira.json, reconhece teste Python (convenção de lib/python-test.mjs) e roda
  *   `<python> -m pytest -q <arquivo>` (resolução de lib/python-runtime.mjs); `--cmd` explícito continua
  *   tendo prioridade sobre qualquer stack. Python/pytest AUSENTE nunca vira verde por omissão: o estado
- *   `FERRAMENTA_AUSENTE` sai NÃO MEDIU (exit 2) com a dica de instalação — nunca 0/1 sem a ferramenta real.
+ *   `FERRAMENTA_AUSENTE` sai NÃO MEDIU (exit 2) com a dica de instalação — nunca 0/1 sem a ferramenta real;
+ *   (f) ADAPTAÇÃO LOCAL (frente `fundacao-python`, 2026-09-12, issue #4): a réplica na base é um
+ *   `git worktree add` a partir do merge-base — não carrega nada fora do que o git rastreia, então
+ *   `.venv` (gitignored) nunca existia lá, e `resolverPython(replica)` caía pro Python do sistema (sem
+ *   ruff/pytest, por decisão do dono de não instalar nada global). Todo PR Python com teste+fonte no
+ *   diff saía `FERRAMENTA_AUSENTE` sempre, mesmo com o `.venv` do repo real instalado e funcionando —
+ *   guard que não consegue medir não é limite, é guard morto. Corrigido com o MESMO padrão que já
+ *   existe para `node_modules` linhas abaixo: `mklink /J .venv` pra dentro da réplica, só quando
+ *   `.venv` existe no repo e não existe na réplica — nenhum comportamento novo pra JS/TS. LIMITE
+ *   DECLARADO: a réplica passa a compartilhar o mesmo `.venv` do repositório real, não um isolado —
+ *   aceitável porque o teste só LÊ o venv (não instala/desinstala nada nele). Reportado ao kit
+ *   (`projeto-base`) pela coordenação; não reverter sem consultar.
  *
  * CONTRA-PROVA: `node guards/companion-red-green.mjs --self-test` — monta um repo temporário real
  *   com fonte quebrada → conserto + teste, e prova PROVOU_O_FIX; depois um teste que passa na base
@@ -116,6 +127,20 @@ function rodarTestes(cwd, arquivos, cmd, stackPython, resolver = resolverPython)
   return { ok: r.status === 0, saida: ((r.stdout || '') + (r.stderr || '')).trim().split('\n').slice(-6).join('\n') };
 }
 
+/** ADAPTAÇÃO LOCAL (issue #4, 2026-09-12): mesmo padrão do `node_modules` (linha acima, em `medir`),
+ *  agora para o `.venv` — sem ele, `resolverPython(replica)` nunca acha ruff/pytest (o `.venv` é
+ *  gitignored, a réplica é um `git worktree add` limpo) e todo PR Python com teste+fonte no diff saía
+ *  `FERRAMENTA_AUSENTE` sempre, mesmo com o `.venv` do repo real instalado e funcionando. Réplica passa
+ *  a compartilhar o MESMO `.venv` do repositório real (limite declarado na certidão do topo do arquivo)
+ *  — aceitável porque o teste só LÊ o venv. Extraída como função à parte (BANCA SUBSTITUIR/testar sem
+ *  precisar de Python de verdade instalado — só dois diretórios quaisquer e um arquivo-marcador). */
+function linkarVenvNaReplica(repo, replica) {
+  const venv = join(repo, '.venv');
+  if (existsSync(venv) && !existsSync(join(replica, '.venv'))) {
+    try { execFileSync('cmd', ['/c', 'mklink', '/J', join(replica, '.venv'), venv], { stdio: 'ignore' }); } catch { /* ignora-de-proposito: sem junction: cai pro python/py do sistema */ }
+  }
+}
+
 /**
  * Mede de verdade: diff base...HEAD (+ index), réplica na base com os testes do HEAD, duas rodadas.
  * @returns {{estado, motivo, testes, fontes, saidaBase?, saidaHead?}}
@@ -136,6 +161,7 @@ export function medir({ repo, base, cmd = null, incluirIndex = true } = {}) {
     if (existsSync(nm) && !existsSync(join(replica, 'node_modules'))) {
       try { execFileSync('cmd', ['/c', 'mklink', '/J', join(replica, 'node_modules'), nm], { stdio: 'ignore' }); } catch { /* ignora-de-proposito: sem junction: o teste roda sem deps */ }
     }
+    linkarVenvNaReplica(repo, replica);
     for (const t of testes) {
       const destino = join(replica, t);
       mkdirSync(dirname(destino), { recursive: true });
@@ -306,6 +332,38 @@ function selfTest() {
     check(`REPO REAL: montagem falhou (${e?.message || e})`, false);
   } finally {
     if (t) { try { rmSync(t.dir, { recursive: true, force: true }); } catch { /* ignora-de-proposito: lock */ } }
+  }
+
+  // ── ADAPTAÇÃO LOCAL (issue #4, 2026-09-12): linkarVenvNaReplica — sem depender de Python de
+  //    verdade instalado, só dois diretórios quaisquer e um arquivo-marcador ──
+  {
+    let repoDir, replicaDir;
+    try {
+      repoDir = mkdtempSync(join(tmpdir(), 'crg-venv-repo-'));
+      replicaDir = mkdtempSync(join(tmpdir(), 'crg-venv-replica-'));
+      mkdirSync(join(repoDir, '.venv'), { recursive: true });
+      writeFileSync(join(repoDir, '.venv', 'marcador.txt'), 'ok');
+      linkarVenvNaReplica(repoDir, replicaDir);
+      check(
+        'linkarVenvNaReplica: .venv do repo aparece do outro lado do link, na réplica (marcador visível)',
+        existsSync(join(replicaDir, '.venv', 'marcador.txt')),
+      );
+    } finally {
+      if (repoDir) rmSync(repoDir, { recursive: true, force: true });
+      if (replicaDir) rmSync(replicaDir, { recursive: true, force: true });
+    }
+  }
+  {
+    let repoDir, replicaDir;
+    try {
+      repoDir = mkdtempSync(join(tmpdir(), 'crg-sem-venv-repo-'));
+      replicaDir = mkdtempSync(join(tmpdir(), 'crg-sem-venv-replica-'));
+      linkarVenvNaReplica(repoDir, replicaDir); // repo SEM .venv — nunca deve criar nada nem lançar
+      check('BYPASS: sem .venv no repo → não cria nada na réplica (nem quebra)', !existsSync(join(replicaDir, '.venv')));
+    } finally {
+      if (repoDir) rmSync(repoDir, { recursive: true, force: true });
+      if (replicaDir) rmSync(replicaDir, { recursive: true, force: true });
+    }
   }
 
   // ── STACK (R6, 2026-09-11): reconhece teste Python e roda pytest via lib/python-runtime.mjs ──

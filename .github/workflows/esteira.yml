@@ -212,6 +212,17 @@ jobs:
         with: { python-version: '3.11' }
       - name: Instalar dependências (se houver lockfile)
         run: if [ -f package-lock.json ]; then npm ci; fi
+      # EXTENSÃO DE ESCOPO (frente `fundacao-python`, issue #4, 2026-09-12): até a F1 nenhum PR tinha
+      # teste .py + fonte .py juntos no diff, então este passo nunca fez falta (o guard saía
+      # NAO_APLICAVEL antes de precisar de Python de verdade). Espelha o mesmo passo do job
+      # `python-check` abaixo — dono único da lista de dependências de dev seria o ideal, mas os dois
+      # jobs isolados (o kit não compartilha steps) fazem isso ser duplicação aceita de infraestrutura
+      # de CI, não de regra de negócio (LEI 11 — borda). `import-linter` entra porque
+      # `tests/arquitetura/test_fronteiras.py`/`test_ruff_morde_fixtures.py` chamam `lint-imports`.
+      - name: Instalar ruff + pytest + import-linter
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff pytest import-linter
       - name: Vermelho antes, verde depois
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
@@ -439,10 +450,13 @@ jobs:
         with: { node-version: 24 }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - name: Instalar ruff + pytest (e o projeto, se tiver pyproject.toml)
+      - name: Instalar ruff + pytest + import-linter (e o projeto, se tiver pyproject.toml)
+        # import-linter acrescentado junto com o job companion-red-green (issue #4, 2026-09-12): este
+        # job roda `pytest -q` sobre TODO `tests/`, incluindo os testes de arquitetura que chamam
+        # `lint-imports` via subprocess — sem o pacote instalado eles quebram com FileNotFoundError.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff pytest
+          python -m pip install ruff pytest import-linter
           if [ -f pyproject.toml ]; then python -m pip install -e .; fi
       - name: ruff check . + pytest -q
         run: node scripts/esteira/python-check.mjs

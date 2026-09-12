@@ -1,0 +1,45 @@
+[project]
+name = "namastex-fde-challenge"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+# Versões medidas e funcionando nesta máquina (issue #4 / ADR-0001) — mesmo conjunto que os jobs
+# `companion-red-green` e `python-check` do CI instalam. Instalar com `uv sync --group dev`
+# (ou `pip install --group dev`, pip >= 25.1).
+dev = [
+    "ruff==0.16.7",
+    "pytest==9.1.1",
+    "import-linter==2.15",
+    "pylint==4.0.8",
+]
+
+[tool.ruff]
+# "quote-service"/"scripts"/"dataset" = código da Namastex, não é nosso (issue #4).
+# "tests/arquitetura/fixtures" = fixtures propositalmente ruins: ficam fora do `ruff check .` normal,
+# mas continuam lintáveis quando um teste chama `ruff check <arquivo>` explicitamente (o exclude não
+# vale para caminho passado na linha de comando, a menos que `force-exclude = true` — não é o caso aqui,
+# de propósito: é assim que o teste prova que a regra morde a fixture).
+extend-exclude = ["quote-service", "scripts", "dataset", "tests/arquitetura/fixtures"]
+line-length = 120
+
+[tool.ruff.lint]
+# Cada grupo substitui um guard do kit que só lê JS/TS (stackDoProjeto == "python" os desliga) —
+# tabela completa na issue #4 / ADR desta frente.
+select = [
+    "E722",   # except nu                          -> substitui empty-catch
+    "BLE001", # except Exception genérico demais    -> substitui empty-catch
+    "S110",   # try/except/pass silencioso          -> substitui empty-catch
+    "TRY400", # log sem exception em bloco de erro  -> substitui catch-silent-blocker
+    "TRY300", # `return` dentro de `try` que devia estar no `else` -> substitui catch-silent-blocker
+    "RUF006", # `asyncio.create_task` sem guardar a referência -> substitui await-unhandled
+    "ASYNC110", # espera ocupada em vez de await real -> substitui await-unhandled
+    "TD003",  # TODO sem link de issue              -> substitui todo-debt-ratchet
+    "FIX002", # marcador FIXME solto                -> substitui todo-debt-ratchet
+    "C901",   # complexidade ciclomática alta        (bônus)
+    "SLF001", # acesso a atributo privado de fora     (bônus)
+    "TID252", # import relativo implícito            (bônus)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

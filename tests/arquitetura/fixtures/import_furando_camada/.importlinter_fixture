@@ -1,0 +1,15 @@
+; Contrato de teste, isolado do `.importlinter` real da raiz — mede só esta fixture.
+; Mesma regra do contrato real: dominio não importa infra.
+
+[importlinter]
+root_packages =
+    dominio
+    infra
+
+[importlinter:contract:dominio-nao-importa-infra]
+name = dominio não importa infra
+type = forbidden
+source_modules =
+    dominio
+forbidden_modules =
+    infra
