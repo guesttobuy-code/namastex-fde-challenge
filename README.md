@@ -152,11 +152,41 @@ chamada HTTP, não por cotação — com `http_status`, `classificacao`, `latenc
 `orcamento_restante_ms`), `decisao`, `handoff`, e dois para correção de erro (`erro_marcado`,
 `correcao_registrada`) que os dois exemplos em `examples/` não exercitam.
 
-**O painel visual de rastreio é um buraco declarado, não escondido:** existe um mock estático de
-design em [`docs/design/rastreio.html`](docs/design/rastreio.html) (dados fictícios, não lê a trilha
-real — `docs/design/ESPECIFICACAO.md:120`), e a versão que leria a trilha de verdade é a
-[issue #13](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/13) (F10), ainda aberta.
-Ver [§9](#9-o-que-ficou-de-fora-e-por-quê).
+**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em HTML
+estático, sem servidor e sem JavaScript, geradas do mesmo `.jsonl` acima:
+
+```bash
+# macOS/Linux
+PYTHONPATH=src python -m interfaces.painel.gerar examples examples/painel
+```
+
+```powershell
+# Windows PowerShell
+$env:PYTHONPATH = "src"
+python -m interfaces.painel.gerar examples examples/painel
+```
+
+Abra [`examples/painel/index.html`](examples/painel/index.html) no navegador (já gerado e commitado
+— rodar de novo é opcional, e reproduz os mesmos arquivos byte a byte, conferido nesta frente com as
+duas formas do comando acima). Uma tela por link no topo:
+
+- **Conversas** (`index.html`) — lista cada conversa com o desfecho final (cotação ou handoff).
+- **Rastreio** (`rastreio.html`) — a timeline evento a evento de uma conversa, aberta.
+- **Cotações** (`cotacoes.html`) — cada tentativa de `/quote` com status e latência, agrupadas por
+  cotação.
+- **Fila humana** (`handoffs.html`) — só as conversas que viraram `ENCAMINHAR`, com o motivo.
+- **Regras e política** (`regras.html`) — a tabela de preço e a política de retry, lidas do código
+  (`src/infra/cliente_quote.py`), nunca redigitadas.
+- **Avaliação** (`avaliacao.html`) — mostra **"eval/casos.jsonl não encontrado"** de propósito: o
+  conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
+  declarado aparecendo onde o avaliador olha.
+
+**Um número real, com a fonte:** das 5 tentativas que falharam nas 3 conversas de exemplo, só 2
+tiveram sucesso depois na mesma cotação — **40% (2 de 5) absorvidas por retry**
+([`examples/painel/cotacoes.html`](examples/painel/cotacoes.html), calculado por
+`_absorcao_por_retry` em `src/interfaces/painel/tela_cotacoes.py` a partir das trilhas reais de
+`examples/`; achado da auditoria do PR #37 — a versão anterior confundia "falhou" com "foi
+absorvida" e contava 71,4%).
 
 ---
 
@@ -235,11 +265,10 @@ Escopo cortado por prazo (3 dias), sempre com issue aberta e razão declarada �
 | Ficou de fora | Por quê | Issue |
 |---|---|---|
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | prazo | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
-| Painel de rastreio real (só existe o mock estático, ver [§5](#5-dá-pra-rastrear-o-que-aconteceu)) | marcado "se sobrar tempo"; não sobrou | [#13](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/13) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
 | Especificação formal das 6 telas do mock (inclusive "Avaliação") | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
-| Adaptador de LLM real | **em aberto no momento em que este README foi escrito** (12/09) — a política de decisão é e continua 100% determinística; um LLM, se entrar, cobriria só extração/redação de texto, nunca preço/recusa/handoff. O desfecho real (entrou ou saiu declarado) está na issue, não aqui | [#9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) |
+| Adaptador de LLM real — coleta de dados por texto livre em vez do roteiro fixo de perguntas do [§1](#1-em-uma-frase-e-como-rodar) | **em aberto no momento em que este README foi escrito** (12/09), corte às 14h de 13/09 — a política de decisão (`src/dominio/politica.py`) é e continua 100% determinística de qualquer forma; um LLM, se entrar, cobriria só a coleta/extração de dados, nunca preço/recusa/handoff. Se entrar, o comando de rodar ganha uma forma nova além da do §1 — **este parágrafo tem que estar atualizado com o desfecho real antes da entrega; se ainda disser "em aberto", é sinal de que ficou pra trás** | [#9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) |
 | Dataset em camadas (Silver mascarado) | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
 
 **O mock de design (`docs/design/handoffs.html`) lista 8 motivos de handoff; o Enum real

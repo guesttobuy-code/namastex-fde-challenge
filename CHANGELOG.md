@@ -38,6 +38,13 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - `src/infra/config.py`: `url_quote_service()`, dono único da resolução de `QUOTE_SERVICE_URL` — antes do rebase sobre o PR #35, `interfaces/cli.py` e `infra/planos_http.py` liam a mesma variável cada um do seu jeito (mesmo nome, mesmo default, dois lugares). Os dois passam a chamar esta função; `interfaces/cli.py` perde o `os.environ.get(...)` inline (achado da coordenação, LEI 11) (#13)
 
 ### Alterado
+- `README.md`: a seção "Dá pra rastrear o que aconteceu?" passa a documentar o painel REAL (PR #37),
+  não mais o mock — comando de geração nas duas formas (rodado de verdade nas duas nesta frente,
+  reproduziu `examples/painel/*.html` byte a byte), o que cada uma das seis telas mostra em uma
+  linha, a nota de que a tela de Avaliação mostra "eval/casos.jsonl não encontrado" de propósito
+  (F8/#11, fora desta entrega), e o número de absorção por retry (40%, 2 de 5) com a fonte ao lado
+  (`examples/painel/cotacoes.html` + achado da auditoria do PR #37). Removida do "o que ficou de
+  fora" a linha do painel, que já não é verdade (#13/#15)
 - `src/interfaces/painel/tela_regras.py`: a política de tentativas deixa de ser buraco visível e passa a ler `ORCAMENTO_TOTAL_SEGUNDOS`/`TIMEOUT_POR_TENTATIVA_SEGUNDOS`/`MAX_TENTATIVAS`/`ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS` direto de `src/infra/cliente_quote.py` (mergeado no PR #35) — nenhum número redigitado (#13)
 
 ### Corrigido
