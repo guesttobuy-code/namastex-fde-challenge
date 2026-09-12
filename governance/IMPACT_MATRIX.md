@@ -13,6 +13,7 @@ mudança aqui exige companion obrigatório na prova (Prova 1) e o olho do dono n
 |---|---|---|---|---|
 | _(exemplo)_ `pricing` | `src/pricing/` | `reservas`, `financeiro` | `node --test tests/reservas.test.mjs tests/financeiro.test.mjs` | sim |
 | `trilha-e-privacidade` | `src/dominio/eventos_trilha.py`, `src/dominio/redator_pii.py`, `src/aplicacao/servico_trilha.py`, `src/infra/trilha_jsonl.py` | F3 (#6, grava `tentativa_de_cotacao`), F5 (#8, orquestra e grava a maioria dos eventos), F6 (#9, usa o redator na fronteira do LLM), F8 (#11, lê a trilha para `eval/casos.jsonl`) | `.venv/Scripts/python -m pytest tests/dominio tests/aplicacao tests/infra tests/integracao` (`PYTHONPATH=src`) | sim |
+| `dominio` | `src/dominio/` | `aplicacao` (F3, #6 — ainda não existe), `infra`/`interfaces` (F4/F5, #7/#8) | `pytest tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
 |  |  |  |  |  |
 
 ## Regras
