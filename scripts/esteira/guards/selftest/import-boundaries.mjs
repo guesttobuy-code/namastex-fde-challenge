@@ -10,7 +10,9 @@
  * tmp e muta só o guard, este companheiro (também copiado) aponta pro guard MUTADO da cópia, não pro
  * original — a contra-prova do companheiro.
  */
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
+import {
+  mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync, existsSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -46,6 +48,18 @@ const linhaImport = (esp) => `import '${esp}';`;
 // atalho pro caso comum julgarArquivo({ caminho, fonte, cfg: cfgTeste, resolver: resolverFake }) — usado por
 // quase todo caso de BYPASS abaixo; não muda nenhuma asserção, só encurta a linha (PASSO 3(a)).
 const jul = (caminho, fonte) => julgarArquivo({ caminho, fonte, cfg: cfgTeste, resolver: resolverFake });
+
+// IB-3 (issue #27, causa 2) depende de o FILESYSTEM ignorar caixa (NTFS/APFS) — em ext4 (Linux) a
+// mesma montagem nunca resolve, e o caso reprovava sempre lá. Sondar `process.platform` mentiria num
+// NTFS montado em Linux ou num APFS case-sensitive; sondar o fs de VERDADE (grava minúsculo, lê
+// maiúsculo) é a fonte certa. A sonda sempre CONTA um `check()` — nas duas respostas — pra não
+// reduzir silenciosamente o N/N total quando o caso não roda de verdade (o auditor da coordenação
+// pediu essa trava: sonda errada vira contagem visivelmente errada, não caso desaparecido).
+function fsIgnoraCaixaEm(dir) {
+  const minuscula = `sonda-caixa-${process.pid}.txt`;
+  writeFileSync(join(dir, minuscula), 'x');
+  return existsSync(join(dir, minuscula.toUpperCase()));
+}
 
 function montarProjeto(dir, cfg, arquivos) {
   mkdirSync(dir, { recursive: true });
@@ -328,14 +342,17 @@ export function selfTest() {
         && /1 import\(s\) relativo\(s\) não resolvido\(s\)/.test(`${rNaoResolvidos.stdout}${rNaoResolvidos.stderr}`),
     );
 
-    // IB-3: caixa trocada (Windows/NTFS) resolve ao arquivo real.
+    // IB-3: caixa trocada (Windows/NTFS) resolve ao arquivo real — só existe onde o fs ignora caixa.
     montarProjeto(caixaTrocada, cfgTeste, {
       'src/modules/venda/infra/banco.mjs': `export function salvar() { return 1; }\n`,
       'src/modules/venda/interfaces/rota.mjs': `import { salvar } from '../Infra/banco.mjs';\nexport function rota() { return salvar(); }\n`,
     });
+    const fsIgnoraCaixa = fsIgnoraCaixaEm(caixaTrocada);
     check(
-      'IB-3: BYPASS import com CAIXA trocada no caminho (Windows/NTFS) resolve ao arquivo real → camada-proibida',
-      porta(caixaTrocada) === 1,
+      fsIgnoraCaixa
+        ? 'IB-3: BYPASS import com CAIXA trocada no caminho (Windows/NTFS) resolve ao arquivo real → camada-proibida'
+        : 'IB-3: ⚠ pulado — fs case-sensitive (ext4/Linux): bypass de caixa trocada não existe aqui',
+      fsIgnoraCaixa ? porta(caixaTrocada) === 1 : true,
     );
 
     // IB-3: junction (atalho de diretório) não esconde a camada real — segue o alvo verdadeiro.

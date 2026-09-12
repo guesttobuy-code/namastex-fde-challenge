@@ -70,6 +70,15 @@ function secaoInteiraComentada() {
   return ['# projeto', '', '<!--', construirSecao(), '-->', ''].join('\n');
 }
 
+// Raiz fake NEUTRA por plataforma — nunca existe de verdade (todo fs aqui embaixo é injetado/fake).
+// Antes era a string só-Windows 'C:\\raiz', comparada por igualdade contra literais também hardcoded
+// com barra invertida. `resolverImportsRecursivo` usa `node:path` REAL (join/relative/isAbsolute) —
+// no POSIX, `join('C:\\raiz', 'ok/CLAUDE.md')` NÃO produz 'C:\\raiz\\ok\\CLAUDE.md' (barra invertida
+// não é separador ali), então os literais nunca batiam fora do Windows (issue #27, causa 2). tmpdir()
+// é absoluto nos dois sistemas; os caminhos esperados abaixo usam join(), nunca são digitados à mão —
+// batem com o que a função real calcula, seja qual for a plataforma rodando.
+const RAIZ_FAKE = join(tmpdir(), 'leis-integrity-fake-raiz');
+
 export function selfTest() {
   const casos = [];
   const check = (nome, cond) => casos.push({ nome, ok: Boolean(cond) });
@@ -201,20 +210,21 @@ export function selfTest() {
     acharImportsEmTexto('linha1\nlinha2').length === 0);
 
   check('resolverImportsRecursivo: import DENTRO de dirRaiz resolve e concatena no lugar da linha (fs fake)', (() => {
-    const r = resolverImportsRecursivo('antes\n@ok/CLAUDE.md\ndepois', 'C:\\raiz', {
-      existe: (p) => p === 'C:\\raiz\\ok\\CLAUDE.md', ler: () => 'CONTEUDO-IMPORTADO',
+    const alvo = join(RAIZ_FAKE, 'ok', 'CLAUDE.md');
+    const r = resolverImportsRecursivo('antes\n@ok/CLAUDE.md\ndepois', RAIZ_FAKE, {
+      existe: (p) => p === alvo, ler: () => 'CONTEUDO-IMPORTADO',
     });
     return r.foraDoRepo === null && r.texto === 'antes\nCONTEUDO-IMPORTADO\ndepois';
   })());
   check('resolverImportsRecursivo: sem nenhuma ocorrência de "@" → texto intacto (fs fake nem é chamada)', (() => {
-    const r = resolverImportsRecursivo('linha1\nlinha2', 'C:\\raiz', {
+    const r = resolverImportsRecursivo('linha1\nlinha2', RAIZ_FAKE, {
       existe: () => { throw new Error('não deveria chamar'); },
       ler: () => { throw new Error('não deveria chamar'); },
     });
     return r.foraDoRepo === null && r.texto === 'linha1\nlinha2';
   })());
   check('resolverImportsRecursivo: import que NÃO existe fica LITERAL, não quebra sozinho (fs fake) (LI-4/B5)', (() => {
-    const r = resolverImportsRecursivo('antes\n@fulano\ndepois', 'C:\\raiz', {
+    const r = resolverImportsRecursivo('antes\n@fulano\ndepois', RAIZ_FAKE, {
       existe: () => false, ler: () => { throw new Error('não deveria ler'); },
     });
     return r.foraDoRepo === null && r.texto === 'antes\n@fulano\ndepois';
@@ -222,34 +232,40 @@ export function selfTest() {
   check(
     'resolverImportsRecursivo: caminho RELATIVO resolve a partir do ARQUIVO que importa, não sempre ' +
     'da raiz (2 níveis, fs fake) (LI-4/B6)', (() => {
+      const a = join(RAIZ_FAKE, 'sub', 'a.md');
+      const c = join(RAIZ_FAKE, 'sub', 'b', 'c.md');
       const arquivos = {
-        'C:\\raiz\\sub\\a.md': '@b/c.md', // "b/c.md" é relativo a C:\raiz\sub (onde a.md está), não a C:\raiz
-        'C:\\raiz\\sub\\b\\c.md': 'CONTEUDO-FINAL',
+        [a]: '@b/c.md', // "b/c.md" é relativo a <RAIZ_FAKE>/sub (onde a.md está), não à raiz
+        [c]: 'CONTEUDO-FINAL',
       };
-      const r = resolverImportsRecursivo('@sub/a.md', 'C:\\raiz', { existe: (p) => p in arquivos, ler: (p) => arquivos[p] });
+      const r = resolverImportsRecursivo('@sub/a.md', RAIZ_FAKE, { existe: (p) => p in arquivos, ler: (p) => arquivos[p] });
       return r.foraDoRepo === null && r.texto === 'CONTEUDO-FINAL';
     })());
   check('resolverImportsRecursivo: caminho ABSOLUTO usado como está (fs fake) (LI-4/B2)', (() => {
-    const alvo = 'C:\\raiz\\abs\\leis.md';
-    const r = resolverImportsRecursivo(`@${alvo}`, 'C:\\raiz', { existe: (p) => p === alvo, ler: () => 'CONTEUDO-ABS' });
+    const alvo = join(RAIZ_FAKE, 'abs', 'leis.md');
+    const r = resolverImportsRecursivo(`@${alvo}`, RAIZ_FAKE, { existe: (p) => p === alvo, ler: () => 'CONTEUDO-ABS' });
     return r.foraDoRepo === null && r.texto === 'CONTEUDO-ABS';
   })());
   check('NUNCA BLOQUEIA (LI-4): "~/" expande para o homedir injetado (fs fake)', (() => {
-    const r = resolverImportsRecursivo('@~/leis.md', 'C:\\raiz', {
-      existe: (p) => p === 'C:\\raiz\\home\\leis.md',
+    const homeFake = join(RAIZ_FAKE, 'home');
+    const alvo = join(homeFake, 'leis.md');
+    const r = resolverImportsRecursivo('@~/leis.md', RAIZ_FAKE, {
+      existe: (p) => p === alvo,
       ler: () => 'CONTEUDO-HOME',
-      homedir: () => 'C:\\raiz\\home',
+      homedir: () => homeFake,
     });
     return r.foraDoRepo === null && r.texto === 'CONTEUDO-HOME';
   })());
   check(
     'resolverImportsRecursivo: import MULTILINHA no MEIO de uma linha ganha quebra própria — "^##" do ' +
     'conteúdo importado não cola no texto antes dele (fs fake) (LI-4/B1)', (() => {
-      const r = resolverImportsRecursivo('antes @m.md depois', 'C:\\raiz', { existe: (p) => p === 'C:\\raiz\\m.md', ler: () => '## Título\nlinha2' });
+      const alvo = join(RAIZ_FAKE, 'm.md');
+      const r = resolverImportsRecursivo('antes @m.md depois', RAIZ_FAKE, { existe: (p) => p === alvo, ler: () => '## Título\nlinha2' });
       return r.foraDoRepo === null && r.texto === 'antes \n## Título\nlinha2\n depois';
     })());
   check('resolverImportsRecursivo: import cujo alvo cai FORA de dirRaiz → foraDoRepo, não expande (fs fake) (LI-3/C2)', (() => {
-    const r = resolverImportsRecursivo('@../fora/leis.md', 'C:\\raiz\\proj', { existe: () => true, ler: () => 'NUNCA-DEVERIA-APARECER' });
+    const dirProjeto = join(RAIZ_FAKE, 'proj');
+    const r = resolverImportsRecursivo('@../fora/leis.md', dirProjeto, { existe: () => true, ler: () => 'NUNCA-DEVERIA-APARECER' });
     return r.texto === null && r.foraDoRepo?.especificador === '../fora/leis.md';
   })());
 
