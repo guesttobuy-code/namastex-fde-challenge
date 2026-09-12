@@ -1,0 +1,8 @@
+# Execução — conv-d656ea8c
+
+[2026-09-12T18:57:07.279602+00:00] mensagem_recebida id=msg_1c143469
+[2026-09-12T18:57:07.617212+00:00] tentativa_de_cotacao id=7fbbeb74e02c48c9a06372b5c3ba223c status=502 classificacao=indisponivel
+[2026-09-12T18:57:08.078058+00:00] tentativa_de_cotacao id=823684e27a394f798f82dff1ee44c5c0 status=502 classificacao=indisponivel
+[2026-09-12T18:57:08.917449+00:00] tentativa_de_cotacao id=8011f68ed6604071b5224ba436c21801 status=200 classificacao=sucesso
+[2026-09-12T18:57:08.920352+00:00] decisao id=dec_94b4bc10
+[2026-09-12T18:57:08.921506+00:00] mensagem_enviada id=msg_71e7cc15 decisao=dec_94b4bc10 regra=politica.decidir:SUCESSO->EXPLICAR_COTACAO
