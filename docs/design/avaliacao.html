@@ -77,6 +77,32 @@
   </section>
 
   <section class="painel" style="margin-bottom:18px">
+    <header><h2>Correções que viraram caso de teste</h2><span class="aux">erro marcado no rastreio → régua</span></header>
+    <table>
+      <thead><tr><th>Erro observado</th><th>Veio de</th><th>Correção</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Ofereceu Premium sem o lead pedir, depois de recusa no Completo</td>
+          <td class="mono">conv_f21a · msg_09<br><span style="color:var(--texto-mais-fraco)">política de objeção</span></td>
+          <td>só oferece plano alternativo se o lead citar preço</td>
+          <td><span class="chip ok">no conjunto</span></td></tr>
+        <tr><td>Disse “já já te retorno” com a cotação fora do ar</td>
+          <td class="mono">conv_b93c · msg_03<br><span style="color:var(--texto-mais-fraco)">texto de degradação</span></td>
+          <td>não prometer retorno que o sistema não cumpre</td>
+          <td><span class="chip ok">no conjunto</span></td></tr>
+        <tr><td>Repetiu a pergunta do CEP que o lead já tinha respondido em áudio</td>
+          <td class="mono">conv_c55e · msg_07<br><span style="color:var(--texto-mais-fraco)">estado da conversa</span></td>
+          <td>mídia sem transcrição não conta como resposta — dizer isso ao lead</td>
+          <td><span class="chip alerta">a rotular</span></td></tr>
+      </tbody>
+    </table>
+    <div style="padding:13px 16px;border-top:1px solid var(--borda);color:var(--texto-fraco);font-size:13px">
+      O laço fecha aqui: um erro marcado no <a href="rastreio.html">Rastreio</a> carrega a proveniência (decisão, regra
+      aplicada, de onde veio o texto, que dados usou). A correção vira caso rotulado nesta régua — e, se o agente
+      repetir o erro, o teste fica <strong>vermelho</strong>. Erro que não vira caso é erro que volta.
+    </div>
+  </section>
+
+  <section class="painel" style="margin-bottom:18px">
     <header><h2>Cenários rotulados à mão</h2><span class="aux">o gabarito do handoff</span></header>
     <table>
       <thead><tr><th>Cenário</th><th>Decisão esperada</th><th>O agente decidiu</th><th>Resultado</th></tr></thead>
