@@ -70,3 +70,26 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - 2026-09-12 — `on_tentativa` como callback tipado solto na porta (`Callable[..., None]`), em vez
   de `aplicacao` importar `TentativaObservada` de `infra` — mantém I-2 do CONTRACT de `aplicacao`
   intacto (nunca importa `infra`).
+
+---
+
+## Seção F10/#13 — `RepositorioDeTrilhaJSONL.todos_os_eventos` (append, R2/#16)
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.trilha_jsonl.RepositorioDeTrilhaJSONL.todos_os_eventos() -> list[dict]` e o mesmo método em
+  `RepositorioDeTrilhaMemoria` — enumera a trilha inteira, na ordem gravada, sem filtrar por
+  `conversation_id`. O painel (F10, issue #13) precisa listar as conversas existentes num arquivo de
+  trilha sem conhecer os ids de antemão; `eventos_da_conversa` exige o id e não serve para isso.
+
+### Decisões registradas
+
+- 2026-09-12 — Achado da auditoria do PR #37: este método passou a ser saída pública do módulo e
+  faltava aqui. Vermelho-antes por assertiva (`AttributeError`) confirmado antes do conserto —
+  `tests/infra/test_trilha_jsonl.py`.
+- `infra.config.url_quote_service() -> str` (F10/#13): dono único da resolução de
+  `QUOTE_SERVICE_URL`, usado por `interfaces/cli.py` e `infra/planos_http.py` — antes desta frente,
+  os dois liam a mesma variável cada um do seu jeito (achado da coordenação, LEI 11).
+- `infra.planos_http.buscar_planos(base_url=None) -> dict | None` (F10/#13): cliente só-leitura do
+  `GET /planos`, timeout explícito de 2s (`TIMEOUT_SEGUNDOS`), `None` se o serviço não responder —
+  quem chama mostra o buraco visível, nunca um valor de memória.

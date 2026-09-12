@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Conversas</title>
+<style>
+/* AutoSeguro — mock de design. Folha compartilhada por todas as telas.
+   Paleta derivada da identidade da Namastex: roxo profundo, magenta e ciano. */
+:root{
+  --fundo:#16012F; --superficie:#1F0A40; --superficie-2:#2A1152; --borda:#3B2068;
+  --texto:#F2ECFF; --texto-fraco:#B9A8D9; --texto-mais-fraco:#8B79B0;
+  --magenta:#FF00FF; --ciano:#00FFFF; --azul:#198BF5;
+  --ok:#3DDC97; --alerta:#FFC857; --falha:#FF5C7A;
+  --r:14px; --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --lateral:248px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fundo);color:var(--texto);
+     font:15px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;
+     background-image:radial-gradient(900px 500px at 15% -10%, rgba(255,0,255,.10), transparent 60%),
+                      radial-gradient(800px 500px at 92% 0%, rgba(0,255,255,.07), transparent 55%);
+     background-attachment:fixed}
+a{color:var(--ciano)}
+h1,h2,h3{letter-spacing:-.2px}
+
+/* ───────── casca: menu lateral + conteúdo ───────── */
+.app{display:grid;grid-template-columns:var(--lateral) 1fr;min-height:100vh}
+@media (max-width:860px){ .app{grid-template-columns:1fr} .lateral{position:static;height:auto} }
+
+.lateral{position:sticky;top:0;height:100vh;background:rgba(22,1,47,.72);
+         border-right:1px solid var(--borda);padding:18px 14px;display:flex;flex-direction:column;gap:18px;
+         backdrop-filter:blur(6px)}
+.lateral .produto{display:flex;flex-direction:column;gap:3px;padding:4px 8px 0}
+.lateral .produto b{font-size:19px;position:relative;display:inline-block}
+.lateral .produto b::before,.lateral .produto b::after{content:attr(data-t);position:absolute;inset:0;z-index:-1}
+.lateral .produto b::before{color:var(--magenta);transform:translate(-2px,1px)}
+.lateral .produto b::after{color:var(--ciano);transform:translate(2px,-1px)}
+.lateral .produto span{color:var(--texto-mais-fraco);font-size:11.5px}
+
+.menu{display:flex;flex-direction:column;gap:3px}
+.menu .grupo{color:var(--texto-mais-fraco);font-size:10.5px;text-transform:uppercase;
+             letter-spacing:.12em;padding:12px 10px 5px}
+.menu a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;
+        color:var(--texto-fraco);text-decoration:none;font-size:14px;border:1px solid transparent}
+.menu a:hover{background:var(--superficie);color:var(--texto)}
+.menu a[aria-current="page"]{background:var(--superficie-2);color:var(--texto);
+        border-color:var(--borda);box-shadow:inset 2px 0 0 var(--magenta)}
+.menu a .ic{width:18px;text-align:center;opacity:.9}
+.menu a .cont{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco)}
+
+.selo{margin-top:auto;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.04);
+      border:1px solid var(--borda);border-radius:12px;padding:9px 10px}
+.selo img{height:18px;width:auto;display:block;flex:none}
+.selo small{color:var(--texto-mais-fraco);font-size:10.5px;line-height:1.3}
+
+.conteudo{padding:24px 26px 60px;min-width:0}
+.cabecalho{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+.cabecalho h1{margin:0 0 3px;font-size:23px}
+.cabecalho p{margin:0;color:var(--texto-fraco);font-size:13.5px;max-width:70ch}
+
+/* ───────── blocos ───────── */
+.painel{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);overflow:hidden}
+.painel > header{padding:12px 16px;border-bottom:1px solid var(--borda);
+                 display:flex;align-items:center;justify-content:space-between;gap:12px}
+.painel > header h2{margin:0;font-size:12.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--texto-fraco)}
+.painel > header .aux{color:var(--texto-mais-fraco);font-size:11.5px;font-family:var(--mono)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);padding:13px 15px}
+.kpi .rotulo{color:var(--texto-mais-fraco);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.kpi .valor{font-size:23px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .nota{color:var(--texto-fraco);font-size:11.5px;margin-top:2px}
+.kpi.destaque{border-color:var(--ok)} .kpi.destaque .valor{color:var(--ok)}
+.kpi.perigo .valor{color:var(--alerta)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px;
+      font-size:11px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.ok,.chip.cotada{color:var(--ok);background:rgba(61,220,151,.12);border-color:rgba(61,220,151,.35)}
+.chip.alerta,.chip.handoff{color:var(--alerta);background:rgba(255,200,87,.12);border-color:rgba(255,200,87,.35)}
+.chip.falha{color:var(--falha);background:rgba(255,92,122,.12);border-color:rgba(255,92,122,.35)}
+.chip.neutra,.chip.recusada{color:var(--texto-fraco);background:rgba(185,168,217,.1);border-color:rgba(185,168,217,.3)}
+.chip.viva,.chip.andamento{color:var(--ciano);background:rgba(0,255,255,.1);border-color:rgba(0,255,255,.3)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--texto-mais-fraco);font-size:11px;text-transform:uppercase;
+   letter-spacing:.08em;font-weight:600;padding:10px 16px;border-bottom:1px solid var(--borda)}
+td{padding:11px 16px;border-bottom:1px solid rgba(59,32,104,.55);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--superficie-2)}
+td.mono,.mono{font-family:var(--mono);font-size:12.5px}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+.mascarado{color:var(--texto-fraco);border-bottom:1px dashed var(--texto-mais-fraco);cursor:help}
+.nota-rodape{margin-top:22px;color:var(--texto-mais-fraco);font-size:12px;line-height:1.7;
+             border-top:1px solid var(--borda);padding-top:13px}
+.nota-rodape strong{color:var(--texto-fraco)}
+.aviso{background:rgba(255,200,87,.09);border:1px solid rgba(255,200,87,.35);color:var(--alerta);
+       border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:18px}
+
+.falta{color:var(--alerta)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+
+  .duas{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+  @media (max-width:1000px){.duas{grid-template-columns:1fr}}
+  .item{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;
+        padding:12px 15px;border-bottom:1px solid rgba(59,32,104,.55);font:inherit}
+  .item:hover{background:var(--superficie-2)}
+  .item[aria-current="true"]{background:var(--superficie-2);box-shadow:inset 3px 0 0 var(--magenta)}
+  .item .l1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item .nome{font-weight:600;font-size:14px}
+  .item .previa{color:var(--texto-fraco);font-size:12.5px;margin-top:3px;
+                display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .item .hora{color:var(--texto-mais-fraco);font-size:11px;font-family:var(--mono)}
+
+  .conversa{display:flex;flex-direction:column;height:min(72vh,660px)}
+  .fluxo{flex:1;overflow-y:auto;padding:18px 18px 8px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:66%;display:flex;flex-direction:column;gap:3px}
+  .msg.lead{align-self:flex-start}
+  .msg.agente{align-self:flex-end;align-items:flex-end}
+  .balao{border-radius:14px;padding:9px 13px;border:1px solid var(--borda);background:var(--superficie-2)}
+  .msg.agente .balao{border-color:rgba(255,0,255,.35);background:rgba(255,0,255,.07)}
+  .msg .rodape-msg{font-family:var(--mono);font-size:10.5px;color:var(--texto-mais-fraco);display:flex;gap:8px}
+  .estado-interno{align-self:center;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco);
+                  border:1px dashed var(--borda);border-radius:999px;padding:3px 12px}
+  .composicao{border-top:1px solid var(--borda);padding:12px 16px;display:flex;gap:10px;align-items:center;
+              color:var(--texto-mais-fraco);font-size:13px}
+  .composicao .caixa{flex:1;background:var(--superficie-2);border:1px solid var(--borda);
+                     border-radius:999px;padding:9px 15px}
+  .lateral-dados{display:flex;flex-direction:column;gap:12px}
+  .campo{display:flex;justify-content:space-between;gap:10px;padding:9px 15px;
+         border-bottom:1px solid rgba(59,32,104,.55);font-size:13.5px}
+  .campo:last-child{border-bottom:0}
+  .campo .rot{color:var(--texto-mais-fraco)}
+  .campo .val{font-family:var(--mono);font-size:12.5px}
+  .falta{color:var(--alerta)}
+
+  /* marcar erro → proveniência → correção (mesmo laço do Rastreio) */
+  .marcar{background:none;border:1px dashed var(--borda);color:var(--texto-mais-fraco);border-radius:8px;
+          padding:3px 9px;font:inherit;font-size:11px;cursor:pointer;align-self:flex-end}
+  .marcar:hover{border-color:var(--falha);color:var(--falha)}
+  .prov{align-self:stretch;margin-top:4px;border:1px solid rgba(255,92,122,.4);border-radius:12px;overflow:hidden}
+  .prov > header{background:rgba(255,92,122,.10);color:var(--falha);padding:7px 12px;font-size:10.5px;
+          letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .prov .corpo{padding:11px 12px;display:grid;gap:8px}
+  .prov .par{display:grid;grid-template-columns:132px 1fr;gap:10px;font-size:12px}
+  .prov .rot{color:var(--texto-mais-fraco);font-family:var(--mono);font-size:10.5px;text-transform:uppercase}
+  .prov .val{font-family:var(--mono);font-size:12px}
+  .prov .correcao{border-top:1px solid var(--borda);padding-top:9px;display:grid;gap:7px}
+  .prov .campo-texto{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;
+          padding:8px 11px;color:var(--texto-fraco);font-size:12.5px}
+  .prov .acoes{display:flex;gap:7px;flex-wrap:wrap}
+  .bt{border:1px solid var(--borda);background:var(--superficie-2);color:var(--texto);border-radius:9px;
+      padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .bt.forte{border-color:rgba(255,0,255,.5);background:rgba(255,0,255,.12)}
+
+  /* marcar erro → proveniência → correção (mesmo laço do Rastreio) */
+  .marcar{background:none;border:1px dashed var(--borda);color:var(--texto-mais-fraco);border-radius:8px;
+          padding:3px 9px;font:inherit;font-size:11px;cursor:pointer;align-self:flex-end}
+  .marcar:hover{border-color:var(--falha);color:var(--falha)}
+  .prov{align-self:stretch;margin-top:4px;border:1px solid rgba(255,92,122,.4);border-radius:12px;overflow:hidden}
+  .prov > header{background:rgba(255,92,122,.10);color:var(--falha);padding:7px 12px;font-size:10.5px;
+          letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .prov .corpo{padding:11px 12px;display:grid;gap:8px}
+  .prov .par{display:grid;grid-template-columns:132px 1fr;gap:10px;font-size:12px}
+  .prov .rot{color:var(--texto-mais-fraco);font-family:var(--mono);font-size:10.5px;text-transform:uppercase}
+  .prov .val{font-family:var(--mono);font-size:12px}
+  .prov .correcao{border-top:1px solid var(--borda);padding-top:9px;display:grid;gap:7px}
+  .prov .campo-texto{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;
+          padding:8px 11px;color:var(--texto-fraco);font-size:12.5px}
+  .prov .acoes{display:flex;gap:7px;flex-wrap:wrap}
+  .bt{border:1px solid var(--borda);background:var(--superficie-2);color:var(--texto);border-radius:9px;
+      padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .bt.forte{border-color:rgba(255,0,255,.5);background:rgba(255,0,255,.12)}
+
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html" aria-current="page"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio </a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações </a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política </a>
+  </nav>
+  <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
+</aside>
+<main class="conteudo">
+
+<div class="cabecalho">
+  <div>
+    <h1>Conversas</h1>
+    <p>O atendimento como o lead vê. A prova do que aconteceu fica no <a href="rastreio.html">Rastreio</a>.</p>
+  </div>
+  <span class="chip viva">3 conversa(s) na trilha</span>
+</div>
+<div class="duas">
+  <nav class="painel" aria-label="Lista de conversas">
+    <header><h2>Caixa de entrada</h2><span class="aux">trilha</span></header>
+    <button class="item">
+          <span class="l1"><span class="nome">conv-4e14f305</span></span>
+          <span class="previa">idade=35; veiculo_ano=2019; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-01</span>
+          <span class="chip cotada" style="margin-top:6px">cotada</span>
+        </button>
+<button class="item">
+          <span class="l1"><span class="nome">conv-9a861a37</span></span>
+          <span class="previa">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</span>
+          <span class="chip handoff" style="margin-top:6px">handoff</span>
+        </button>
+<button class="item">
+          <span class="l1"><span class="nome">conv-d656ea8c</span></span>
+          <span class="previa">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</span>
+          <span class="chip cotada" style="margin-top:6px">cotada</span>
+        </button>
+  </nav>
+  <div style="display:grid;gap:16px">
+    <section class="painel conversa" id="conv-4e14f305">
+      <header><h2>conv-4e14f305</h2><span class="aux">cotada</span></header>
+      <div class="fluxo"><div class="msg lead"><div class="balao">idade=35; veiculo_ano=2019; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-01</div>
+              <div class="rodape-msg"><span>2026-09-12T21:29:48.973494+00:00</span><span>msg_ffcbe7cc</span></div></div><div class="msg agente"><div class="balao">Plano Completo: R$ 241.38/mês, franquia R$ 3000.00. Coberturas: colisao, roubo, furto, terceiros, vidros. Carência de 30 dias para: roubo, furto.</div>
+              <div class="rodape-msg"><span>2026-09-12T21:29:49.208610+00:00</span><span>msg_d6cc1ed0</span></div></div></div>
+    </section>
+<section class="painel conversa" id="conv-9a861a37">
+      <header><h2>conv-9a861a37</h2><span class="aux">handoff</span></header>
+      <div class="fluxo"><div class="msg lead"><div class="balao">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</div>
+              <div class="rodape-msg"><span>2026-09-12T19:47:44.057939+00:00</span><span>msg_4d4f6a4a</span></div></div><div class="msg agente"><div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
+              <div class="rodape-msg"><span>2026-09-12T19:47:48.764228+00:00</span><span>msg_3def4cb1</span></div></div></div>
+    </section>
+<section class="painel conversa" id="conv-d656ea8c">
+      <header><h2>conv-d656ea8c</h2><span class="aux">cotada</span></header>
+      <div class="fluxo"><div class="msg lead"><div class="balao">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</div>
+              <div class="rodape-msg"><span>2026-09-12T18:57:07.279602+00:00</span><span>msg_1c143469</span></div></div><div class="msg agente"><div class="balao">Plano Completo: R$ 241.38/mês, franquia R$ 3000.00. Coberturas: colisao, roubo, furto, terceiros, vidros. Carência de 30 dias para: roubo, furto. Primeiro pagamento proporcional: R$ 132.37 (17 de 31 dias).</div>
+              <div class="rodape-msg"><span>2026-09-12T18:57:08.921506+00:00</span><span>msg_71e7cc15</span></div></div></div>
+    </section>
+  </div>
+</div>
+<p class="nota-rodape"><strong>Gerado da trilha real.</strong> Campo que a trilha não gravou aparece como buraco visível.</p>
+
+</main>
+</div>
+</body>
+</html>

@@ -17,7 +17,6 @@ na ordem dos prompts) — não precisa de flag nem de LLM para rodar de ponta a 
 """
 from __future__ import annotations
 
-import os
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -28,6 +27,7 @@ from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import validacao
 from dominio.redator_pii import redigir_texto
 from infra.cliente_quote import ClienteQuoteHTTP
+from infra.config import url_quote_service
 from infra.exportador_trilha import exportar_execucao
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 
@@ -115,7 +115,7 @@ def rodar_conversa(entrada=input, base_url: str | None = None, portal=None, tril
     estado = montar_estado(conversation_id, dados)
 
     if portal is None:
-        portal = ClienteQuoteHTTP(base_url or os.environ.get("QUOTE_SERVICE_URL", "http://localhost:8000"))
+        portal = ClienteQuoteHTTP(base_url or url_quote_service())
 
     repositorio_trilha = None
     if trilha is None:
