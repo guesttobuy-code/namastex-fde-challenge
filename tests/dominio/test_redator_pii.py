@@ -1,0 +1,87 @@
+"""`redigir_texto` é a invariante desta frente (issue #7): nada que passe por ele pode manter PII
+original. O `.capitalize()` de `scripts/generate_dataset.py:113` baixa `CPF`/`CEP` para minúsculo
+quando não é a primeira palavra do bloco — medido ao vivo e citado no PLANO da #7 — por isso toda
+regex tem que ser `(?i)`. Casos com dado real do dataset (`dataset/sample.jsonl`) primeiro; fixtures
+manuais dos formatos alternativos depois, para o limite ficar declarado, não escondido.
+"""
+
+from dominio.redator_pii import redigir_texto
+
+# Linhas reais de `dataset/sample.jsonl`, coladas — não reformatadas — para provar que o teste mede
+# o dado que o gerador realmente produz (cpf/cep minúsculos), não um exemplo inventado.
+MENSAGENS_REAIS_DO_DATASET = [
+    "Tenho 35 anos, cep 26703-384, cpf 389.083.863-43",
+    "Cep 07624-954, cpf 662.011.621-35, tenho 30 anos",
+    "Tenho 55 anos, cpf 965.515.492-09, cep 04623-171",
+    "meu email é ursula.souza@gmail.com e o whats é esse mesmo +55 21 97224-2584",
+    "a placa é GGE4X30 se precisar",
+]
+
+CPFS_ORIGINAIS = ["389.083.863-43", "662.011.621-35", "965.515.492-09"]
+CEPS_ORIGINAIS = ["26703-384", "07624-954", "04623-171"]
+EMAIL_ORIGINAL = "ursula.souza@gmail.com"
+TELEFONE_ORIGINAL = "+55 21 97224-2584"
+PLACA_MERCOSUL_ORIGINAL = "GGE4X30"
+
+
+def test_cpf_minusculo_do_dataset_nao_sobrevive_ao_redator():
+    for texto in MENSAGENS_REAIS_DO_DATASET:
+        saida = redigir_texto(texto)
+        for cpf in CPFS_ORIGINAIS:
+            assert cpf not in saida, f"CPF apareceu na saída: {cpf!r} em {saida!r}"
+
+
+def test_cep_minusculo_do_dataset_nao_sobrevive_ao_redator():
+    for texto in MENSAGENS_REAIS_DO_DATASET:
+        saida = redigir_texto(texto)
+        for cep in CEPS_ORIGINAIS:
+            assert cep not in saida, f"CEP apareceu na saída: {cep!r} em {saida!r}"
+
+
+def test_email_nao_sobrevive_ao_redator():
+    saida = redigir_texto(MENSAGENS_REAIS_DO_DATASET[3])
+    assert EMAIL_ORIGINAL not in saida, f"e-mail apareceu na saída: {saida!r}"
+
+
+def test_telefone_nao_sobrevive_ao_redator():
+    saida = redigir_texto(MENSAGENS_REAIS_DO_DATASET[3])
+    assert TELEFONE_ORIGINAL not in saida, f"telefone apareceu na saída: {saida!r}"
+
+
+def test_placa_mercosul_nao_sobrevive_ao_redator():
+    saida = redigir_texto(MENSAGENS_REAIS_DO_DATASET[4])
+    assert PLACA_MERCOSUL_ORIGINAL not in saida, f"placa apareceu na saída: {saida!r}"
+
+
+# --- Limite declarado: formatos alternativos que a varredura por regex não teria certeza de pegar
+# sem fixture manual (issue #7, "Limite que tem que ficar declarado"). ---
+
+
+def test_cpf_sem_pontuacao_fixture_manual():
+    saida = redigir_texto("meu cpf é 38908386343, pode confirmar?")
+    assert "38908386343" not in saida
+
+
+def test_telefone_sem_ddi_fixture_manual():
+    saida = redigir_texto("pode me chamar no 21 97224-2584 mesmo")
+    assert "21 97224-2584" not in saida
+
+
+def test_cep_com_espaco_fixture_manual():
+    saida = redigir_texto("o cep aqui de casa e 26703 384")
+    assert "26703 384" not in saida
+
+
+def test_placa_padrao_antigo_fixture_manual():
+    saida = redigir_texto("a placa antiga do carro e ABC1234")
+    assert "ABC1234" not in saida
+
+
+def test_nome_conhecido_e_redigido_quando_informado():
+    saida = redigir_texto("Aqui é a Ursula Souza, tudo bem?", nomes_conhecidos=["Ursula Souza"])
+    assert "Ursula Souza" not in saida
+
+
+def test_texto_sem_pii_passa_intacto():
+    texto = "Oi, queria fazer um seguro pro meu carro"
+    assert redigir_texto(texto) == texto

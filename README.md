@@ -118,7 +118,8 @@ Sem pegadinha escondida na avaliação — o que importa:
 - **O que ele faz quando a `/quote` falha?** (esse é o ponto que mais separa.)
 - **O critério de passar pro humano é explícito e defensável?**
 - **Dá pra rastrear o que aconteceu?** (cada mensagem/cotação, com id e status.)
-- **Cuidado com dados sensíveis.** O histórico tem informação pessoal — pense nisso.
+- **Cuidado com dados sensíveis.** O histórico tem informação pessoal — pense nisso. Decisões e
+  limites de privacidade documentados em [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md).
 - **Qualidade:** outro engenheiro consegue pegar seu código e entender as decisões?
 - **Como você usou a IA.** Os `ai-logs/` entram na avaliação junto com o código.
 

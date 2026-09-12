@@ -43,3 +43,10 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Sem isto, `import dominio.x`/`aplicacao.x`/`infra.x` só resolve quando quem invoca o pytest seta
+# PYTHONPATH=src à mão (como tests/arquitetura/test_fronteiras.py já fazia para o lint-imports via
+# subprocess) — mas o pytest do guard (python-check.mjs, companion-red-green.mjs) não seta nada,
+# então TODO teste que importa um módulo real de src/ falhava na coleta, na base e no HEAD, achado
+# ao vivo na F4/#7 ao escrever o primeiro código real das camadas (F1/#4 só tinha __init__.py vazio,
+# nunca bateu nisto). Ratchet, não regressão: nada rodava importando essas camadas antes.
+pythonpath = ["src"]
