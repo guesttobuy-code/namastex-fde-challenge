@@ -55,11 +55,44 @@ class RespostaBruta:
 Transporte = Callable[[dict, float], RespostaBruta]
 
 
+@dataclass(frozen=True)
+class TentativaObservada:
+    """Uma tentativa HTTP já classificada, com os números reais dela — para quem quiser gravar
+    `dominio.eventos_trilha.TentativaDeCotacao` (issue #7/#6, ESPECIFICACAO.md §1: "cada chamada,
+    não cada cotação"). Vocabulário de `classificacao` idêntico a `StatusCotacao.value`."""
+
+    numero_da_tentativa: int  # 1-based
+    quote_attempt_id: str
+    resposta: RespostaBruta
+    classificacao: str
+    latencia_ms: int
+    orcamento_restante_ms: int
+
+
+OnTentativa = Callable[[TentativaObservada], None]
+
+
 def _e_retentavel(resposta: RespostaBruta) -> bool:
     """5xx e timeout repetem; qualquer outra coisa (200, 4xx) é terminal — issue #6."""
     if resposta.excedeu_o_tempo:
         return True
     return resposta.status_code in _STATUS_QUE_REPETE
+
+
+def _classificar(resposta: RespostaBruta) -> str:
+    """HTTP -> vocabulário fechado de `classificacao` (ESPECIFICACAO.md §1, igual a
+    `StatusCotacao.value`). Usado tanto pela tradução final (`_traduzir`) quanto pela observação
+    por tentativa (`TentativaObservada`) — mesma régua nos dois lugares, LEI 11."""
+    if resposta.excedeu_o_tempo:
+        return "timeout"
+    if resposta.status_code == 200:
+        return "sucesso"
+    corpo = resposta.corpo or {}
+    if resposta.status_code == 422:
+        return "recusa_de_negocio" if "motivo" in corpo else "erro_de_payload"
+    if resposta.status_code == 400:
+        return "erro_de_payload"
+    return "indisponivel"
 
 
 class ClienteQuoteHTTP:
@@ -107,12 +140,18 @@ class ClienteQuoteHTTP:
                 corpo = json.loads(resp.read().decode("utf-8"))
                 return RespostaBruta(status_code=resp.status, corpo=corpo)
 
-    def executar_com_orcamento(self, payload: dict) -> tuple[str, RespostaBruta]:
+    def executar_com_orcamento(
+        self, payload: dict, on_tentativa: OnTentativa | None = None
+    ) -> tuple[str, RespostaBruta]:
         """Tenta até `MAX_TENTATIVAS` vezes, sem nunca ultrapassar `ORCAMENTO_TOTAL_SEGUNDOS`.
         Só repete o que `_e_retentavel` aceita (5xx, timeout); qualquer outra resposta volta na
         hora, sem consumir as tentativas restantes. Devolve, junto com a resposta final, o
         `quote_attempt_id` daquela tentativa específica (correlação, não idempotência — cada
-        tentativa recebe o seu próprio, mesmo dentro da mesma chamada a `cotar`)."""
+        tentativa recebe o seu próprio, mesmo dentro da mesma chamada a `cotar`).
+
+        `on_tentativa`, se passado, é chamado depois de CADA tentativa (não só a final) com os
+        números reais dela — é o ponto de injeção para quem grava `TentativaDeCotacao` na trilha
+        (issue #7/#6, ESPECIFICACAO.md §1: "cada chamada, não cada cotação")."""
         prazo_final = self._relogio() + ORCAMENTO_TOTAL_SEGUNDOS
         quote_attempt_id = ""
         resposta = None
@@ -122,7 +161,18 @@ class ClienteQuoteHTTP:
                 break
             timeout = min(TIMEOUT_POR_TENTATIVA_SEGUNDOS, tempo_restante)
             quote_attempt_id = uuid.uuid4().hex
+            inicio_tentativa = self._relogio()
             resposta = self._transporte(payload, timeout)
+            fim_tentativa = self._relogio()
+            if on_tentativa:
+                on_tentativa(TentativaObservada(
+                    numero_da_tentativa=indice + 1,
+                    quote_attempt_id=quote_attempt_id,
+                    resposta=resposta,
+                    classificacao=_classificar(resposta),
+                    latencia_ms=round((fim_tentativa - inicio_tentativa) * 1000),
+                    orcamento_restante_ms=max(0, round((prazo_final - fim_tentativa) * 1000)),
+                ))
             if not _e_retentavel(resposta):
                 return quote_attempt_id, resposta
             e_a_ultima_tentativa = indice == MAX_TENTATIVAS - 1
@@ -134,10 +184,11 @@ class ClienteQuoteHTTP:
             self._dormir(min(ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS[indice], tempo_restante))
         return quote_attempt_id, resposta
 
-    def cotar(self, payload: dict, conversation_id: str) -> ResultadoDaCotacao:
+    def cotar(self, payload: dict, conversation_id: str, on_tentativa: OnTentativa | None = None) -> ResultadoDaCotacao:
         """`PortalDeCotacao.cotar` — o único método que a `aplicacao` conhece. Roda o motor de
-        retry e traduz o resultado para o domínio (`_traduzir`, abaixo)."""
-        quote_attempt_id, resposta = self.executar_com_orcamento(payload)
+        retry e traduz o resultado para o domínio (`_traduzir`, abaixo). `on_tentativa` repassado
+        verbatim para `executar_com_orcamento`."""
+        quote_attempt_id, resposta = self.executar_com_orcamento(payload, on_tentativa=on_tentativa)
         return _traduzir(resposta, quote_attempt_id, conversation_id)
 
 
@@ -236,7 +287,11 @@ class FakePortalDeCotacao:
     roteiro: list[ResultadoDaCotacao]
     chamadas: list[dict] = field(default_factory=list, init=False)
 
-    def cotar(self, payload: dict, conversation_id: str) -> ResultadoDaCotacao:
+    def cotar(self, payload: dict, conversation_id: str, on_tentativa=None) -> ResultadoDaCotacao:
+        # `on_tentativa` aceito só para bater a assinatura de PortalDeCotacao — este dublê simula
+        # o RESULTADO final da porta, não tentativas HTTP individuais (isso é FakeTransporteQuote,
+        # que simula o transporte e portanto tem tentativas de verdade para observar).
+        del on_tentativa
         self.chamadas.append({"payload": payload, "conversation_id": conversation_id})
         indice = min(len(self.chamadas) - 1, len(self.roteiro) - 1)
         return self.roteiro[indice]

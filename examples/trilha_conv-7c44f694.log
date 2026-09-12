@@ -1,0 +1,9 @@
+# Execução — conv-7c44f694
+
+[2026-09-12T18:56:04.314416+00:00] mensagem_recebida id=msg_a3b17059
+[2026-09-12T18:56:07.936709+00:00] tentativa_de_cotacao id=a9fc6945ff454564a11a83a51c9d6409 status=0 classificacao=timeout
+[2026-09-12T18:56:11.343214+00:00] tentativa_de_cotacao id=d5c84dbdf48643aaaf961a7862772613 status=0 classificacao=timeout
+[2026-09-12T18:56:13.108051+00:00] tentativa_de_cotacao id=04543f3136334473890bc348aeb71b82 status=500 classificacao=indisponivel
+[2026-09-12T18:56:13.109412+00:00] decisao id=dec_c58c7bcb
+[2026-09-12T18:56:13.110509+00:00] mensagem_enviada id=msg_93592c10 decisao=dec_c58c7bcb regra=politica.decidir:INDISPONIVEL->ENCAMINHAR
+[2026-09-12T18:56:13.113762+00:00] handoff id=ho_67d8f681 motivo=quote_indisponivel

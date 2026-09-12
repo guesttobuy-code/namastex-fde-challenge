@@ -242,3 +242,46 @@ def test_fake_portal_de_cotacao_devolve_o_roteiro_programado_em_ordem():
     assert fake.cotar(PAYLOAD, CONVERSATION_ID) is sucesso  # roteiro de 1 item repete
     assert len(fake.chamadas) == 2
     assert fake.chamadas[0] == {"payload": PAYLOAD, "conversation_id": CONVERSATION_ID}
+
+
+# ---------------------------------------------------------------------------
+# on_tentativa -- observação POR TENTATIVA (issue #7/#6, ESPECIFICACAO.md §1: "cada chamada, não
+# cada cotação"), o ponto de injeção para quem grava TentativaDeCotacao na trilha.
+# ---------------------------------------------------------------------------
+
+
+def test_on_tentativa_e_chamado_uma_vez_por_tentativa_http_com_numeracao_1_based():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502, _RESPOSTA_200], relogio=relogio)
+    observadas = []
+
+    _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID, on_tentativa=observadas.append)
+
+    assert [o.numero_da_tentativa for o in observadas] == [1, 2]
+    assert [o.classificacao for o in observadas] == ["indisponivel", "sucesso"]
+    assert all(o.quote_attempt_id for o in observadas)
+    assert len({o.quote_attempt_id for o in observadas}) == 2  # um id por tentativa, não reusado
+
+
+def test_on_tentativa_orcamento_restante_diminui_a_cada_tentativa():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_502, _RESPOSTA_502, _RESPOSTA_502], relogio=relogio)
+    observadas = []
+
+    _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD, on_tentativa=observadas.append)
+
+    restantes = [o.orcamento_restante_ms for o in observadas]
+    assert restantes == sorted(restantes, reverse=True)
+    assert restantes[0] == 10_000  # nada de latência simulada nas tentativas em si (demora=0)
+    assert restantes[-1] == pytest.approx(8_800, abs=1)  # 10s - 0,4s - 0,8s (as duas esperas já tomadas)
+
+
+def test_on_tentativa_nao_e_chamado_quando_omitido():
+    """Regressão trivial: on_tentativa é opcional, o motor não quebra sem ele (é o que o
+    FakePortalDeCotacao e todo teste anterior a este já exercitam, mas fica explícito aqui)."""
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_200], relogio=relogio)
+
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.SUCESSO

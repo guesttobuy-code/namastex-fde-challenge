@@ -11,10 +11,21 @@ escrevendo portas diferentes não colidam no mesmo arquivo.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Callable, Protocol
 
 from dominio.resultado_cotacao import ResultadoDaCotacao
 
 
 class PortalDeCotacao(Protocol):
-    def cotar(self, payload: dict, conversation_id: str) -> ResultadoDaCotacao: ...
+    def cotar(
+        self,
+        payload: dict,
+        conversation_id: str,
+        on_tentativa: Callable[..., None] | None = None,
+    ) -> ResultadoDaCotacao:
+        """`on_tentativa`, se passado, é chamado depois de cada tentativa HTTP (não só a final)
+        — é como `aplicacao.servico_conversa` grava `TentativaDeCotacao` na trilha por chamada,
+        não por cotação (issue #7/#6, ESPECIFICACAO.md §1). Tipado solto (`Callable[..., None]`)
+        de propósito: o formato de observação é de `infra` (`TentativaObservada`), e `aplicacao`
+        nunca importa `infra` (I-2 deste módulo)."""
+        ...

@@ -2,9 +2,9 @@
 -> responde ou encaminha — contra o `quote-service` de verdade.
 
 Só costura o que já existe (LEI 11 — nunca reimplementa): `aplicacao.servico_conversa` decide o
-fluxo, `infra.cliente_quote.ClienteQuoteHTTP` fala com a `/quote`. Sem LLM de propósito (fora de
-escopo desta frente — a política é determinística e tem que funcionar sozinha assim) e sem trilha
-(issue #7/#31 ainda não mergeou; entra em commit próprio quando mergear).
+fluxo (e grava a trilha, F4/#7), `infra.cliente_quote.ClienteQuoteHTTP` fala com a `/quote`,
+`infra.exportador_trilha` gera o log estruturado. Sem LLM de propósito (fora de escopo desta
+frente — a política é determinística e tem que funcionar sozinha assim).
 
 Roda de dentro da raiz do repositório, com `src/` no `PYTHONPATH` (a mesma solução já usada pelo
 pytest via `pyproject.toml`; tornar o projeto instalável é decisão maior, deliberadamente adiada —
@@ -24,15 +24,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aplicacao.servico_conversa import conduzir_conversa, montar_estado
+from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import validacao
+from dominio.redator_pii import redigir_texto
 from infra.cliente_quote import ClienteQuoteHTTP
+from infra.exportador_trilha import exportar_execucao
+from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 
 RAIZ = Path(__file__).resolve().parents[2]
 
 
 class _Transcricao:
     """Acumula tudo que apareceria na tela, para virar o log de execução em `examples/*.log`
-    (entregável do desafio) — sem depender da trilha, que ainda não mergeou."""
+    (entregável do desafio). O que fica NA TELA é o que o lead digitou de verdade; o que vai para
+    o ARQUIVO (`salvar`) passa por `redigir_texto` — o mesmo tratamento que a trilha dá (dado
+    sintético tratado como sensível, `docs/PRIVACIDADE.md`), porque este log também é commitado."""
 
     def __init__(self) -> None:
         self._linhas: list[str] = []
@@ -43,7 +49,8 @@ class _Transcricao:
 
     def salvar(self, caminho: Path) -> None:
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        caminho.write_text("\n".join(self._linhas) + "\n", encoding="utf-8")
+        redigido = "\n".join(redigir_texto(linha) for linha in self._linhas)
+        caminho.write_text(redigido + "\n", encoding="utf-8")
 
 
 def _perguntar(transcricao: _Transcricao, prompt: str, *, obrigatorio: bool, valido=None, entrada=input) -> str | None:
@@ -89,12 +96,15 @@ def coletar_dados(transcricao: _Transcricao, entrada=input) -> dict:
     }
 
 
-def rodar_conversa(entrada=input, base_url: str | None = None, portal=None) -> Path:
-    """Ponto de entrada único da CLI: coleta, cota, decide, responde ou encaminha, e grava o log
-    de execução. Devolve o caminho do log gravado (para quem quiser inspecionar/anexar).
+def rodar_conversa(entrada=input, base_url: str | None = None, portal=None, trilha: ServicoDeTrilha | None = None) -> Path:
+    """Ponto de entrada único da CLI: coleta, cota, decide, responde ou encaminha, e grava dois
+    logs — a transcrição da conversa e o log estruturado da trilha (`infra.exportador_trilha`).
+    Devolve o caminho da transcrição (para quem quiser inspecionar/anexar).
 
     `portal` é o ponto de injeção do teste (`FakePortalDeCotacao`) — por padrão fala com a
-    `/quote` de verdade via `ClienteQuoteHTTP`."""
+    `/quote` de verdade via `ClienteQuoteHTTP`. `trilha`, mesma ideia, para injetar um repositório
+    em memória no teste — por padrão grava de verdade em `examples/trilha_<conversation_id>.jsonl`.
+    """
     transcricao = _Transcricao()
     conversation_id = f"conv-{uuid.uuid4().hex[:8]}"
     transcricao.emitir(f"=== Agente de cotação — conversa {conversation_id} ===")
@@ -106,9 +116,15 @@ def rodar_conversa(entrada=input, base_url: str | None = None, portal=None) -> P
 
     if portal is None:
         portal = ClienteQuoteHTTP(base_url or os.environ.get("QUOTE_SERVICE_URL", "http://localhost:8000"))
+
+    repositorio_trilha = None
+    if trilha is None:
+        repositorio_trilha = RepositorioDeTrilhaJSONL(RAIZ / "examples" / f"trilha_{conversation_id}.jsonl")
+        trilha = ServicoDeTrilha(repositorio_trilha)
+
     transcricao.emitir()
     transcricao.emitir("Consultando a /quote...")
-    turno = conduzir_conversa(portal, estado)
+    turno = conduzir_conversa(portal, estado, trilha=trilha)
 
     transcricao.emitir()
     transcricao.emitir(f"decisão: {turno.decisao.tipo.value}"
@@ -119,6 +135,12 @@ def rodar_conversa(entrada=input, base_url: str | None = None, portal=None) -> P
     transcricao.salvar(caminho)
     transcricao.emitir()
     transcricao.emitir(f"(log salvo em {caminho.relative_to(RAIZ)})")
+
+    if repositorio_trilha is not None:
+        caminho_estruturado = RAIZ / "examples" / f"trilha_{conversation_id}.log"
+        caminho_estruturado.write_text(exportar_execucao(conversation_id, repositorio_trilha), encoding="utf-8")
+        print(f"(trilha estruturada salva em {caminho_estruturado.relative_to(RAIZ)})")
+
     return caminho
 
 

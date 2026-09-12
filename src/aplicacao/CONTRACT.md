@@ -35,3 +35,44 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 - 2026-09-12 — `aplicacao/portas/` nasce pacote (um arquivo por porta), não módulo único, para F3 e
   F4 não colidirem rodando em paralelo — decisão R3 em #16, ratificando a interpretação B do PLANO
   da #7.
+
+---
+
+## Seção F3/#6 — `PortalDeCotacao` e `servico_conversa` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `aplicacao.portas.portal_de_cotacao.PortalDeCotacao` — a porta do cliente da `/quote`.
+- `aplicacao.servico_conversa` — o caso de uso principal (F5/#8, absorvida): `conduzir_conversa`
+  orquestra `dominio.politica`/`dominio.redator`/`dominio.validacao` + `PortalDeCotacao`, e — depois
+  da costura pós-merge da F4/#31 — grava a trilha via `ServicoDeTrilha` (nunca chama
+  `RepositorioDeTrilha` direto, nunca redige PII por conta própria).
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-3 | `conduzir_conversa` nunca monta texto de cotação fora de `dominio.redator.montar_mensagem` — um `preco` de tipo errado tem que atravessar como `TypeError`, nunca virar texto fabricado | `tests/aplicacao/test_servico_conversa.py::test_preco_de_tipo_errado_atravessa_a_integracao_como_typeerror_nunca_como_texto` |
+| I-4 | Um evento `tentativa_de_cotacao` por TENTATIVA HTTP, não por cotação (ESPECIFICACAO.md §1) | `tests/aplicacao/test_servico_conversa_trilha.py::test_uma_tentativa_de_cotacao_por_tentativa_http_de_verdade_nao_por_cotacao` |
+| I-5 | `mensagem_enviada` com valor monetário sempre tem `quote_attempt_id` de uma tentativa de sucesso correspondente | `tests/aplicacao/test_servico_conversa_trilha.py::test_mensagem_com_valor_monetario_tem_quote_attempt_id_de_tentativa_correspondente` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.portal_de_cotacao.PortalDeCotacao` — `Protocol` com
+  `cotar(payload: dict, conversation_id: str, on_tentativa: Callable[..., None] | None = None) -> dominio.resultado_cotacao.ResultadoDaCotacao`.
+  `on_tentativa` tipado solto de propósito (duck typing) — o formato real da observação
+  (`infra.cliente_quote.TentativaObservada`) é de `infra`, e esta camada nunca importa `infra`.
+- `aplicacao.servico_conversa.montar_estado(conversation_id: str, dados: dict) -> dominio.estado_conversa.EstadoDaConversa`.
+- `aplicacao.servico_conversa.conduzir_conversa(portal: PortalDeCotacao, estado: EstadoDaConversa, trilha: ServicoDeTrilha | None = None) -> TurnoDaConversa`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Elegibilidade (idade, ano do veículo, região) — decidida pela `/quote`, nunca replicada aqui.
+- Formato dos campos de proveniência da trilha (`decisao_id`, `regra_aplicada` etc.) — o VOCABULÁRIO
+  é de `dominio/eventos_trilha.py` (F4); esta seção só preenche os valores.
+
+### Decisões registradas
+
+- 2026-09-12 — Sem trilha no commit original desta frente (F4/#31 ainda não tinha mergeado);
+  costurada num commit próprio depois, sem alterar nenhuma linha alheia deste arquivo — decisão da
+  coordenação, não redecisão de escopo.

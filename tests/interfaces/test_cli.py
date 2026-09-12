@@ -89,3 +89,22 @@ def test_rodar_conversa_encaminha_quando_a_quote_esta_indisponivel(tmp_path, mon
     conteudo = caminho.read_text(encoding="utf-8")
     assert "encaminhar" in conteudo
     assert "quote_indisponivel" in conteudo
+
+
+def test_rodar_conversa_grava_a_trilha_estruturada_por_padrao(tmp_path, monkeypatch):
+    """Sem passar `trilha=`, a CLI grava sozinha em examples/trilha_<id>.jsonl (RAIZ monkeypatchada
+    para tmp_path) e exporta o log estruturado via infra.exportador_trilha — issue #7 costurada."""
+    import interfaces.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "RAIZ", tmp_path)
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.sucesso(_PRECO)])
+
+    caminho = rodar_conversa(entrada=_respostas("30", "2020", "01310-100", "essencial", ""), portal=portal)
+
+    conversation_id = caminho.stem.removeprefix("execucao_")
+    jsonl = tmp_path / "examples" / f"trilha_{conversation_id}.jsonl"
+    estruturado = tmp_path / "examples" / f"trilha_{conversation_id}.log"
+    assert jsonl.exists() and jsonl.stat().st_size > 0
+    assert estruturado.exists()
+    assert "mensagem_enviada" in estruturado.read_text(encoding="utf-8")
+    assert "01310-100" not in jsonl.read_text(encoding="utf-8"), "CEP em claro no arquivo de trilha"
