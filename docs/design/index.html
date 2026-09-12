@@ -134,6 +134,44 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
   .campo .rot{color:var(--texto-mais-fraco)}
   .campo .val{font-family:var(--mono);font-size:12.5px}
   .falta{color:var(--alerta)}
+
+  /* marcar erro → proveniência → correção (mesmo laço do Rastreio) */
+  .marcar{background:none;border:1px dashed var(--borda);color:var(--texto-mais-fraco);border-radius:8px;
+          padding:3px 9px;font:inherit;font-size:11px;cursor:pointer;align-self:flex-end}
+  .marcar:hover{border-color:var(--falha);color:var(--falha)}
+  .prov{align-self:stretch;margin-top:4px;border:1px solid rgba(255,92,122,.4);border-radius:12px;overflow:hidden}
+  .prov > header{background:rgba(255,92,122,.10);color:var(--falha);padding:7px 12px;font-size:10.5px;
+          letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .prov .corpo{padding:11px 12px;display:grid;gap:8px}
+  .prov .par{display:grid;grid-template-columns:132px 1fr;gap:10px;font-size:12px}
+  .prov .rot{color:var(--texto-mais-fraco);font-family:var(--mono);font-size:10.5px;text-transform:uppercase}
+  .prov .val{font-family:var(--mono);font-size:12px}
+  .prov .correcao{border-top:1px solid var(--borda);padding-top:9px;display:grid;gap:7px}
+  .prov .campo-texto{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;
+          padding:8px 11px;color:var(--texto-fraco);font-size:12.5px}
+  .prov .acoes{display:flex;gap:7px;flex-wrap:wrap}
+  .bt{border:1px solid var(--borda);background:var(--superficie-2);color:var(--texto);border-radius:9px;
+      padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .bt.forte{border-color:rgba(255,0,255,.5);background:rgba(255,0,255,.12)}
+
+  /* marcar erro → proveniência → correção (mesmo laço do Rastreio) */
+  .marcar{background:none;border:1px dashed var(--borda);color:var(--texto-mais-fraco);border-radius:8px;
+          padding:3px 9px;font:inherit;font-size:11px;cursor:pointer;align-self:flex-end}
+  .marcar:hover{border-color:var(--falha);color:var(--falha)}
+  .prov{align-self:stretch;margin-top:4px;border:1px solid rgba(255,92,122,.4);border-radius:12px;overflow:hidden}
+  .prov > header{background:rgba(255,92,122,.10);color:var(--falha);padding:7px 12px;font-size:10.5px;
+          letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+  .prov .corpo{padding:11px 12px;display:grid;gap:8px}
+  .prov .par{display:grid;grid-template-columns:132px 1fr;gap:10px;font-size:12px}
+  .prov .rot{color:var(--texto-mais-fraco);font-family:var(--mono);font-size:10.5px;text-transform:uppercase}
+  .prov .val{font-family:var(--mono);font-size:12px}
+  .prov .correcao{border-top:1px solid var(--borda);padding-top:9px;display:grid;gap:7px}
+  .prov .campo-texto{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;
+          padding:8px 11px;color:var(--texto-fraco);font-size:12.5px}
+  .prov .acoes{display:flex;gap:7px;flex-wrap:wrap}
+  .bt{border:1px solid var(--borda);background:var(--superficie-2);color:var(--texto);border-radius:9px;
+      padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .bt.forte{border-color:rgba(255,0,255,.5);background:rgba(255,0,255,.12)}
 </style>
 </head>
 <body>
@@ -193,19 +231,91 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
           <div class="msg lead"><div class="balao">Oi, queria fazer um seguro pro meu carro</div>
             <div class="rodape-msg"><span>09:14:02</span><span>msg_01</span></div></div>
           <div class="msg agente"><div class="balao">Olá! Posso ajudar. Qual o modelo e o ano do veículo?</div>
-            <div class="rodape-msg"><span>09:14:03</span><span>msg_02</span></div></div>
+            <div class="rodape-msg"><span>09:14:03</span><span>msg_02</span></div>
+            <button class="marcar" data-msg="msg_02">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_02" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">coletar_informacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">faltam veiculo_ano, idade, cep, plano</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · abertura</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">nenhum dado do lead ainda</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div>
+            <button class="marcar" data-msg="msg_02">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_02" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">coletar_informacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">faltam veiculo_ano, idade, cep, plano</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · abertura</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">nenhum dado do lead ainda</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div></div>
           <div class="estado-interno">estado: coletando dados · faltam idade, CEP, plano</div>
           <div class="msg lead"><div class="balao">é um Sandero 2022</div>
             <div class="rodape-msg"><span>09:14:41</span><span>msg_03</span></div></div>
           <div class="msg agente"><div class="balao">Perfeito. Para cotar certinho preciso da sua idade e do CEP onde o carro dorme.
             <em>Não preciso do seu CPF.</em></div>
-            <div class="rodape-msg"><span>09:14:42</span><span>msg_04</span></div></div>
+            <div class="rodape-msg"><span>09:14:42</span><span>msg_04</span></div>
+            <button class="marcar" data-msg="msg_04">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_04" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">coletar_informacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">minimização: CPF não é pedido, a cotação não usa</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · pedido de dados</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">veiculo_ano 2022 conhecido</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div>
+            <button class="marcar" data-msg="msg_04">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_04" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">coletar_informacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">minimização: CPF não é pedido, a cotação não usa</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · pedido de dados</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">veiculo_ano 2022 conhecido</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div></div>
           <div class="msg lead"><div class="balao">tenho 30 anos, cep <span class="mascarado" title="o valor original nunca é gravado">07***-**4</span></div>
             <div class="rodape-msg"><span>09:15:20</span><span>msg_05</span></div></div>
           <div class="estado-interno">estado: cotando · 1ª tentativa 503 · 2ª tentativa 200 · qa_7d31</div>
           <div class="msg agente"><div class="balao">Consegui o plano <strong>Completo</strong> por <strong>R$ 272,87/mês</strong>,
             franquia de R$ 3.000. Roubo e furto passam a valer após 30 dias de carência.</div>
-            <div class="rodape-msg"><span>09:15:22</span><span>msg_06</span><span>preço de qa_7d31</span></div></div>
+            <div class="rodape-msg"><span>09:15:22</span><span>msg_06</span><span>preço de qa_7d31</span></div>
+            <button class="marcar" data-msg="msg_06">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_06" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">explicar_cotacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">carência de 30 dias é informada sem o lead perguntar</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · o LLM nunca escreve preço</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">qa_7d31 · prêmio 272,87 · franquia 3.000</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div>
+            <button class="marcar" data-msg="msg_06">⚑ marcar como erro</button>
+            <div class="prov" id="prov-msg_06" hidden><header>de onde veio esta resposta</header><div class="corpo">
+              <div class="par"><span class="rot">decisão</span><span class="val">explicar_cotacao</span></div>
+              <div class="par"><span class="rot">regra aplicada</span><span class="val">carência de 30 dias é informada sem o lead perguntar</span></div>
+              <div class="par"><span class="rot">texto veio de</span><span class="val">redator determinístico · o LLM nunca escreve preço</span></div>
+              <div class="par"><span class="rot">dados usados</span><span class="val">qa_7d31 · prêmio 272,87 · franquia 3.000</span></div>
+              <div class="correcao">
+                <div class="par"><span class="rot">deveria ter feito</span>
+                  <span class="campo-texto">descreva o comportamento correto — vira o caso de teste</span></div>
+                <div class="acoes"><button class="bt forte">Registrar correção</button>
+                  <button class="bt">Virar caso na Avaliação</button><button class="bt">Abrir achado</button></div>
+              </div></div></div></div>
           <div class="estado-interno">decisão: explicar_cotacao</div>
         </div>
         <div class="composicao"><span class="caixa">O agente responde automaticamente — este console é de leitura</span>
@@ -229,5 +339,21 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
     A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
 </main>
 </div>
+<script>
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('.marcar'); if(!b) return;
+  const p = document.getElementById('prov-' + b.dataset.msg);
+  p.hidden = !p.hidden;
+  b.textContent = p.hidden ? '⚑ marcar como erro' : '✕ fechar proveniência';
+});
+</script>
+<script>
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('.marcar'); if(!b) return;
+  const p = document.getElementById('prov-' + b.dataset.msg);
+  p.hidden = !p.hidden;
+  b.textContent = p.hidden ? '⚑ marcar como erro' : '✕ fechar proveniência';
+});
+</script>
 </body>
 </html>
