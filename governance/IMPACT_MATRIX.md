@@ -13,7 +13,8 @@ mudança aqui exige companion obrigatório na prova (Prova 1) e o olho do dono n
 |---|---|---|---|---|
 | _(exemplo)_ `pricing` | `src/pricing/` | `reservas`, `financeiro` | `node --test tests/reservas.test.mjs tests/financeiro.test.mjs` | sim |
 | `dominio` | `src/dominio/` | `aplicacao` (F3, #6 — ainda não existe), `infra`/`interfaces` (F4/F5, #7/#8) | `pytest tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
-| `aplicacao.portas.portal_de_cotacao` / `infra.cliente_quote` | `src/aplicacao/portas/portal_de_cotacao.py`, `src/infra/cliente_quote.py` | `dominio.resultado_cotacao`/`dominio.preco_cotado` (consome, não replica — LEI 11); `interfaces` (F5, #8 — ainda não existe, vai consumir a porta na CLI) | `pytest tests/infra/test_cliente_quote.py tests/aplicacao/test_portal_de_cotacao.py tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
+| `aplicacao.portas.portal_de_cotacao` / `infra.cliente_quote` | `src/aplicacao/portas/portal_de_cotacao.py`, `src/infra/cliente_quote.py` | `dominio.resultado_cotacao`/`dominio.preco_cotado` (consome, não replica — LEI 11); `aplicacao.servico_conversa`/`interfaces.cli` (consomem a porta) | `pytest tests/infra/test_cliente_quote.py tests/aplicacao/ tests/interfaces/ tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
+| `aplicacao.servico_conversa` / `interfaces.cli` | `src/aplicacao/servico_conversa.py`, `src/interfaces/cli.py` | `dominio.politica`/`dominio.redator`/`dominio.validacao` (decide e escreve, nunca reimplementado aqui); `aplicacao.portas.portal_de_cotacao` (só a porta, nunca `infra` direto de `aplicacao`) | `pytest tests/aplicacao/test_servico_conversa.py tests/interfaces/test_cli.py tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
 |  |  |  |  |  |
 
 ## Regras

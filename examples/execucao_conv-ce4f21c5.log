@@ -1,0 +1,18 @@
+=== Agente de cotação — conversa conv-ce4f21c5 ===
+iniciado em 2026-09-12T18:18:35.216215+00:00
+
+Qual a sua idade?
+> 30
+Ano do veículo?
+> 2020
+Qual o seu CEP? (formato 00000-000)
+> 01310-100
+Qual plano? (essencial/completo/premium — Enter para essencial)
+> completo
+Data de início? (AAAA-MM-DD — Enter para não informar)
+> 2026-10-15
+
+Consultando a /quote...
+
+decisão: explicar_cotacao
+agente: Plano Completo: R$ 241.38/mês, franquia R$ 3000.00. Coberturas: colisao, roubo, furto, terceiros, vidros. Carência de 30 dias para: roubo, furto. Primeiro pagamento proporcional: R$ 132.37 (17 de 31 dias).
