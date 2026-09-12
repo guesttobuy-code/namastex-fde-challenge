@@ -29,6 +29,13 @@ individual, não a conversa — o lead via 8 segundos de silêncio numa fração
 **3s de timeout por tentativa, até 3 tentativas, espera de 0,4s e 0,8s entre elas, orçamento total
 de ~10s** (`timeout_da_tentativa = min(3s, orçamento_restante)`, nunca ultrapassa o orçamento).
 
+**Precisão medida (achado da auditoria do PR #35, contra a trilha real):** os 3s não são parede
+dura por tentativa — é o `timeout` do `urllib`, que vale por operação de socket (conectar/ler), não
+um cronômetro de parede sobre a chamada inteira. Uma tentativa real chegou a **3617ms**
+(`examples/trilha_conv-7c44f694.jsonl`), ~600ms além do nominal. O que segura de verdade é o
+**orçamento total** (10s), provado por medição de tempo de parede real (abaixo) — nenhuma execução
+observada ultrapassou isso.
+
 Por quê: a política de 3s corta a cauda de 8,00s para 1,23s no p90 — o lead deixa de ver oito
 segundos de silêncio — sem custar confiabilidade (148 vs. 147/149 em 150 ciclos é ruído) nem
 chamadas a mais (1,31 contra 1,35/1,39). Nenhuma das três é estritamente dominante em todas as

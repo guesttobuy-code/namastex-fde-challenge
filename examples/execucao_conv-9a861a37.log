@@ -1,5 +1,5 @@
-=== Agente de cotação — conversa conv-7c44f694 ===
-iniciado em 2026-09-12T18:56:04.312585+00:00
+=== Agente de cotação — conversa conv-9a861a37 ===
+iniciado em 2026-09-12T19:47:44.057292+00:00
 
 Qual a sua idade?
 > 30
@@ -15,4 +15,4 @@ Data de início? (AAAA-MM-DD — Enter para não informar)
 Consultando a /quote...
 
 decisão: encaminhar (reason_code=quote_indisponivel)
-agente: Não consegui fechar sua cotação agora — vou encaminhar para um atendente (motivo: quote_indisponivel).
+agente: Não consegui fechar sua cotação agora — vou encaminhar para um atendente.

@@ -146,3 +146,35 @@ def test_sem_trilha_conduzir_conversa_continua_funcionando_igual_a_antes():
 
     assert turno.texto
     assert "Completo" in turno.texto
+
+
+def test_payload_enviado_a_quote_carrega_o_cep_real_nunca_o_redigido():
+    """Achado da auditoria do PR #35: nada garante hoje que uma futura mudança não faça a
+    redação da trilha vazar para o payload de saída — o que quebraria a /quote em silêncio (CEP
+    [REDIGIDO] não bate no formato, handoff ou preço errado). Este teste espia o TRANSPORTE HTTP
+    (não a trilha) e prova que o CEP que chega lá é o real, mesmo com a trilha ligada no mesmo
+    fluxo."""
+    payloads_capturados: list[dict] = []
+
+    def transporte_espiao(payload: dict, timeout_segundos: float) -> RespostaBruta:
+        payloads_capturados.append(payload)
+        return RespostaBruta(
+            status_code=200,
+            corpo={
+                "plano_id": "completo", "plano_nome": "Completo", "premio_mensal": 241.38,
+                "franquia": 3000.0, "coberturas": ["colisao", "roubo"], "moeda": "BRL",
+            },
+        )
+
+    cliente = ClienteQuoteHTTP("http://quote.invalido", transporte=transporte_espiao)
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+    estado = montar_estado("conv-payload-real", DADOS_COMPLETOS)
+
+    conduzir_conversa(cliente, estado, trilha=trilha)
+
+    assert len(payloads_capturados) == 1
+    assert payloads_capturados[0]["cep"] == "01310-100"
+    # e, ainda assim, a trilha grava redigido -- as duas coisas têm que ser verdade ao mesmo tempo.
+    (recebida,) = [e for e in repositorio.eventos_da_conversa("conv-payload-real") if e["evento"] == "mensagem_recebida"]
+    assert "01310-100" not in recebida["texto"]

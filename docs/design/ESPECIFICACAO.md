@@ -37,6 +37,13 @@ Arquivo append-only em JSONL. Um evento por linha. Campos comuns a todos:
 > **Invariante testável:** mensagem cujo texto contenha valor monetário **e** não tenha `quote_attempt_id`
 > correspondente a uma cotação com sucesso é erro de sistema, não de conteúdo. É o mesmo teste da F2/F5.
 
+> **Terceira forma de `origem_do_texto` (acréscimo da F3/#6, achado da auditoria do PR #35):** além de
+> `redator_deterministico:<modelo>` e `llm:<modelo>@<versao_prompt>`, existe `texto_fixo:<módulo>@<versão>`
+> (ex.: `texto_fixo:aplicacao.servico_conversa@v1`) — para texto que não vem de um redator nem de um LLM,
+> mas é fixo no código (ex.: pedido de mais dados, aviso de encaminhamento). `<módulo>` é o caminho real
+> de onde o texto está escrito, para o dono clicar na mensagem errada no Rastreio e cair no arquivo certo
+> — nunca a camada de I/O que só exibe (a CLI, por exemplo, não é dona de nenhum texto fixo).
+
 ### `tentativa_de_cotacao` — cada chamada, não cada cotação
 
 `numero_da_tentativa` · `http_status` · `classificacao` (`sucesso` · `recusa_de_negocio` · `erro_de_payload` ·

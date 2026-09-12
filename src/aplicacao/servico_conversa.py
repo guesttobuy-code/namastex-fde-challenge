@@ -72,10 +72,10 @@ def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) ->
         case TipoDecisao.ENCERRAR:
             return resultado.motivo
         case TipoDecisao.ENCAMINHAR:
-            return (
-                "Não consegui fechar sua cotação agora — vou encaminhar para um atendente "
-                f"(motivo: {decisao.reason_code.value})."
-            )
+            # O reason_code NUNCA vai no texto ao lead (achado da auditoria do PR #35): é
+            # identificador interno do operador, e vazaria pro WhatsApp do cliente. Ele continua
+            # em `decisao.reason_code` (evento `handoff`) e em `_regra_aplicada` — só não aqui.
+            return "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."
         case _:
             raise AssertionError(f"TipoDecisao sem texto mapeado neste caso de uso: {decisao.tipo!r}")
 
@@ -138,7 +138,10 @@ def _origem_do_texto(decisao: Decisao) -> str:
     if decisao.tipo == TipoDecisao.ENCERRAR:
         # o texto é o `motivo` que veio verbatim da /quote (CotacaoRecusada) — não é nosso redator.
         return "quote_service:motivo_recusa"
-    return "texto_fixo_da_cli:v1"
+    # Achado da auditoria do PR #35: o texto fixo mora AQUI (aplicacao.servico_conversa), não na
+    # CLI — a etiqueta tem que apontar pro arquivo que o dono precisa editar, não pra camada de
+    # I/O que só exibe. ESPECIFICACAO.md §1 ganhou esta terceira forma de origem, por acréscimo.
+    return "texto_fixo:aplicacao.servico_conversa@v1"
 
 
 def _dados_usados(estado: EstadoDaConversa, resultado: ResultadoDaCotacao | None) -> tuple[str, ...]:

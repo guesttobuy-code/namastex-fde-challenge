@@ -67,7 +67,9 @@ def test_indisponivel_encaminha_com_reason_code_fechado():
 
     assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
     assert turno.decisao.reason_code == MotivoHandoff.QUOTE_INDISPONIVEL
-    assert "quote_indisponivel" in turno.texto
+    # Achado da auditoria do PR #35: reason_code NUNCA no texto ao lead (vazaria identificador
+    # interno pro WhatsApp do cliente) — só em decisao.reason_code (evento handoff/regra_aplicada).
+    assert "quote_indisponivel" not in turno.texto
 
 
 def test_timeout_encaminha_com_reason_code_fechado():
@@ -127,3 +129,26 @@ def test_preco_de_tipo_errado_atravessa_a_integracao_como_typeerror_nunca_como_t
 
     with pytest.raises(TypeError, match="montar_mensagem só aceita PrecoCotado"):
         conduzir_conversa(portal, estado)
+
+
+@pytest.mark.parametrize(
+    "resultado",
+    [
+        ResultadoDaCotacao.indisponivel("upstream respondeu 502"),
+        ResultadoDaCotacao.timeout("orcamento de retry esgotado"),
+        ResultadoDaCotacao.erro_de_payload("data_inicio invalida"),
+    ],
+    ids=["indisponivel", "timeout", "erro_de_payload"],
+)
+def test_texto_ao_lead_num_handoff_nunca_contem_nenhum_valor_de_motivohandoff(resultado):
+    """Achado da auditoria do PR #35: reason_code é identificador INTERNO do operador — se
+    vazasse pro texto ao lead, apareceria literal no WhatsApp do cliente. Cobre os três motivos
+    fechados do Enum, não só o que o achado citou."""
+    portal = FakePortalDeCotacao(roteiro=[resultado])
+    estado = montar_estado("conv-1", DADOS_COMPLETOS)
+
+    turno = conduzir_conversa(portal, estado)
+
+    assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
+    for motivo in MotivoHandoff:
+        assert motivo.value not in turno.texto, f"{motivo.value!r} vazou pro texto ao lead: {turno.texto!r}"
