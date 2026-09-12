@@ -6,8 +6,14 @@
  * ORDEM DE RESOLUÇÃO (a mesma nos dois consumidores — dono único, não dois palpites que divergem):
  *   1. `<projeto>/.venv/Scripts/python.exe` (venv, Windows)
  *   2. `<projeto>/.venv/bin/python` (venv, POSIX)
- *   3. `python` no PATH
- *   4. `py -3` no PATH (launcher do Windows)
+ *   3. `python3` no PATH
+ *   4. `python` no PATH
+ *   5. `py -3` no PATH (launcher do Windows)
+ * `python3` vem ANTES de `python` (não depois): `python3` é inequívoco (sempre Python 3), enquanto
+ * `python` sem versão é o nome historicamente ambíguo (podia apontar pra Python 2 num sistema legado)
+ * — não faz sentido um `python` ambíguo vencer um `python3` inequívoco quando os dois existem no PATH.
+ * Sem `python3` na lista, `resolverPython()` nunca achava Python em container Debian/Ubuntu (só tem
+ * `/usr/bin/python3`, nunca `python`/`py`) — bug de PRODUÇÃO, não só de self-test (issue #27).
  * O primeiro candidato que responde a `--version` com exit 0 vence. Devolve `{ cmd, args }` pronto pra
  * `spawnSync(cmd, [...args, ...resto])`, ou `null` se NENHUM candidato respondeu — quem chama trata
  * `null` como "ferramenta ausente" (NÃO MEDIU explícito, nunca verde por ausência de ferramenta — LEI DO
@@ -26,6 +32,7 @@ const CANDIDATOS_VENV = [
 export function resolverPython(cwd = process.cwd()) {
   const candidatos = [
     ...CANDIDATOS_VENV.map((partes) => ({ cmd: join(cwd, ...partes), args: [], ehCaminho: true })),
+    { cmd: 'python3', args: [], ehCaminho: false },
     { cmd: 'python', args: [], ehCaminho: false },
     { cmd: 'py', args: ['-3'], ehCaminho: false },
   ];
