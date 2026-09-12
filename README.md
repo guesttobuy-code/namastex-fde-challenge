@@ -25,7 +25,10 @@ docker compose up --build
 # API em http://localhost:8000
 
 # 2. roda uma conversa completa (comando real, docstring de src/interfaces/cli.py:9-13)
+# macOS/Linux (bash/zsh):
 PYTHONPATH=src python -m interfaces.cli
+# Windows (PowerShell):
+$env:PYTHONPATH = "src"; python -m interfaces.cli
 ```
 
 O agente pergunta idade, ano do veículo, CEP (obrigatórios), plano e data de início (opcionais, Enter
@@ -33,11 +36,18 @@ pula) — nessa ordem (`src/interfaces/cli.py::coletar_dados`, linhas 72-96). Pa
 digitar:
 
 ```bash
+# macOS/Linux
 echo "35
 2022
 01310-100
 completo
 2026-07-15" | PYTHONPATH=src python -m interfaces.cli
+```
+
+```powershell
+# Windows PowerShell
+$env:PYTHONPATH = "src"
+"35`n2022`n01310-100`ncompleto`n2026-07-15`n" | python -m interfaces.cli
 ```
 
 Cada execução grava, em `examples/`: a transcrição (`execucao_<id>.log`), a trilha bruta
