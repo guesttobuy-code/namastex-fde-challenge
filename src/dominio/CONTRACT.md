@@ -45,3 +45,22 @@
   Enum fechado, dono deste módulo; `erro_de_payload`/`timeout` viram `ENCAMINHAR`.
 - F4 (#7) acrescenta uma seção própria ao final deste arquivo depois que a F2 mergear (R2, #16) —
   append no fim, nunca editando as seções acima.
+
+---
+
+## Seção da F4 (issue #7) — eventos da trilha e redator de PII
+
+**Dono:** `src/dominio/eventos_trilha.py`, `src/dominio/redator_pii.py`.
+
+- O formato dos 7 eventos da trilha auditável (`mensagem_recebida`, `mensagem_enviada`,
+  `tentativa_de_cotacao`, `decisao`, `handoff`, `erro_marcado`, `correcao_registrada`) e a lógica
+  pura de mascaramento de PII (`redigir_texto`). Nenhum outro módulo decide esses dois formatos.
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-5 | `redigir_texto` nunca deixa CPF, CEP, telefone, e-mail ou placa (formatos medidos) sobreviver na saída | `tests/dominio/test_redator_pii.py` |
+| I-6 | `(?i)` só é load-bearing em padrão com letra (placa, e-mail, nome via `nomes_conhecidos`) — em CPF/CEP/telefone (só dígito) é redundante, não corretivo | `test_padrao_de_cpf_nao_depende_de_case_por_nao_ter_letra` / `test_padrao_de_placa_precisa_de_case_insensitive_porque_tem_letra` |
+| I-7 | `Handoff.reason_code` guarda `str` (o `.value` do `MotivoHandoff` desta camada), nunca importa o Enum | `tests/dominio/test_eventos_trilha.py::test_handoff_guarda_reason_code_como_string_nunca_enum` |
+
+A garantia de que nada escapa do redator (todo campo textual de um evento passa por `redigir_texto`
+antes de qualquer escrita) é de `aplicacao.ServicoDeTrilha` — ver `src/aplicacao/CONTRACT.md`, I-1.
