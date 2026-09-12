@@ -31,12 +31,17 @@
  *   `.venv` (gitignored) nunca existia lá, e `resolverPython(replica)` caía pro Python do sistema (sem
  *   ruff/pytest, por decisão do dono de não instalar nada global). Todo PR Python com teste+fonte no
  *   diff saía `FERRAMENTA_AUSENTE` sempre, mesmo com o `.venv` do repo real instalado e funcionando —
- *   guard que não consegue medir não é limite, é guard morto. Corrigido com o MESMO padrão que já
- *   existe para `node_modules` linhas abaixo: `mklink /J .venv` pra dentro da réplica, só quando
- *   `.venv` existe no repo e não existe na réplica — nenhum comportamento novo pra JS/TS. LIMITE
- *   DECLARADO: a réplica passa a compartilhar o mesmo `.venv` do repositório real, não um isolado —
- *   aceitável porque o teste só LÊ o venv (não instala/desinstala nada nele). Reportado ao kit
- *   (`projeto-base`) pela coordenação; não reverter sem consultar.
+ *   guard que não consegue medir não é limite, é guard morto. Corrigido linkando `.venv` pra dentro da
+ *   réplica, só quando `.venv` existe no repo e não existe na réplica — nenhum comportamento novo pra
+ *   JS/TS. LIMITE DECLARADO: a réplica passa a compartilhar o mesmo `.venv` do repositório real, não um
+ *   isolado — aceitável porque o teste só LÊ o venv (não instala/desinstala nada nele). **Correção da
+ *   auditoria fria (issue #27, 2026-09-12):** a implementação original usava `cmd /c mklink /J`
+ *   (Windows-only) tanto para `.venv` quanto para `node_modules` (linhas abaixo) — em Linux o `cmd` não
+ *   existe, o `catch` engolia o `ENOENT` (comportamento correto de fallback), mas o caso de self-test
+ *   que afirma a junção acontecendo nunca tinha rodado fora do Windows e falhava lá. As duas trocaram
+ *   `execFileSync('cmd', [...])` por `fs.symlinkSync(alvo, destino, 'junction')` — junção no Windows,
+ *   link simbólico no POSIX (o `type` é ignorado fora do Windows), sem depender de `cmd`. Reportado ao
+ *   kit (`projeto-base`) pela coordenação; não reverter sem consultar.
  *
  * CONTRA-PROVA: `node guards/companion-red-green.mjs --self-test` — monta um repo temporário real
  *   com fonte quebrada → conserto + teste, e prova PROVOU_O_FIX; depois um teste que passa na base
@@ -44,7 +49,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, mkdirSync, copyFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -137,7 +142,12 @@ function rodarTestes(cwd, arquivos, cmd, stackPython, resolver = resolverPython)
 function linkarVenvNaReplica(repo, replica) {
   const venv = join(repo, '.venv');
   if (existsSync(venv) && !existsSync(join(replica, '.venv'))) {
-    try { execFileSync('cmd', ['/c', 'mklink', '/J', join(replica, '.venv'), venv], { stdio: 'ignore' }); } catch { /* ignora-de-proposito: sem junction: cai pro python/py do sistema */ }
+    // fs.symlinkSync com type 'junction': cria JUNÇÃO no Windows, LINK SIMBÓLICO no POSIX (o `type` é
+    // ignorado fora do Windows) — uma chamada só, sem depender de `cmd` (que não existe em Linux; achado
+    // da auditoria fria, issue #27/#25: `execFileSync('cmd', ...)` sempre falhava com ENOENT lá, o catch
+    // engolia em silêncio, e o caso de self-test que afirma o link acontecendo nunca tinha sido provado
+    // fora do Windows).
+    try { symlinkSync(venv, join(replica, '.venv'), 'junction'); } catch { /* ignora-de-proposito: sem link: cai pro python/py do sistema */ }
   }
 }
 
@@ -159,7 +169,9 @@ export function medir({ repo, base, cmd = null, incluirIndex = true } = {}) {
     git(['worktree', 'add', '--detach', replica, mergeBase], repo);
     const nm = join(repo, 'node_modules');
     if (existsSync(nm) && !existsSync(join(replica, 'node_modules'))) {
-      try { execFileSync('cmd', ['/c', 'mklink', '/J', join(replica, 'node_modules'), nm], { stdio: 'ignore' }); } catch { /* ignora-de-proposito: sem junction: o teste roda sem deps */ }
+      // Mesmo conserto do .venv logo acima (issue #27): symlinkSync(..., 'junction') em vez de
+      // `cmd /c mklink /J`, que não existe fora do Windows.
+      try { symlinkSync(nm, join(replica, 'node_modules'), 'junction'); } catch { /* ignora-de-proposito: sem link: o teste roda sem deps */ }
     }
     linkarVenvNaReplica(repo, replica);
     for (const t of testes) {
