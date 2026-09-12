@@ -1,0 +1,68 @@
+name: Auditoria vigente
+
+# O veredito do passo 4 vira estado no servidor: commit status `auditoria-vigente` no head.sha do PR.
+#
+# ARQUIVO SEPARADO do esteira.yml de propósito: precisa do gatilho `issue_comment`, e num evento
+# desses não existe `github.event.pull_request` — `null == false` é VERDADEIRO e todos os jobs do
+# outro workflow rodariam a cada comentário.
+#
+# COMMIT STATUS, não resultado de job: num `issue_comment` o check run nasce colado ao sha da
+# branch default, não ao do PR — só a Statuses API escreve no commit certo. É esse contexto que o
+# dono põe (ou não) em `required_status_checks`.
+#
+# LIMITE: `issue_comment` só dispara a partir da branch default. Antes de o workflow estar na
+# default, o comentário do auditor não recalcula sozinho — `gh run rerun <run-id do último run de
+# pull_request>` recalcula com o mesmo HEAD.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created, edited]
+  push:
+    paths:
+      - '.github/workflows/auditoria-vigente.yml'
+      - './scripts/esteira/guards/auditoria-vigente.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auditoria-vigente-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: "."
+
+jobs:
+  auditoria-vigente-self-test:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Self-test do motor de veredito
+        run: node scripts/esteira/guards/auditoria-vigente.mjs --self-test
+
+  # sufixo -runner de propósito: o contexto que carrega o veredito é o commit status
+  # `auditoria-vigente`; dois contextos com o mesmo nome confundiriam a branch protection.
+  # Este job é sempre verde — quem reprova é o status.
+  auditoria-vigente-runner:
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Veredito vigente para o HEAD do PR
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: node scripts/esteira/guards/auditoria-vigente.mjs --pr "$PR_NUMBER" --write-status

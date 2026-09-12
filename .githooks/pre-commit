@@ -1,0 +1,3 @@
+#!/bin/sh
+# pre-commit da esteira -base: os portoes do repo antes de cada commit. Nunca --no-verify.
+npm run -s full-check || { echo "[pre-commit] full-check reprovou. Conserte; nao use --no-verify."; exit 1; }

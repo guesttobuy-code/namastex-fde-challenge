@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/guesttobuy-code/projeto-base/main/docs/esteira.schema.json",
+  "projeto": "namastex-fde-challenge",
+  "repo": "guesttobuy-code/namastex-fde-challenge",
+  "remote": "origin",
+  "branch_base": "main",
+  "wt_root": "C:/base-wt/namastex-fde-challenge",
+  "codigo": ".",
+  "coordenacao_issue": 16,
+  "notebooklm_id": "",
+  "vault_dir": "C:/base-vault/namastex-fde-challenge",
+  "stack": "python",
+  "labels": {
+    "frente": "frente:",
+    "turno": [
+      "turno:autor",
+      "turno:auditoria",
+      "turno:dono"
+    ],
+    "passo2": [
+      "pronto:ok",
+      "analise:ok"
+    ],
+    "areas": [
+      "area:agente",
+      "area:quote-api",
+      "area:dataset",
+      "area:pii-lgpd",
+      "area:entrega",
+      "area:processo",
+      "area:infra"
+    ]
+  },
+  "pastas_proibidas": [
+    "C:/OUTROS PROJETOS - CLAUDE/Namastex-fde-challenge-Rafael Milfont - PRIVADO",
+    "C:/OUTROS PROJETOS - CLAUDE/_SONDAGEM-TEMP-CONSULTA-namastex-fde-challenge"
+  ]
+}

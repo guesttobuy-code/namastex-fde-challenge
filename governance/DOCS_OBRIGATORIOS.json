@@ -1,0 +1,15 @@
+{
+  "_doc": "DOCUMENTAÇÃO OBRIGATÓRIA do projeto (cobrada pelo guard docs-required). `raiz`: caminhos (relativos à raiz, '/' final = pasta) que TÊM que existir e não podem estar vazios. `porModulo`: arquivos que TODO módulo (pasta sob `modulos.raiz` do .arch-layers.json) tem que ter — um módulo sem CONTRACT.md não tem regra escrita (LEI DA FONTE). Ajuste por PR, como qualquer artefato de governança.",
+  "raiz": [
+    "README.md",
+    "CLAUDE.md",
+    "CHANGELOG.md",
+    "esteira.json",
+    "governance/adr/",
+    "governance/RESERVAS.json",
+    "governance/IMPACT_MATRIX.md"
+  ],
+  "porModulo": [
+    "CONTRACT.md"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "_doc": "ADR-0004 do kit — reserva de número antes de criar (nunca crie ADR/migration numerado à mão: node scripts/reservar-numero.mjs <tipo> \"<slug>\", ou npm run adr:nova / migration:nova). `tipos.<nome>.dir: null` = tipo DESLIGADO. Pra LIGAR migration neste projeto: troque \"dir\": null pelo caminho real das suas migrations (ex.: \"supabase/migrations\", \"migrations\", \"db/migrations\" ou \"prisma/migrations\" — o guard reserva-de-numero.mjs já conhece essas 4 pastas e reprova se alguma existir no disco sem o tipo migration apontando pra ela) e escolha \"padrao\": \"timestamp\" (o formato usual de migration, AAAAMMDDhhmmss) ou \"sequencial\". `criarDoModelo` é opcional — só pra tipos com um `.md` de molde (como o ADR); migration normalmente não tem.",
+  "tipos": {
+    "adr": {
+      "dir": "governance/adr",
+      "padrao": "sequencial",
+      "largura": 4,
+      "criarDoModelo": "governance/adr/0000-template.md"
+    },
+    "migration": {
+      "dir": null,
+      "padrao": "timestamp",
+      "largura": 4
+    }
+  }
+}

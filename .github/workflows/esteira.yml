@@ -1,0 +1,448 @@
+name: Esteira — portões do PR
+
+# Os 4 portões da esteira -base que o servidor cobra em todo PR. Cada job é um guard do kit
+# (scripts/esteira/guards/*.mjs) com self-test próprio (LEI 74: a contra-prova roda antes do guard).
+# O que é REQUIRED no branch protection é decisão do dono — ver workflows/README.md.
+#
+# Corpo do PR entra por `env:` (nunca interpolado no shell — entrada não confiável).
+# `edited` está nos gatilhos porque prova-colada lê o CORPO do evento.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+concurrency:
+  group: esteira-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+defaults:
+  run:
+    working-directory: "."
+
+jobs:
+  self-test-dos-guards:
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      # Confirmação POSITIVA: cada guard tem que imprimir "SELF-TEST OK — N/N" com N>0; exit 0 mudo é vermelho (issue #11)
+      - name: Contra-prova do RUNNER (issue #17: o runner também tem porta)
+        run: node scripts/esteira/guards/run-selftests.mjs --self-test
+      - name: Contra-prova de cada guard (casos só crescem; saída vazia = guard mudo)
+        run: node scripts/esteira/guards/run-selftests.mjs
+      - name: Cabeamento — todo guard está em GUARDS_ESPERADOS e tem npm run <x>/<x>:selftest (LEI 10)
+        run: node scripts/esteira/guards/guard-wiring.mjs
+      - name: Catálogo de guards bate com a rede (governance/GUARDS_CATALOG.md gerado)
+        run: node scripts/esteira/guards/guards-catalog.mjs
+
+  prova-de-vida:
+    # META-GUARD (issue #17): muta a PORTA de cada guard numa cópia descartável e exige que o próprio
+    # --self-test REPROVE a mutação. Um mutante que sobrevive = self-test que não morde a porta = guard
+    # não pronto. É a defesa estrutural da classe do #17 e o PORTÃO DE ACEITE de todo guard novo.
+    # Roda só em commit novo (não no `edited`): mede o FONTE dos guards, que o corpo do PR não muda.
+    # Fica no servidor (não no pre-commit): a varredura completa é minutos — no pre-commit viraria --no-verify.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Todo self-test morde a mutação da própria porta
+        run: node scripts/esteira/guards/prova-de-vida.mjs
+
+  secret-leak:
+    # SEGURANÇA bloqueia SEMPRE (inclusive draft) — segredo commitado vaza e o histórico não esquece.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum segredo literal no código
+        run: node scripts/esteira/guards/secret-leak.mjs
+
+  empty-catch:
+    # Higiene: catch de corpo vazio engole o erro em silêncio (o bug fica invisível). Opt-out explícito
+    # por-catch com o marcador `ignora-de-proposito`.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum catch vazio que engole erro
+        run: node scripts/esteira/guards/empty-catch.mjs
+
+  file-loc-ceiling:
+    # Arquitetura: arquivo acima do teto de linhas (default 600, config .loc-ceiling.json) vira monólito.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum arquivo de código acima do teto de linhas
+        run: node scripts/esteira/guards/file-loc-ceiling.mjs
+
+  text-encoding:
+    # Higiene de encoding: arquivo salvo em Latin-1/CP1252, com BOM (família JS/JSON) ou byte NUL corrompe
+    # acento em silêncio (o parser quebra, o diff fica ilegível). Roda SEMPRE (inclusive draft): byte ruim
+    # commitado contamina o histórico. Não bloqueia UTF-8 válido (acento/emoji passam).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Todo arquivo de texto é UTF-8 limpo (sem Latin-1/BOM/NUL)
+        run: node scripts/esteira/guards/text-encoding.mjs
+
+  await-unhandled:
+    # Falha silenciosa: callback async no .forEach (promise descartada) ou executor async no new Promise
+    # engolem a rejeição — o erro some no ar. Opt-out por-ocorrência com `async-de-proposito`.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhuma Promise async solta (.forEach(async) / new Promise(async))
+        run: node scripts/esteira/guards/await-unhandled.mjs
+
+  catch-silent-blocker:
+    # Falha silenciosa: catch que só LOGA o erro (console/logger) e deixa seguir — engole a falha.
+    # Irmão do empty-catch. Opt-out por-catch com `ignora-de-proposito`.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum catch que só loga e engole o erro
+        run: node scripts/esteira/guards/catch-silent-blocker.mjs
+
+  minefield:
+    # Portão de aceite dos SCANNERS (onda ≥2): cada um passa em referencia/limpo e morde SÓ a própria
+    # mina em referencia/minado/<guard>. Sai 0 se o projeto ainda não tem referencia/minado (nada a gatear).
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Cada scanner morde código real e fica quieto no são
+        run: node scripts/esteira/guards/minefield.mjs
+
+  prova-colada:
+    # lê o corpo do PR: o gatilho `edited` importa. Julga FORMATO; a verdade é do auditor.
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Corpo do PR com prova COLADA e limites declarados
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/esteira/guards/prova-colada.mjs
+
+  plano-na-issue:
+    # o PLANO tem que existir na issue do Closes ANTES do primeiro commit do PR
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: PLANO publicado antes do código
+        # valores do evento entram por env (nunca interpolados no shell — entrada não confiável)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/esteira/guards/plano-na-issue.mjs --pr "$PR_NUMBER"
+
+  frente-registro:
+    # LEI 73: o PR de uma frente carrega o registro com dono, endereço de retorno e vínculo
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: A frente deste PR tem registro e dono?
+        # head_ref é controlado por quem abre o PR: entra por env e é validado antes de virar argumento
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            claude/[a-z0-9._-]*) ;;
+            *) echo "[frente-registro] NAO_APLICAVEL: '$HEAD_REF' não é branch de frente (claude/<slug>)"; exit 0 ;;
+          esac
+          node scripts/esteira/guards/frente-registro.mjs --slug "$HEAD_REF"
+
+  companion-red-green:
+    # o teste do item 4 do PLANO fica VERMELHO contra a base e VERDE no HEAD (setup-python: R6 — projeto
+    # "stack":"python" roda o teste tocado com pytest, não node --test)
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Instalar dependências (se houver lockfile)
+        run: if [ -f package-lock.json ]; then npm ci; fi
+      - name: Vermelho antes, verde depois
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[companion-red-green] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/companion-red-green.mjs --base "origin/$BASE_REF"
+
+  guard-change-ritual:
+    # META (LEI 74): mexer num guard não pode REDUZIR os casos do self-test nem gutar a certidão vs a base
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Guard não regride (casos só crescem, certidão intacta)
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[guard-change-ritual] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/guard-change-ritual.mjs --base "origin/$BASE_REF"
+
+  testes-catraca:
+    # ANTI-REGRESSÃO (dor do dono): um arquivo de teste não pode PERDER casos vs a base (apagar teste esconde regressão)
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum arquivo de teste perdeu casos (catraca)
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[testes-catraca] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/testes-catraca.mjs --base "origin/$BASE_REF"
+
+  todo-debt-ratchet:
+    # ANTI-REGRESSÃO: dívida não-rastreada (TODO/FIXME/XXX/HACK sem issue) num arquivo não pode CRESCER vs a base
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum arquivo ganhou dívida não-rastreada (catraca)
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[todo-debt-ratchet] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/todo-debt-ratchet.mjs --base "origin/$BASE_REF"
+
+  leis-integrity:
+    # Bússola (INEGOCIÁVEL): a seção "AS 12 LEIS DO DESENVOLVIMENTO" do CLAUDE.md (raiz do projeto OU
+    # .claude/CLAUDE.md, +@import em qualquer posição da linha, até 4 níveis, fora de comentário/bloco de
+    # código) não pode ser editada, escondida ou movida em silêncio — lei sumida, escondida em comentário,
+    # trocada de ordem, renomeada, número pulado, ou a Bússola movida pro local oficial alternativo,
+    # reprovam; o corpo de cada lei continua livre.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: As 12 leis do CLAUDE.md continuam íntegras
+        run: node scripts/esteira/guards/leis-integrity.mjs
+
+  import-boundaries:
+    # Arquitetura: import cruza camada fora do podeImportar (ou domínio puro:true importa fora de si, ou
+    # módulo entra em outro sem passar pelo barrel EXATO) — o MOTOR que faz .arch-layers.json valer de verdade.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhum import cruza fronteira de camada/módulo fora do permitido
+        run: node scripts/esteira/guards/import-boundaries.mjs
+
+  duplicate-logic:
+    # LEI 11 (dono único): caça CLONES de corpo de função (exato, ou estrutural com identificadores
+    # Unicode-renomeados) entre arquivos e dentro do mesmo arquivo — prova que reimplementar em vez de
+    # reusar não passa batido. Opt-out por-declaração exige motivo dentro de um COMENTÁRIO real, e só
+    # isenta o grupo quando TODAS as ocorrências estão marcadas.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Nenhuma lógica duplicada (clone de função) no código
+        run: node scripts/esteira/guards/duplicate-logic.mjs
+
+  cochange-companion:
+    # ANTI-REGRESSÃO (dor do dono): uma FONTE que já existia na base e TEM teste-companheiro (achado por
+    # nome/convenção) não pode mudar sem o companheiro mudar junto no mesmo diff — comportamento mudou
+    # sem ser re-provado. Opt-out cochange-de-proposito só vale se ACRESCENTADO neste diff (CC-02).
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Fonte não muda sem o companheiro de teste mudar junto
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[cochange-companion] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/cochange-companion.mjs --base "origin/$BASE_REF"
+
+  cross-module-impact:
+    # ANTI-REGRESSÃO: mudou o BARREL (superfície pública) de um módulo — exige teste de quem depende dele no diff
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Todo dependente de módulo com barrel mudado tem teste no diff
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[cross-module-impact] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/cross-module-impact.mjs --base "origin/$BASE_REF"
+
+  adr-sequence:
+    # Governança: o registro de ADRs não pode duplicar nem furar a numeração (a referência cruzada
+    # #ADR-NNNN passaria a apontar pro registro errado ou pra nada), todo .md da pasta tem que seguir
+    # o padrão NNN-titulo.md (3 a 6 dígitos) ou estar na lista permitida, o título do corpo tem que
+    # bater com o número do nome, e todo ADR (número > 0) precisa da linha de Status que o template exige.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Sequência de ADRs sem duplicata, buraco, nome fora do padrão ou Status/título divergente
+        run: node scripts/esteira/guards/adr-sequence.mjs
+
+  changelog-update:
+    # INEGOCIÁVEL (dor do dono): todo PR vencido que muda código (fora de teste) deixa rastro em
+    # CHANGELOG.md — um bullet novo citando a issue/PR (#N). Prova "mapear e documentar cada PR vencido".
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Código mudou sem entrada rastreável no CHANGELOG (catraca)
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$BASE_REF" in
+            *[!A-Za-z0-9._/-]*|"") echo "[changelog-update] NÃO MEDIU: base.ref inválido"; exit 2 ;;
+          esac
+          node scripts/esteira/guards/changelog-update.mjs --base "origin/$BASE_REF"
+
+  docs-required:
+    # Governança: governance/DOCS_OBRIGATORIOS.json declara doc/governança obrigatória (raiz e, por
+    # módulo, CONTRACT.md) — ausente ou vazia vira vermelho objetivo (LEI DA FONTE). Projeto da esteira
+    # (esteira.json) sem o config também reprova (DR-01, Rodada 1).
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Documentação/governança obrigatória presente e não-vazia
+        run: node scripts/esteira/guards/docs-required.mjs
+
+  reserva-de-numero:
+    # Governança (ADR-0004): item numerado (ADR/migration) sem reserva em governance/reservas/<tipo>/
+    # <numero>.md, slug/número divergente, duplicata por VALOR, largura fora da config, reserva órfã, ou
+    # governance/adr/pasta de migrations sem tipo ligado — reprova. Com o tipo ligado, buraco/duplicata
+    # são deste guard (RN-C5) — adr-sequence cede a numeração e julga só o conteúdo.
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Todo item numerado (ADR/migration) tem reserva com slug/número batendo
+        run: node scripts/esteira/guards/reserva-de-numero.mjs
+
+  python-check:
+    # R6 (2026-09-11): mede código Python de verdade (ruff + pytest) — o que os 8 guards JS/TS não cobrem
+    # num projeto "stack":"python". Sai NAO_APLICAVEL rápido (sem instalar nada) fora desse stack, sem
+    # .py rastreado, ou sem pyproject.toml (config do projeto ainda não existe — pendência, não reprovação).
+    if: ${{ github.event.pull_request.draft == false && github.event.action != 'edited' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Instalar ruff + pytest (e o projeto, se tiver pyproject.toml)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff pytest
+          if [ -f pyproject.toml ]; then python -m pip install -e .; fi
+      - name: ruff check . + pytest -q
+        run: node scripts/esteira/python-check.mjs
