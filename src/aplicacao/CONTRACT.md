@@ -76,3 +76,47 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 - 2026-09-12 — Sem trilha no commit original desta frente (F4/#31 ainda não tinha mergeado);
   costurada num commit próprio depois, sem alterar nenhuma linha alheia deste arquivo — decisão da
   coordenação, não redecisão de escopo.
+
+---
+
+## Seção F6/#9 — `PortalDeLinguagem` e `extrair_dados_da_mensagem` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `aplicacao.portas.portal_de_linguagem.PortalDeLinguagem` — a porta dos adaptadores de linguagem
+  (determinístico e OpenRouter, ambos em `infra`). Extrai campos do texto do lead; **nunca decide**
+  preço, recusa ou handoff — isso continua só de `dominio.politica`.
+- `aplicacao.servico_conversa.extrair_dados_da_mensagem` — orquestra a extração: CEP local do texto
+  BRUTO (`dominio.redator_pii.extrair_cep`, ANTES do mascaramento) + campos não-PII vindos do
+  portal (sobre o texto MASCARADO) + validação de formato (`dominio.validacao`) antes de qualquer
+  campo entrar no `EstadoDaConversa` novo.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-6 | `extrair_dados_da_mensagem` nunca passa o texto BRUTO para `PortalDeLinguagem.extrair` — só o mascarado por `redigir_texto` | `tests/integracao/test_adaptador_espiao.py`, `tests/integracao/test_cep_local_antes_do_mascaramento.py` |
+| I-7 | O CEP nunca chega ao portal de linguagem, mascarado ou não — é extraído do texto bruto e injetado no estado depois, por fora da extração do portal | `tests/integracao/test_cep_local_antes_do_mascaramento.py` |
+| I-8 | Saída do portal com campo de tipo/formato errado (idade fora de faixa, ano como string, CEP com formato inválido) nunca vira `ValueError`/exceção — o campo é descartado, mantendo o valor anterior do estado | `tests/infra/test_adaptador_de_linguagem.py::test_modelo_enganado_*` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.portal_de_linguagem.PortalDeLinguagem` — `Protocol` com
+  `extrair(texto_mascarado: str, estado_atual: dominio.estado_conversa.EstadoDaConversa) -> dominio.saida_de_linguagem.SaidaDeLinguagem`
+  e a propriedade `origem_do_texto: str`.
+- `aplicacao.servico_conversa.extrair_dados_da_mensagem(portal: PortalDeLinguagem, texto_bruto: str, estado_atual: EstadoDaConversa) -> EstadoDaConversa`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Escrever texto de preço, recusa ou decisão de handoff — isso é `dominio.redator`/`_texto_da_decisao`,
+  nunca o portal de linguagem.
+- Validar elegibilidade dos campos extraídos (faixa etária, ano do veículo) — só formato, mesma
+  régua de `dominio.validacao` (não replicada aqui).
+
+### Decisões registradas
+
+- 2026-09-12 — Provedor por `LLM_PROVEDOR` (padrão `deterministico`, nunca lê a chave); pedido de
+  `openrouter` sem `OPENROUTER_API_KEY` falha alto — achado da #9 (chave "sumida" por `.env.txt`
+  ou linha sem o nome da variável não pode virar silêncio).
+- 2026-09-12 — Chamada ao OpenRouter via `urllib.request` (stdlib), sem SDK novo — decisão do dono
+  (emenda ao escopo da #9), registrada em ADR-0003.

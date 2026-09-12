@@ -5,7 +5,7 @@ regex tem que ser `(?i)`. Casos com dado real do dataset (`dataset/sample.jsonl`
 manuais dos formatos alternativos depois, para o limite ficar declarado, não escondido.
 """
 
-from dominio.redator_pii import redigir_texto
+from dominio.redator_pii import extrair_cep, redigir_texto
 
 # Linhas reais de `dataset/sample.jsonl`, coladas — não reformatadas — para provar que o teste mede
 # o dado que o gerador realmente produz (cpf/cep minúsculos), não um exemplo inventado.
@@ -109,3 +109,30 @@ def test_padrao_de_placa_precisa_de_case_insensitive_porque_tem_letra():
         "sem (?i) o char class [a-z] não bate com a placa maiúscula do dataset — "
         "é aqui que a flag realmente protege, não no CPF"
     )
+
+
+# --- `extrair_cep` (issue #9, F6): o CEP é PII e nunca vai ao LLM, mas é extraído do texto BRUTO,
+# ANTES do mascaramento, com os mesmos padrões acima (nunca duplicados). ---
+
+
+def test_extrair_cep_do_dataset_com_hifen():
+    for texto, cep in zip(MENSAGENS_REAIS_DO_DATASET[:3], CEPS_ORIGINAIS):
+        assert extrair_cep(texto) == cep
+
+
+def test_extrair_cep_com_espaco_fixture_manual_normaliza_para_hifen():
+    assert extrair_cep("o cep aqui de casa e 26703 384") == "26703-384"
+
+
+def test_extrair_cep_ausente_devolve_none():
+    assert extrair_cep("Oi, queria fazer um seguro pro meu carro") is None
+
+
+def test_extrair_cep_nao_deixa_o_valor_sobreviver_a_redigir_texto():
+    """Os dois lados no mesmo teste: o valor extraído (para o estado/`/quote`) e o valor mascarado
+    (para o LLM) vêm do MESMO texto bruto — provando que a extração não interfere na máscara."""
+    texto = MENSAGENS_REAIS_DO_DATASET[0]
+    cep_extraido = extrair_cep(texto)
+    texto_mascarado = redigir_texto(texto)
+    assert cep_extraido == CEPS_ORIGINAIS[0]
+    assert cep_extraido not in texto_mascarado

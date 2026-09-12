@@ -73,6 +73,47 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 ---
 
+## Seção F6/#9 — `AdaptadorDeLinguagemDeterministico`/`AdaptadorDeLinguagemOpenRouter` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemDeterministico` — adaptador padrão da porta
+  `PortalDeLinguagem`: regex sobre o texto mascarado, sem rede, sem chave; é o usado nos testes.
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemOpenRouter` — adaptador real: HTTP cru via
+  `urllib.request` (stdlib, mesmo padrão de `infra.cliente_quote`) contra a API de chat completions
+  do OpenRouter, com timeout explícito e saída validada por esquema.
+- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem` — escolhe o adaptador por
+  `LLM_PROVEDOR`; falha alto (`RuntimeError`) se pedir `openrouter` sem `OPENROUTER_API_KEY`.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-7 | `AdaptadorDeLinguagemOpenRouter` nunca deixa um campo fora do esquema esperado (`idade`, `veiculo_ano`, `plano_id`, `data_inicio`, `intent`, `ambiguidades`) chegar a `SaidaDeLinguagem` — campos extras no JSON do modelo são ignorados por construção | `tests/infra/test_adaptador_de_linguagem.py::test_modelo_enganado_com_campos_extras_nao_atravessam_por_construcao` |
+| I-8 | Timeout, erro HTTP, corpo não-JSON (com ou sem cerca Markdown) ou JSON fora do esquema nunca viram exceção — sempre um `SaidaDeLinguagem(pedido_de_esclarecimento=...)` | `tests/infra/test_adaptador_de_linguagem.py` |
+| I-9 | `criar_adaptador_de_linguagem` nunca lê `OPENROUTER_API_KEY` quando o provedor é (ou o padrão é) `deterministico` | `tests/infra/test_adaptador_de_linguagem.py::test_provedor_padrao_e_deterministico_e_nunca_le_a_chave` |
+| I-10 | Nenhum teste da suíte padrão chama a API do OpenRouter de verdade — só via `pytest -m llm_real`, explícito | `pyproject.toml::[tool.pytest.ini_options].markers` |
+| I-11 | Toda chamada ao OpenRouter carrega `strict: true` (em `json_schema`) e `provider.require_parameters: true` | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_payload_pede_strict_e_require_parameters` |
+| I-12 | Uma saída sem TODAS as chaves do esquema (o modelo ignorou o esquema, mesmo com JSON válido) dispara UMA retentativa, nunca mapeamento de sinônimo de campo — e nunca uma terceira chamada | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_esquema_nao_seguido_*` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemDeterministico().extrair(texto_mascarado, estado_atual) -> SaidaDeLinguagem`.
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemOpenRouter(chave, modelo=MODELO_PADRAO, transporte=None, timeout_segundos=10.0)`.
+- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem(provedor=None, env=None, raiz=<raiz do repo>) -> PortalDeLinguagem`
+  — carregar o `.env` para `os.environ` é responsabilidade de `interfaces.dotenv_loader`, chamado pelo processo de entrada (CLI), nunca por esta função.
+- `infra.adaptador_de_linguagem.MODELO_PADRAO` = `"deepseek/deepseek-chat-v3.1"` (ADR-0003).
+
+### Decisões registradas
+
+- 2026-09-12 — Modelo padrão `deepseek/deepseek-chat-v3.1`, medido pela coordenação contra a API
+  real (NVIDIA gratuitos descartados por timeout) — ADR-0003.
+- 2026-09-12 — Resposta do modelo pode vir embrulhada em cerca Markdown (` ```json ... ``` `) mesmo
+  pedindo `response_format=json_schema` — medido ao vivo; `_sem_cercas_markdown` trata antes do
+  `json.loads`.
+
+---
+
 ## Seção F10/#13 — `RepositorioDeTrilhaJSONL.todos_os_eventos` (append, R2/#16)
 
 ### Entradas e saídas públicas acrescentadas
