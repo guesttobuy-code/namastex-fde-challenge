@@ -1,16 +1,21 @@
 """O teste que a auditoria externa exigiu (ai-logs/codex/2026-09-11, achado incorporado na âncora #3
-§9): "ninguém provava que a PII não atravessa para o LLM". Nasce aqui (F4/#7) e é reaproveitado pela
-F6/#9, que ainda não existe — por isso o `PortalDeLinguagem` aqui é um dublê local mínimo, não a
-porta real (a F6 é quem vai declará-la em `aplicacao/portas/portal_de_linguagem.py`).
+§9): "ninguém provava que a PII não atravessa para o LLM". Nasceu na F4/#7 com um dublê local
+mínimo (`PortalDeLinguagemEspiao`, sem `.extrair`/`.origem_do_texto` de verdade) porque a F6 ainda
+não existia. **A F6/#9 troca esse dublê pela porta real**: `_AdaptadorEspiao` envolve
+`infra.AdaptadorDeLinguagemDeterministico` (o padrão, sem chave) e só registra o que recebeu — a
+exigência do item 6 do "O que entregar" da #9.
 
 Cenário: uma mensagem do lead com CPF, telefone, e-mail, placa e CEP completo (formato real do
-dataset). O espião só pode ter recebido a versão mascarada; nem a trilha nem a "resposta final" do
-agente (dublê) podem conter o valor original.
+dataset). O adaptador real só pode ter recebido a versão mascarada; nem a trilha nem a "resposta
+final" do agente podem conter o valor original.
 """
 
 from aplicacao.servico_trilha import ServicoDeTrilha
+from dominio.estado_conversa import EstadoDaConversa
 from dominio.eventos_trilha import MensagemEnviada, MensagemRecebida
 from dominio.redator_pii import redigir_texto
+from dominio.saida_de_linguagem import SaidaDeLinguagem
+from infra.adaptador_de_linguagem import AdaptadorDeLinguagemDeterministico
 from infra.trilha_jsonl import RepositorioDeTrilhaMemoria
 
 MENSAGEM_COM_TODA_PII = (
@@ -27,20 +32,33 @@ VALORES_ORIGINAIS = [
 ]
 
 
-class PortalDeLinguagemEspiao:
-    """Dublê mínimo: registra tudo que recebeu, devolve uma resposta fixa e inócua."""
+class _AdaptadorEspiao:
+    """Envolve o adaptador real e grava o texto mascarado que ele recebeu, sem mudar o
+    comportamento — o teste espia a FRONTEIRA, não o adaptador."""
 
     def __init__(self):
+        self._real = AdaptadorDeLinguagemDeterministico()
         self.recebido: list[str] = []
 
-    def perguntar(self, prompt: str) -> str:
-        self.recebido.append(prompt)
-        return "Perfeito, já registrei seus dados para cotar."
+    def extrair(self, texto_mascarado: str, estado_atual: EstadoDaConversa) -> SaidaDeLinguagem:
+        self.recebido.append(texto_mascarado)
+        return self._real.extrair(texto_mascarado, estado_atual)
+
+    @property
+    def origem_do_texto(self) -> str:
+        return self._real.origem_do_texto
 
 
-def _processar_mensagem_do_lead(texto_bruto: str, espiao: PortalDeLinguagemEspiao, servico: ServicoDeTrilha) -> str:
-    """Simula a fronteira que a F5 vai orquestrar de verdade: grava o recebido (redigido pela
-    trilha), manda só o texto redigido para o LLM, grava a resposta (também redigida)."""
+def _resposta_de_confirmacao(saida: SaidaDeLinguagem) -> str:
+    """Texto determinístico, nunca escrito pelo LLM (issue #9: preço/recusa/handoff nunca vêm do
+    modelo) — só reconhece o que a extração conseguiu ou pede esclarecimento."""
+    return saida.pedido_de_esclarecimento or "Perfeito, já registrei seus dados para cotar."
+
+
+def _processar_mensagem_do_lead(texto_bruto: str, espiao: _AdaptadorEspiao, servico: ServicoDeTrilha) -> str:
+    """Simula a fronteira que `aplicacao.servico_conversa.extrair_dados_da_mensagem` orquestra de
+    verdade: grava o recebido (redigido pela trilha), manda só o texto redigido para o portal,
+    grava a resposta (também redigida)."""
     servico.registrar_evento(
         MensagemRecebida(
             evento="mensagem_recebida",
@@ -51,7 +69,8 @@ def _processar_mensagem_do_lead(texto_bruto: str, espiao: PortalDeLinguagemEspia
         )
     )
     texto_para_llm = redigir_texto(texto_bruto)
-    resposta = espiao.perguntar(texto_para_llm)
+    saida = espiao.extrair(texto_para_llm, EstadoDaConversa(conversation_id="conv_espiao"))
+    resposta = _resposta_de_confirmacao(saida)
     servico.registrar_evento(
         MensagemEnviada(
             evento="mensagem_enviada",
@@ -61,14 +80,14 @@ def _processar_mensagem_do_lead(texto_bruto: str, espiao: PortalDeLinguagemEspia
             texto=resposta,
             decisao_id="dec_01",
             regra_aplicada="confirmar_dados",
-            origem_do_texto="llm:espiao@teste",
+            origem_do_texto=espiao.origem_do_texto,
         )
     )
     return resposta
 
 
 def test_espiao_so_ve_a_versao_mascarada():
-    espiao = PortalDeLinguagemEspiao()
+    espiao = _AdaptadorEspiao()
     servico = ServicoDeTrilha(RepositorioDeTrilhaMemoria())
 
     _processar_mensagem_do_lead(MENSAGEM_COM_TODA_PII, espiao, servico)
@@ -79,7 +98,7 @@ def test_espiao_so_ve_a_versao_mascarada():
 
 
 def test_trilha_nao_contem_pii_original():
-    espiao = PortalDeLinguagemEspiao()
+    espiao = _AdaptadorEspiao()
     repositorio = RepositorioDeTrilhaMemoria()
     servico = ServicoDeTrilha(repositorio)
 
@@ -92,7 +111,7 @@ def test_trilha_nao_contem_pii_original():
 
 
 def test_resposta_final_nao_contem_pii_original():
-    espiao = PortalDeLinguagemEspiao()
+    espiao = _AdaptadorEspiao()
     servico = ServicoDeTrilha(RepositorioDeTrilhaMemoria())
 
     resposta = _processar_mensagem_do_lead(MENSAGEM_COM_TODA_PII, espiao, servico)

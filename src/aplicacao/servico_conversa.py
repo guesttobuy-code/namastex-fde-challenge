@@ -18,8 +18,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from aplicacao.portas.portal_de_cotacao import PortalDeCotacao
+from aplicacao.portas.portal_de_linguagem import PortalDeLinguagem
 from aplicacao.servico_trilha import ServicoDeTrilha
-from dominio import politica, validacao
+from dominio import politica, redator_pii, validacao
 from dominio.decisao import Decisao, TipoDecisao
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.eventos_trilha import Decisao as DecisaoTrilha
@@ -50,6 +51,44 @@ def montar_estado(conversation_id: str, dados: dict) -> EstadoDaConversa:
         cep=dados.get("cep"),
         data_inicio=dados.get("data_inicio"),
         campos_faltantes=faltantes,
+    )
+
+
+def extrair_dados_da_mensagem(
+    portal: PortalDeLinguagem, texto_bruto: str, estado_atual: EstadoDaConversa
+) -> EstadoDaConversa:
+    """Extrai o que der do texto livre do lead (issue #9, F6) — ADITIVO sobre `estado_atual`,
+    nunca apaga um campo já confirmado só porque esta mensagem não repetiu.
+
+    O CEP é PII: extraído do texto BRUTO (`dominio.redator_pii.extrair_cep`) ANTES do
+    mascaramento. Só depois o texto MASCARADO (`redigir_texto`) vai para `portal.extrair` — o
+    portal nunca vê o CEP, mascarado ou não. A saída do portal só entra no estado depois de passar
+    por `dominio.validacao` (formato) — saída inválida ou de tipo errado é descartada em silêncio
+    de campo (mantém o que já havia), nunca vira `ValueError` que travaria a conversa."""
+    cep_extraido = redator_pii.extrair_cep(texto_bruto)
+    texto_mascarado = redator_pii.redigir_texto(texto_bruto)
+    saida = portal.extrair(texto_mascarado, estado_atual)
+
+    cep = cep_extraido if cep_extraido and validacao.cep_valido(cep_extraido) else estado_atual.cep
+    idade = saida.idade if isinstance(saida.idade, int) else estado_atual.idade
+    veiculo_ano = saida.veiculo_ano if isinstance(saida.veiculo_ano, int) else estado_atual.veiculo_ano
+    plano_id = saida.plano_id if isinstance(saida.plano_id, str) and saida.plano_id else estado_atual.plano_id
+    data_inicio = (
+        saida.data_inicio if validacao.data_iso_valida(saida.data_inicio) else estado_atual.data_inicio
+    )
+
+    dados = {"idade": idade, "veiculo_ano": veiculo_ano, "plano_id": plano_id, "cep": cep, "data_inicio": data_inicio}
+    return EstadoDaConversa(
+        conversation_id=estado_atual.conversation_id,
+        idade=idade,
+        veiculo_ano=veiculo_ano,
+        plano_id=plano_id,
+        cep=cep,
+        data_inicio=data_inicio,
+        campos_faltantes=validacao.campos_obrigatorios_faltantes(dados),
+        ambiguidades=saida.ambiguidades,
+        ultimo_intent=saida.intent or estado_atual.ultimo_intent,
+        status=estado_atual.status,
     )
 
 

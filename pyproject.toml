@@ -50,3 +50,8 @@ testpaths = ["tests"]
 # ao vivo na F4/#7 ao escrever o primeiro código real das camadas (F1/#4 só tinha __init__.py vazio,
 # nunca bateu nisto). Ratchet, não regressão: nada rodava importando essas camadas antes.
 pythonpath = ["src"]
+# issue #9 (F6): o adaptador OpenRouter real (chave + rede) só roda sob demanda, nunca na suíte
+# padrão — "pytest -m llm_real" explícito. Sem isso, CI e máquinas sem `.env` ficariam vermelhos.
+markers = [
+    "llm_real: chama a API OpenRouter de verdade (precisa de OPENROUTER_API_KEY no ambiente); não roda por padrão",
+]
