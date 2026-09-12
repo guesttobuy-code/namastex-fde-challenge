@@ -8,6 +8,20 @@ from dominio.preco_cotado import PrecoCotado
 
 
 def montar_mensagem(preco: PrecoCotado) -> str:
-    # Wave 1 (esqueleto permissivo, issue #5 — Ajuste 1 do veredito): sem o isinstance, qualquer
-    # coisa "passa". A invariante entra no commit seguinte.
-    return str(preco)
+    if not isinstance(preco, PrecoCotado):
+        raise TypeError(f"montar_mensagem só aceita PrecoCotado, recebeu {type(preco).__name__}")
+
+    linhas = [
+        f"Plano {preco.plano_nome}: R$ {preco.premio_mensal:.2f}/mês, franquia R$ {preco.franquia:.2f}.",
+        f"Coberturas: {', '.join(preco.coberturas)}.",
+    ]
+    if preco.carencia and preco.carencia.get("coberturas"):
+        linhas.append(
+            f"Carência de {preco.carencia['dias']} dias para: {', '.join(preco.carencia['coberturas'])}."
+        )
+    if preco.pro_rata:
+        linhas.append(
+            f"Primeiro pagamento proporcional: R$ {preco.pro_rata['valor_primeiro_pagamento']:.2f} "
+            f"({preco.pro_rata['dias_cobrados']} de {preco.pro_rata['dias_no_mes']} dias)."
+        )
+    return " ".join(linhas)

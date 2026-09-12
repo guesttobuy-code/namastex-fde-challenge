@@ -29,5 +29,9 @@ class Decisao:
     tipo: TipoDecisao
     reason_code: MotivoHandoff | None = None
 
-    # Wave 1 (esqueleto permissivo, issue #5): sem validação de `encaminhar ⇒ reason_code != nulo`.
-    # A invariante entra no commit seguinte.
+    def __post_init__(self) -> None:
+        # Invariante: encaminhar ⇒ reason_code != nulo (todo handoff é explicável).
+        if self.tipo == TipoDecisao.ENCAMINHAR and self.reason_code is None:
+            raise ValueError("decisao ENCAMINHAR exige reason_code (todo handoff tem que ser explicável)")
+        if self.tipo != TipoDecisao.ENCAMINHAR and self.reason_code is not None:
+            raise ValueError(f"reason_code só é aceito em ENCAMINHAR, não em {self.tipo.value}")

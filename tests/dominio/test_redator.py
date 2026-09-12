@@ -3,8 +3,6 @@ import pytest
 from dominio.preco_cotado import PrecoCotado
 from dominio.redator import montar_mensagem
 
-_XFAIL = "esqueleto Wave 1 (issue #5, Ajuste 1) — invariante entra no commit 2"
-
 
 def _preco(**over) -> PrecoCotado:
     base = dict(
@@ -21,19 +19,16 @@ def _preco(**over) -> PrecoCotado:
     return PrecoCotado(**base)
 
 
-@pytest.mark.xfail(strict=True, reason=_XFAIL)
 def test_montar_mensagem_recusa_dict_solto():
     with pytest.raises(TypeError, match="PrecoCotado"):
         montar_mensagem({"premio_mensal": 199.9})
 
 
-@pytest.mark.xfail(strict=True, reason=_XFAIL)
 def test_montar_mensagem_recusa_string_solta():
     with pytest.raises(TypeError, match="PrecoCotado"):
         montar_mensagem("R$ 199,90")
 
 
-@pytest.mark.xfail(strict=True, reason=_XFAIL)
 def test_montar_mensagem_recusa_none():
     with pytest.raises(TypeError, match="PrecoCotado"):
         montar_mensagem(None)
@@ -45,7 +40,6 @@ def test_montar_mensagem_traz_o_premio_e_a_franquia():
     assert "1500" in texto
 
 
-@pytest.mark.xfail(strict=True, reason=_XFAIL)
 def test_montar_mensagem_so_traz_carencia_quando_a_cotacao_traz():
     sem = montar_mensagem(_preco(carencia=None))
     assert "carência" not in sem.lower()
@@ -55,7 +49,6 @@ def test_montar_mensagem_so_traz_carencia_quando_a_cotacao_traz():
     assert "30" in com
 
 
-@pytest.mark.xfail(strict=True, reason=_XFAIL)
 def test_montar_mensagem_so_traz_pro_rata_quando_a_cotacao_traz():
     sem = montar_mensagem(_preco(pro_rata=None))
     assert "primeiro pagamento" not in sem.lower()

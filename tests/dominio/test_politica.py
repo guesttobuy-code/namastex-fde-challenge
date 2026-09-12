@@ -26,24 +26,22 @@ def _preco() -> PrecoCotado:
     )
 
 
-_XFAIL = pytest.mark.xfail(strict=True, reason="esqueleto Wave 1 (issue #5, Ajuste 1) — tabela real entra no commit 2")
-
 CASOS = [
-    pytest.param(_estado(campos_faltantes=frozenset({"cep"})), None, Decisao(TipoDecisao.COLETAR_INFORMACAO), id="falta_cep", marks=_XFAIL),
+    pytest.param(_estado(campos_faltantes=frozenset({"cep"})), None, Decisao(TipoDecisao.COLETAR_INFORMACAO), id="falta_cep"),
     pytest.param(_estado(), None, Decisao(TipoDecisao.COTAR), id="pronto_para_cotar"),
-    pytest.param(_estado(), ResultadoDaCotacao.sucesso(_preco()), Decisao(TipoDecisao.EXPLICAR_COTACAO), id="sucesso", marks=_XFAIL),
-    pytest.param(_estado(), ResultadoDaCotacao.recusa_de_negocio("idade fora da faixa"), Decisao(TipoDecisao.ENCERRAR), id="recusa_de_negocio", marks=_XFAIL),
+    pytest.param(_estado(), ResultadoDaCotacao.sucesso(_preco()), Decisao(TipoDecisao.EXPLICAR_COTACAO), id="sucesso"),
+    pytest.param(_estado(), ResultadoDaCotacao.recusa_de_negocio("idade fora da faixa"), Decisao(TipoDecisao.ENCERRAR), id="recusa_de_negocio"),
     pytest.param(
         _estado(), ResultadoDaCotacao.indisponivel("upstream_unavailable"),
-        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_INDISPONIVEL), id="indisponivel", marks=_XFAIL,
+        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_INDISPONIVEL), id="indisponivel",
     ),
     pytest.param(
         _estado(), ResultadoDaCotacao.timeout("upstream_timeout"),
-        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_TIMEOUT), id="timeout", marks=_XFAIL,
+        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_TIMEOUT), id="timeout",
     ),
     pytest.param(
         _estado(), ResultadoDaCotacao.erro_de_payload("payload_invalido"),
-        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD), id="erro_de_payload", marks=_XFAIL,
+        Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD), id="erro_de_payload",
     ),
 ]
 

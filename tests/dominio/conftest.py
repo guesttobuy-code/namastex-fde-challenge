@@ -1,9 +1,13 @@
-"""Coloca `src/` no sys.path só para os testes de `tests/dominio/`.
+"""Redundante desde que `pyproject.toml` ganhou `pythonpath = ["src"]` (R9, issue #16) — este
+arquivo só continua aqui porque `companion-red-green` compara `merge-base(origin/main)..HEAD` unido
+ao índice staged, e um `add` num commit já feito + `delete` no índice do commit seguinte, DENTRO DA
+MESMA branch ainda não mergeada, deixa o caminho na lista de "testes tocados" sem existir no
+working tree, e o guard reprova tentando rodar pytest num arquivo que já não está lá (achado
+medido nesta frente, comentado na issue #5).
 
-Não mexe em `pyproject.toml` (config da F1, issue #4 — "não mexa, se precisar fale comigo") nem em
-`tests/arquitetura/`, que resolvem PYTHONPATH do jeito deles via subprocess. Este conftest é local
-e reversível; se F3/F4 precisarem do mesmo, é candidato a virar `pythonpath = ["src"]` único em
-`pyproject.toml` — sinalizado à coordenação em vez de decidido aqui (LEI 11)."""
+REMOVER neste arquivo assim que a branch mergear (o `merge-base` andar) — não antes, senão o
+pre-commit reprova o commit que apaga. Sem isto, nada quebra: é dead code, o `if` abaixo nunca
+insere nada de novo além do que `pythonpath` já colocou."""
 from __future__ import annotations
 
 import sys

@@ -21,8 +21,17 @@ class ResultadoDaCotacao:
     preco: PrecoCotado | None = None
     motivo: str | None = None
 
-    # Wave 1 (esqueleto permissivo, issue #5 — Ajuste 1 do veredito): sem validação de que `preco`
-    # e `motivo` são mutuamente exclusivos. A invariante entra no commit seguinte.
+    def __post_init__(self) -> None:
+        if self.status == StatusCotacao.SUCESSO:
+            if self.preco is None:
+                raise ValueError("status sucesso exige preco (nenhuma cotação bem-sucedida sem PrecoCotado)")
+            if self.motivo is not None:
+                raise ValueError("status sucesso não aceita motivo — preco e motivo são mutuamente exclusivos")
+        else:
+            if self.preco is not None:
+                raise ValueError(f"status {self.status.value} não aceita preco — preco e motivo são mutuamente exclusivos")
+            if self.motivo is None:
+                raise ValueError(f"status {self.status.value} exige motivo")
 
     @classmethod
     def sucesso(cls, preco: PrecoCotado) -> "ResultadoDaCotacao":

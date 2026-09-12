@@ -2,18 +2,16 @@ import pytest
 
 from dominio.validacao import campos_obrigatorios_faltantes, cep_valido, data_iso_valida
 
-_XFAIL = pytest.mark.xfail(strict=True, reason="esqueleto Wave 1 (issue #5, Ajuste 1) — invariante entra no commit 2")
-
 
 @pytest.mark.parametrize(
     "cep,esperado",
     [
         ("01310-100", True),
         ("01310100", True),
-        pytest.param("123", False, marks=_XFAIL),
-        pytest.param("abcde-123", False, marks=_XFAIL),
-        pytest.param(None, False, marks=_XFAIL),
-        pytest.param("", False, marks=_XFAIL),
+        ("123", False),
+        ("abcde-123", False),
+        (None, False),
+        ("", False),
     ],
 )
 def test_cep_valido(cep, esperado):
@@ -24,17 +22,16 @@ def test_cep_valido(cep, esperado):
     "data,esperado",
     [
         ("2026-10-01", True),
-        pytest.param("2026-13-40", False, marks=_XFAIL),
-        pytest.param("01/10/2026", False, marks=_XFAIL),
-        pytest.param(None, False, marks=_XFAIL),
-        pytest.param("", False, marks=_XFAIL),
+        ("2026-13-40", False),
+        ("01/10/2026", False),
+        (None, False),
+        ("", False),
     ],
 )
 def test_data_iso_valida(data, esperado):
     assert data_iso_valida(data) is esperado
 
 
-@pytest.mark.xfail(strict=True, reason="esqueleto Wave 1 (issue #5, Ajuste 1) — invariante entra no commit 2")
 def test_campos_obrigatorios_faltantes_aponta_o_que_falta():
     payload = {"idade": 30, "veiculo_ano": 2018}
     assert campos_obrigatorios_faltantes(payload) == frozenset({"cep"})
