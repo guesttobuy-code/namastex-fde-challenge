@@ -23,6 +23,7 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from dominio import validacao
@@ -153,6 +154,10 @@ class AdaptadorDeLinguagemOpenRouter:
 
     def __post_init__(self) -> None:
         self._transporte: TransporteLLM = self.transporte or self._post_via_urllib
+        # Só para observabilidade (custo real de `usage.cost`, latência, status) — nunca consumida
+        # pelo domínio. `extrair()` não deveria "sumir" com o que veio na resposta só porque
+        # `SaidaDeLinguagem` não tem campo pra isso.
+        self.ultima_resposta: RespostaBrutaLLM | None = None
 
     def _post_via_urllib(self, payload: dict, chave: str, timeout_segundos: float) -> RespostaBrutaLLM:
         dados = json.dumps(payload).encode("utf-8")
@@ -196,6 +201,7 @@ class AdaptadorDeLinguagemOpenRouter:
             },
         }
         resposta = self._transporte(payload, self.chave, self.timeout_segundos)
+        self.ultima_resposta = resposta
         return self._traduzir(resposta)
 
     def _traduzir(self, resposta: RespostaBrutaLLM) -> SaidaDeLinguagem:
@@ -226,12 +232,19 @@ class AdaptadorDeLinguagemOpenRouter:
 
 # ─── seleção do provedor ─────────────────────────────────────────────────────
 
+_RAIZ_DO_REPO = Path(__file__).resolve().parents[2]
 
-def criar_adaptador_de_linguagem(provedor: str | None = None, env: dict | None = None):
+
+def criar_adaptador_de_linguagem(provedor: str | None = None, env: dict | None = None, raiz: Path = _RAIZ_DO_REPO):
     """Escolhe o adaptador por `LLM_PROVEDOR` (`env`, injetável para teste — por padrão
     `os.environ`). Padrão `deterministico`: não lê `OPENROUTER_API_KEY` nesse caminho, nunca
     instancia o adaptador real. `openrouter` sem a chave FALHA ALTO — achado da #9: um
-    carregador ingênuo leria "sem chave" e cairia pro determinístico em silêncio; aqui, nunca."""
+    carregador ingênuo leria "sem chave" e cairia pro determinístico em silêncio; aqui, nunca.
+
+    Carregar o `.env` para `os.environ` é responsabilidade do PROCESSO DE ENTRADA (CLI ou o teste
+    `llm_real`), não desta função — ver `interfaces.dotenv_loader`. Esta camada só lê o ambiente
+    que já está pronto quando ela é chamada. `raiz` é só para o diagnóstico de `.env.txt` — injetável
+    para teste."""
     ambiente = env if env is not None else os.environ
     escolhido = (provedor or ambiente.get("LLM_PROVEDOR", "deterministico")).strip().lower()
     if escolhido == "deterministico":
@@ -239,10 +252,17 @@ def criar_adaptador_de_linguagem(provedor: str | None = None, env: dict | None =
     if escolhido == "openrouter":
         chave = ambiente.get("OPENROUTER_API_KEY")
         if not chave:
-            raise RuntimeError(
-                "OPENROUTER_API_KEY ausente — confira se o arquivo se chama .env (e não .env.txt) "
-                "e se a linha começa com OPENROUTER_API_KEY="
-            )
+            raise RuntimeError(_mensagem_de_chave_ausente(raiz))
         modelo = ambiente.get("LLM_MODELO", MODELO_PADRAO)
         return AdaptadorDeLinguagemOpenRouter(chave=chave, modelo=modelo)
     raise ValueError(f"LLM_PROVEDOR desconhecido: {escolhido!r} (esperado 'deterministico' ou 'openrouter')")
+
+
+def _mensagem_de_chave_ausente(raiz: Path) -> str:
+    """A mensagem de falha alto muda se existir um `.env.txt` na raiz — é o erro real que já
+    aconteceu (Bloco de Notas escondendo a extensão), virando diagnóstico específico em vez de
+    genérico. Nunca lê nem imprime o CONTEÚDO de nenhum dos dois arquivos, só checa a existência."""
+    base = "OPENROUTER_API_KEY ausente — confira se o arquivo se chama .env (e não .env.txt) e se a linha começa com OPENROUTER_API_KEY="
+    if (raiz / ".env.txt").is_file() and not (raiz / ".env").is_file():
+        return "OPENROUTER_API_KEY ausente — encontrei .env.txt na raiz: renomeie para .env (o Bloco de Notas costuma esconder a extensão)"
+    return base

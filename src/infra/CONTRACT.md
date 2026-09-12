@@ -98,7 +98,8 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 - `infra.adaptador_de_linguagem.AdaptadorDeLinguagemDeterministico().extrair(texto_mascarado, estado_atual) -> SaidaDeLinguagem`.
 - `infra.adaptador_de_linguagem.AdaptadorDeLinguagemOpenRouter(chave, modelo=MODELO_PADRAO, transporte=None, timeout_segundos=10.0)`.
-- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem(provedor=None, env=None) -> PortalDeLinguagem`.
+- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem(provedor=None, env=None, raiz=<raiz do repo>) -> PortalDeLinguagem`
+  — carregar o `.env` para `os.environ` é responsabilidade de `interfaces.dotenv_loader`, chamado pelo processo de entrada (CLI), nunca por esta função.
 - `infra.adaptador_de_linguagem.MODELO_PADRAO` = `"deepseek/deepseek-chat-v3.1"` (ADR-0003).
 
 ### Decisões registradas

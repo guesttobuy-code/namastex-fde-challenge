@@ -30,6 +30,7 @@ from dominio.redator_pii import redigir_texto
 from infra.cliente_quote import ClienteQuoteHTTP
 from infra.exportador_trilha import exportar_execucao
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
+from interfaces.dotenv_loader import carregar_dotenv_no_ambiente
 
 RAIZ = Path(__file__).resolve().parents[2]
 
@@ -145,5 +146,9 @@ def rodar_conversa(entrada=input, base_url: str | None = None, portal=None, tril
 
 
 if __name__ == "__main__":
+    # Carregar o `.env` é a primeira coisa que o processo faz (issue #9, F6) — antes de qualquer
+    # peça de negócio saber que uma variável de ambiente existe. Ainda sem efeito hoje (a CLI não
+    # chama `criar_adaptador_de_linguagem` nesta frente); prepara o terreno pra próxima.
+    carregar_dotenv_no_ambiente()
     rodar_conversa()
     sys.exit(0)

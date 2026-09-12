@@ -244,12 +244,37 @@ def test_provedor_deterministico_explicito_nunca_le_a_chave():
     assert isinstance(adaptador, AdaptadorDeLinguagemDeterministico)
 
 
-def test_openrouter_pedido_sem_chave_falha_alto_com_mensagem_de_diagnostico():
+def test_openrouter_pedido_sem_chave_falha_alto_com_mensagem_de_diagnostico(tmp_path):
     with pytest.raises(RuntimeError) as excinfo:
-        criar_adaptador_de_linguagem(env={"LLM_PROVEDOR": "openrouter"})
+        criar_adaptador_de_linguagem(env={"LLM_PROVEDOR": "openrouter"}, raiz=tmp_path)
     mensagem = str(excinfo.value)
     assert "OPENROUTER_API_KEY" in mensagem
     assert ".env" in mensagem
+
+
+def test_openrouter_sem_chave_com_env_txt_na_raiz_diagnostica_o_erro_real(tmp_path):
+    """O achado real desta frente: o Bloco de Notas salvou o arquivo como `.env.txt`. A mensagem
+    de falha alto passa a apontar isso especificamente, em vez do genérico."""
+    (tmp_path / ".env.txt").write_text("OPENROUTER_API_KEY=qualquer-coisa\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        criar_adaptador_de_linguagem(env={"LLM_PROVEDOR": "openrouter"}, raiz=tmp_path)
+    mensagem = str(excinfo.value)
+    assert ".env.txt" in mensagem
+    assert "renomeie" in mensagem
+    assert "qualquer-coisa" not in mensagem  # nunca ecoa conteúdo do arquivo, só a existência
+
+
+def test_openrouter_sem_chave_com_env_e_env_txt_usa_a_mensagem_generica(tmp_path):
+    """Se o `.env` (o certo) já existe mas simplesmente não tem a variável, o diagnóstico de
+    `.env.txt` não se aplica — a causa é outra (linha faltando, nome errado)."""
+    (tmp_path / ".env").write_text("OUTRA_VAR=x\n", encoding="utf-8")
+    (tmp_path / ".env.txt").write_text("sobra de uma tentativa antiga\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        criar_adaptador_de_linguagem(env={"LLM_PROVEDOR": "openrouter"}, raiz=tmp_path)
+    mensagem = str(excinfo.value)
+    assert "renomeie" not in mensagem
 
 
 def test_openrouter_pedido_com_chave_instancia_o_adaptador_real():
