@@ -21,7 +21,7 @@
 import {
   mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, readFileSync,
 } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,14 @@ const NOME = 'reserva-de-numero';
 const ALVO = fileURLToPath(new URL('../reserva-de-numero.mjs', import.meta.url));
 const MEU_CAMINHO = fileURLToPath(import.meta.url);
 const ENV_SEM_NPM = { ...process.env, npm_lifecycle_event: '' };
+
+// Absoluto neutro por plataforma pra provar "dir configurado como caminho absoluto → reprova" —
+// nunca precisa existir de verdade (a checagem real é isAbsolute(), não presença no disco). Antes
+// era a string 'C:/nao/existe/xyz', só absoluta no Windows: `path.isAbsolute()` real (que o guard usa
+// em `reserva-de-numero.mjs:116`) devolve `false` pra isso no POSIX, e o caso nunca lançava fora do
+// Windows (issue #27, causa 2). `path.resolve()` de um caminho começando com "/" é absoluto nos dois
+// sistemas (no Windows resolve pra dentro da unidade atual, ex. "C:\nao\existe\xyz").
+const DIR_ABSOLUTO_INEXISTENTE = resolve('/nao/existe/xyz');
 
 const ADR = { dir: 'governance/adr', padrao: 'sequencial', largura: 4 };
 const cfg = (tipos) => JSON.stringify({ tipos }, null, 2);
@@ -173,7 +181,7 @@ function selfTestMedirBasico(check) {
     return dados.tipos.find((t) => t.tipo === 'adr').itens.length === 0;
   })());
   check('RN-05: tipo ligado com dir ABSOLUTO → lança', (() => {
-    const cfgAbsoluto = cfg({ adr: { ...ADR, dir: 'C:/nao/existe/xyz' } });
+    const cfgAbsoluto = cfg({ adr: { ...ADR, dir: DIR_ABSOLUTO_INEXISTENTE } });
     try { medir(mkTree((d) => put(d, 'governance/RESERVAS.json', cfgAbsoluto))); return false; } catch { return true; }
   })());
 
@@ -224,7 +232,7 @@ function selfTestPastasConhecidas(check, guard) {
     guard(E3).status === 1,
   );
   const E3c = mkTree((d) => {
-    put(d, 'governance/RESERVAS.json', cfg({ adr: { ...ADR, dir: 'C:/nao/existe/xyz' } }));
+    put(d, 'governance/RESERVAS.json', cfg({ adr: { ...ADR, dir: DIR_ABSOLUTO_INEXISTENTE } }));
     put(d, 'governance/adr/0009-fantasma.md');
   });
   check('RN-05 (E3c): dir absoluto inexistente → NÃO MEDIU (exit 2)', guard(E3c).status === 2);
