@@ -130,6 +130,17 @@ Este projeto roda na **esteira -base**. O método inteiro tem um dono só: a ski
 `REGRAS-DO-RAFAEL.md` é injetado em toda sessão pelo hook — vale aqui integralmente (LEI ZERO da
 memória, `--no-verify` nunca, merge só pelo dono).
 
+## ⚖️ Leis DESTE projeto — leitura obrigatória de todo chat
+
+**`docs/LEIS-DO-PROJETO.md`** — as regras que o dono deu para este desafio, que complementam as 12 Leis
+acima. Elas viviam só na memória do chat de coordenação, e **chat de frente não lê aquela memória**: cada
+worktree tem a sua. Por isso moram no repositório, onde todo mundo lê.
+
+Em uma linha cada: commit é livre, push e merge são do dono · todo achado e aprendizado é registrado na hora,
+com prova · **todo erro vira aperfeiçoamento** (registrar, consertar, impedir a classe, fechar o laço) · tudo
+o que é nosso mora no repositório · rigor com documentação · decisão de arquitetura vira ADR · **pare quando
+a decisão não é sua** · texto simples, nunca menu.
+
 ## Guards e comandos
 
 `npm run full-check` (pre-commit) · `npm run guards:selftest` · `npm run frente:abrir -- <slug>` ·
