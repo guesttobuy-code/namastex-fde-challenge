@@ -3,10 +3,13 @@
 colada no corpo do PR, não faz parte da suíte automática)."""
 from __future__ import annotations
 
+from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.preco_cotado import PrecoCotado
 from dominio.resultado_cotacao import ResultadoDaCotacao
+from infra.adaptador_de_linguagem import AdaptadorDeLinguagemDeterministico
 from infra.cliente_quote import FakePortalDeCotacao
-from interfaces.cli import _Transcricao, coletar_dados, rodar_conversa
+from infra.trilha_jsonl import RepositorioDeTrilhaMemoria
+from interfaces.cli import _Transcricao, coletar_dados, coletar_dados_por_texto_livre, rodar_conversa
 
 _PRECO = PrecoCotado(
     quote_attempt_id="attempt-1",
@@ -89,6 +92,80 @@ def test_rodar_conversa_encaminha_quando_a_quote_esta_indisponivel(tmp_path, mon
     conteudo = caminho.read_text(encoding="utf-8")
     assert "encaminhar" in conteudo
     assert "quote_indisponivel" in conteudo
+
+
+def test_coletar_dados_por_texto_livre_aceita_tudo_de_primeira():
+    portal = AdaptadorDeLinguagemDeterministico()
+    entrada = _respostas("tenho 30 anos, um sandero 2022 e meu cep e 01310-100")
+
+    estado = coletar_dados_por_texto_livre(_Transcricao(), portal, "conv-texto-livre", entrada=entrada)
+
+    assert estado.idade == 30
+    assert estado.veiculo_ano == 2022
+    assert estado.cep == "01310-100"
+    assert not estado.campos_faltantes
+
+
+def test_coletar_dados_por_texto_livre_pede_de_novo_quando_falta_algo():
+    """O determinístico não extrai CEP (isso é `extrair_dados_da_mensagem`, fora do texto livre
+    aqui) — então o primeiro turno sempre falta `cep`, forçando um segundo turno."""
+    portal = AdaptadorDeLinguagemDeterministico()
+    entrada = _respostas("tenho 30 anos e um sandero 2022", "meu cep e 01310-100")
+
+    estado = coletar_dados_por_texto_livre(_Transcricao(), portal, "conv-texto-livre-2", entrada=entrada, max_turnos=3)
+
+    assert estado.idade == 30
+    assert estado.veiculo_ano == 2022
+    assert estado.cep == "01310-100"
+    assert not estado.campos_faltantes
+
+
+def test_coletar_dados_por_texto_livre_grava_trilha_com_origem_do_portal():
+    portal = AdaptadorDeLinguagemDeterministico()
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+    entrada = _respostas("tenho 30 anos e um sandero 2022", "meu cep e 01310-100")
+
+    coletar_dados_por_texto_livre(
+        _Transcricao(), portal, "conv-trilha-texto-livre", trilha=trilha, entrada=entrada, max_turnos=3
+    )
+
+    eventos = repositorio.eventos_da_conversa("conv-trilha-texto-livre")
+    enviadas = [e for e in eventos if e["evento"] == "mensagem_enviada"]
+    assert enviadas, "esperava ao menos uma mensagem_enviada durante a coleta"
+    assert all(e["origem_do_texto"] == "extrator_deterministico:v1" for e in enviadas)
+
+
+def test_coletar_dados_por_texto_livre_esgota_max_turnos_sem_travar():
+    portal = AdaptadorDeLinguagemDeterministico()
+    entrada = _respostas("oi", "qualquer coisa", "sem dado nenhum")
+
+    estado = coletar_dados_por_texto_livre(_Transcricao(), portal, "conv-sem-dado", entrada=entrada, max_turnos=3)
+
+    assert estado.campos_faltantes  # não travou, mas também não inventou dado que não veio
+
+
+def test_rodar_conversa_com_portal_de_linguagem_usa_coleta_por_texto_livre(tmp_path, monkeypatch):
+    """Ponta a ponta com o portal de linguagem: a trilha ganha `origem_do_texto` do adaptador
+    (aqui o determinístico, para rodar offline) — o mesmo caminho que, com o OpenRouter, produz
+    `origem_do_texto="llm:<modelo>@<versao>"` na trilha real (prova 7 da #9)."""
+    import interfaces.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "RAIZ", tmp_path)
+    portal_cotacao = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.sucesso(_PRECO)])
+    portal_linguagem = AdaptadorDeLinguagemDeterministico()
+
+    caminho = rodar_conversa(
+        entrada=_respostas("tenho 30 anos e um sandero 2020", "meu cep e 01310-100"),
+        portal=portal_cotacao,
+        portal_de_linguagem=portal_linguagem,
+    )
+
+    conteudo = caminho.read_text(encoding="utf-8")
+    assert "explicar_cotacao" in conteudo
+    conversation_id = caminho.stem.removeprefix("execucao_")
+    jsonl = (tmp_path / "examples" / f"trilha_{conversation_id}.jsonl").read_text(encoding="utf-8")
+    assert "extrator_deterministico:v1" in jsonl
 
 
 def test_rodar_conversa_grava_a_trilha_estruturada_por_padrao(tmp_path, monkeypatch):
