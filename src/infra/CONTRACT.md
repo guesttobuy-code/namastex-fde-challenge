@@ -93,6 +93,8 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 | I-8 | Timeout, erro HTTP, corpo não-JSON (com ou sem cerca Markdown) ou JSON fora do esquema nunca viram exceção — sempre um `SaidaDeLinguagem(pedido_de_esclarecimento=...)` | `tests/infra/test_adaptador_de_linguagem.py` |
 | I-9 | `criar_adaptador_de_linguagem` nunca lê `OPENROUTER_API_KEY` quando o provedor é (ou o padrão é) `deterministico` | `tests/infra/test_adaptador_de_linguagem.py::test_provedor_padrao_e_deterministico_e_nunca_le_a_chave` |
 | I-10 | Nenhum teste da suíte padrão chama a API do OpenRouter de verdade — só via `pytest -m llm_real`, explícito | `pyproject.toml::[tool.pytest.ini_options].markers` |
+| I-11 | Toda chamada ao OpenRouter carrega `strict: true` (em `json_schema`) e `provider.require_parameters: true` | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_payload_pede_strict_e_require_parameters` |
+| I-12 | Uma saída sem TODAS as chaves do esquema (o modelo ignorou o esquema, mesmo com JSON válido) dispara UMA retentativa, nunca mapeamento de sinônimo de campo — e nunca uma terceira chamada | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_esquema_nao_seguido_*` |
 
 ### Entradas e saídas públicas acrescentadas
 

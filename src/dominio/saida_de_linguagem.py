@@ -18,7 +18,14 @@ class SaidaDeLinguagem:
 
     `pedido_de_esclarecimento` e os campos extraídos são mutuamente informativos, não exclusivos
     por construção — quem decide se um turno vale ou pede mais informação é `aplicacao`, não este
-    tipo; ele só carrega o que o adaptador conseguiu (ou não) extrair."""
+    tipo; ele só carrega o que o adaptador conseguiu (ou não) extrair.
+
+    Limite declarado (achado ao vivo, 2026-09-12, teste de injeção contra o modelo real):
+    `ambiguidades` e `pedido_de_esclarecimento` são texto influenciado pelo LLM a partir do texto
+    do lead — podem ecoar de volta o que o lead escreveu, inclusive uma tentativa de injeção de
+    prompt (é o comportamento correto de um sinalizador para o operador revisar). Por isso NUNCA
+    podem virar texto mostrado ao lead sem passar por `dominio.redator`/`_texto_da_decisao` — a
+    garantia estrutural está em `tests/aplicacao/test_servico_conversa.py::test_ambiguidades_nunca_e_usado_para_montar_texto_ao_lead`."""
 
     idade: int | None = None
     veiculo_ano: int | None = None

@@ -32,6 +32,20 @@ def _respostas(*linhas: str):
     return entrada
 
 
+def _respostas_com_eof(*linhas: str):
+    """Como `_respostas`, mas levanta `EOFError` quando a fila acaba — o que `input()` faz de
+    verdade quando o stdin fecha (achado da coordenação, 2026-09-12: sem tratar isso a CLI caía
+    com traceback)."""
+    fila = list(linhas)
+
+    def entrada() -> str:
+        if not fila:
+            raise EOFError
+        return fila.pop(0)
+
+    return entrada
+
+
 def test_coletar_dados_aceita_tudo_de_primeira(capsys):
     dados = coletar_dados(_Transcricao(), entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01"))
 
@@ -134,6 +148,19 @@ def test_coletar_dados_por_texto_livre_grava_trilha_com_origem_do_portal():
     enviadas = [e for e in eventos if e["evento"] == "mensagem_enviada"]
     assert enviadas, "esperava ao menos uma mensagem_enviada durante a coleta"
     assert all(e["origem_do_texto"] == "extrator_deterministico:v1" for e in enviadas)
+
+
+def test_coletar_dados_por_texto_livre_trata_eof_sem_traceback():
+    """Achado da coordenação (2026-09-12): `entrada()` (via `input()` real) levanta `EOFError`
+    quando o stdin fecha antes do lead terminar — a CLI não pode cair com traceback nesse caso."""
+    portal = AdaptadorDeLinguagemDeterministico()
+    entrada = _respostas_com_eof("tenho 30 anos e um sandero 2022")  # sem CEP, e a fila acaba aqui
+
+    estado = coletar_dados_por_texto_livre(_Transcricao(), portal, "conv-eof", entrada=entrada, max_turnos=6)
+
+    assert estado.idade == 30
+    assert estado.veiculo_ano == 2022
+    assert "cep" in estado.campos_faltantes  # incompleto, mas devolvido limpo — sem exceção
 
 
 def test_coletar_dados_por_texto_livre_esgota_max_turnos_sem_travar():

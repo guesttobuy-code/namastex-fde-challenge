@@ -161,6 +161,76 @@ def test_openrouter_json_embrulhado_em_cerca_markdown_e_lido_mesmo_assim():
     assert saida.pedido_de_esclarecimento is None
 
 
+# ─── esquema ignorado pelo modelo (achado ao vivo, medição da coordenação 2026-09-12) ──
+
+
+def test_openrouter_payload_pede_strict_e_require_parameters():
+    """Confirma que o payload carrega as duas mitigações medidas contra a documentação do
+    OpenRouter: `strict: true` no `json_schema` e `provider.require_parameters: true` (só roteia
+    para provedor que suporta de fato os parâmetros pedidos)."""
+    payloads = []
+
+    def transporte(payload, chave, timeout):
+        payloads.append(payload)
+        return RespostaBrutaLLM(status_code=200, corpo=_corpo_sucesso({
+            "idade": None, "veiculo_ano": None, "plano_id": None, "data_inicio": None,
+            "intent": None, "ambiguidades": [],
+        }))
+
+    AdaptadorDeLinguagemOpenRouter(chave="x", transporte=transporte).extrair("oi", ESTADO_VAZIO)
+
+    (payload,) = payloads
+    assert payload["response_format"]["json_schema"]["strict"] is True
+    assert payload["provider"]["require_parameters"] is True
+
+
+def test_openrouter_esquema_nao_seguido_na_primeira_chamada_tenta_de_novo_e_acerta():
+    """Caso medido ao vivo: o modelo devolveu JSON válido, mas com nomes de campo inventados
+    (`ano_veiculo`, `modelo_veiculo`...) em vez do esquema pedido — ~50% de 4 chamadas reais.
+    `_obedece_ao_esquema` detecta pela AUSÊNCIA das chaves esperadas (nunca mapeia sinônimo) e
+    dispara UMA retentativa; se ela vier certa, a extração funciona."""
+    chamadas = []
+
+    def transporte(payload, chave, timeout):
+        chamadas.append(payload)
+        if len(chamadas) == 1:
+            corpo_errado = {"idade": 42, "modelo_veiculo": "onix", "ano_veiculo": 2019, "preco": None}
+            return RespostaBrutaLLM(status_code=200, corpo=_corpo_sucesso(corpo_errado))
+        return RespostaBrutaLLM(status_code=200, corpo=_corpo_sucesso({
+            "idade": 42, "veiculo_ano": 2019, "plano_id": None, "data_inicio": None,
+            "intent": None, "ambiguidades": [],
+        }))
+
+    saida = AdaptadorDeLinguagemOpenRouter(chave="x", transporte=transporte).extrair(
+        "tenho 42 anos, dirijo um onix 2019", ESTADO_VAZIO
+    )
+
+    assert len(chamadas) == 2, "esperava exatamente 1 retentativa, nem 0 nem mais"
+    assert saida.idade == 42
+    assert saida.veiculo_ano == 2019
+    assert saida.pedido_de_esclarecimento is None
+    # a retentativa avisa o modelo do erro, sem inventar/ecoar o esquema que ele usou por conta própria
+    assert "esquema" in chamadas[1]["messages"][-1]["content"].lower()
+
+
+def test_openrouter_esquema_nao_seguido_nas_duas_chamadas_vira_esclarecimento_sem_terceira_tentativa():
+    chamadas = []
+
+    def transporte(payload, chave, timeout):
+        chamadas.append(payload)
+        return RespostaBrutaLLM(status_code=200, corpo=_corpo_sucesso({
+            "idade": 42, "modelo_veiculo": "onix", "ano_veiculo": 2019,
+        }))
+
+    saida = AdaptadorDeLinguagemOpenRouter(chave="x", transporte=transporte).extrair(
+        "tenho 42 anos, dirijo um onix 2019", ESTADO_VAZIO
+    )
+
+    assert len(chamadas) == 2, "UMA retentativa só — nunca uma terceira chamada"
+    assert saida.pedido_de_esclarecimento is not None
+    assert saida.idade is None  # nunca mapeado de 'modelo_veiculo'/'ano_veiculo' por adivinhação
+
+
 def test_openrouter_origem_do_texto_carrega_modelo_e_versao_do_prompt():
     adaptador = AdaptadorDeLinguagemOpenRouter(chave="x", modelo="deepseek/deepseek-chat-v3.1")
     assert adaptador.origem_do_texto == "llm:deepseek/deepseek-chat-v3.1@v1"

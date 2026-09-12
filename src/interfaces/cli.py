@@ -120,7 +120,14 @@ def coletar_dados_por_texto_livre(
     estado = EstadoDaConversa(conversation_id=conversation_id)
     transcricao.emitir("Me conte sobre você: sua idade, o carro (modelo e ano) e seu CEP.")
     for indice in range(max_turnos):
-        texto = entrada().strip()
+        try:
+            texto = entrada().strip()
+        except EOFError:
+            # A entrada acabou (stdin fechado) antes do lead completar os dados — achado da
+            # coordenação (2026-09-12): sem isto a CLI cai com traceback. Encerra limpo com o que
+            # já foi coletado; `politica.decidir` já sabe pedir mais informação se faltar campo.
+            transcricao.emitir("(entrada encerrada — sem mais respostas do lead)")
+            break
         transcricao.emitir(f"> {texto}" if texto else "> (em branco)")
         if trilha is not None:
             trilha.registrar_evento(

@@ -10,6 +10,15 @@ https://openrouter.ai/docs/api-reference/chat-completion em 2026-09-12, não esc
 com timeout explícito e saída validada por esquema antes de virar `SaidaDeLinguagem` — saída
 inválida, lenta ou com erro de rede nunca chega ao domínio, vira `pedido_de_esclarecimento`.
 
+Achado ao vivo (coordenação, 2026-09-12): mesmo com `response_format=json_schema`,
+`deepseek/deepseek-chat-v3.1` via OpenRouter ignorou o esquema e inventou nomes de campo em ~50%
+de 4 chamadas medidas. Mitigação em duas partes, confirmada contra a documentação atual do
+OpenRouter (não escrita de memória): `strict: true` dentro de `json_schema` e
+`provider.require_parameters: true` no payload (só roteia para provedor que suporta os parâmetros
+pedidos de verdade); e, se mesmo assim o esquema não vier completo, UMA retentativa com um aviso
+curto — nunca mapeamento de sinônimo (`ano_veiculo` -> `veiculo_ano` seria adivinhar o esquema que
+o modelo inventou, não validar o que pedimos).
+
 `criar_adaptador_de_linguagem` escolhe o adaptador por `LLM_PROVEDOR` (padrão `deterministico`,
 nunca lê `OPENROUTER_API_KEY` nesse caminho); se pedir `openrouter` sem a chave no ambiente,
 FALHA ALTO (achado da #9: um carregador ingênuo cairia pro determinístico em silêncio).
@@ -73,7 +82,10 @@ class AdaptadorDeLinguagemDeterministico:
 _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODELO_PADRAO = "deepseek/deepseek-chat-v3.1"
 VERSAO_DO_PROMPT = "v1"
-TIMEOUT_SEGUNDOS = 10.0
+# Medido ao vivo (2026-09-12, 20 chamadas reais): latência máxima observada 11.314ms, mediana
+# ~5.9s. Um timeout de 10s cortaria uma resposta correta que só chegou em 11.3s como se fosse
+# timeout — por isso 15s, com folga sobre o pior caso medido, não um número redondo arbitrário.
+TIMEOUT_SEGUNDOS = 15.0
 
 _PROMPT_SISTEMA = (
     "Você extrai dados de uma conversa de venda de seguro de carro. Responda SOMENTE com um JSON "
@@ -98,9 +110,28 @@ _ESQUEMA_EXTRACAO = {
     "additionalProperties": False,
 }
 
+_CAMPOS_ESPERADOS = frozenset(_ESQUEMA_EXTRACAO["required"])
+
 _ESCLARECIMENTO_PADRAO = "Não entendi — pode reformular?"
 
+_AVISO_ESQUEMA_ERRADO = (
+    "Sua resposta anterior não seguiu o esquema pedido. Responda de novo, SÓ com JSON contendo "
+    "exatamente estas chaves: idade, veiculo_ano, plano_id, data_inicio, intent, ambiguidades "
+    "(todas presentes; use null no que não souber, [] em ambiguidades se nenhuma)."
+)
+
 _CERCA_MARKDOWN_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL)
+
+
+def _obedece_ao_esquema(dados: object) -> bool:
+    """O modelo pode devolver JSON válido mas IGNORAR o esquema pedido — achado ao vivo (#9,
+    medição da coordenação em 2026-09-12): `deepseek/deepseek-chat-v3.1` via OpenRouter inventou
+    nomes de campo (`ano_veiculo`, `modelo_veiculo`, `preco`, `recusa`...) em ~50% de 4 chamadas,
+    mesmo com `response_format=json_schema`. Um dict que não declara TODAS as chaves esperadas não
+    é "extração vazia" — é "esquema não seguido", e isso vira retentativa, nunca mapeamento de
+    sinônimo (mapear `ano_veiculo` -> `veiculo_ano` seria adivinhar o esquema que o modelo
+    inventou, não validar o esquema que pedimos)."""
+    return isinstance(dados, dict) and _CAMPOS_ESPERADOS.issubset(dados.keys())
 
 
 def _sem_cercas_markdown(texto: str) -> str:
@@ -189,33 +220,60 @@ class AdaptadorDeLinguagemOpenRouter:
 
     def extrair(self, texto_mascarado: str, estado_atual: EstadoDaConversa) -> SaidaDeLinguagem:
         del estado_atual  # reservado para prompt futuro; a extração de hoje não usa contexto.
-        payload = {
+        mensagens = [
+            {"role": "system", "content": _PROMPT_SISTEMA},
+            {"role": "user", "content": texto_mascarado},
+        ]
+        resposta, dados = self._chamar(mensagens)
+        if resposta.excedeu_o_tempo or resposta.status_code != 200:
+            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
+
+        if not _obedece_ao_esquema(dados):
+            # UMA retentativa quando o esquema não foi seguido — nunca quando a chamada falhou
+            # (timeout/HTTP, já tratado acima). Achado ao vivo: `response_format=json_schema`
+            # sozinho não é garantia com este modelo/rota; a retentativa é a mitigação combinada
+            # com `strict`+`require_parameters` no payload (ver `_montar_payload`).
+            mensagens_retry = [*mensagens, {"role": "user", "content": _AVISO_ESQUEMA_ERRADO}]
+            resposta, dados = self._chamar(mensagens_retry)
+            if resposta.excedeu_o_tempo or resposta.status_code != 200:
+                return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
+
+        if not _obedece_ao_esquema(dados):
+            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
+        return self._montar_saida(dados)
+
+    def _montar_payload(self, mensagens: list[dict]) -> dict:
+        return {
             "model": self.modelo,
-            "messages": [
-                {"role": "system", "content": _PROMPT_SISTEMA},
-                {"role": "user", "content": texto_mascarado},
-            ],
+            "messages": mensagens,
             "response_format": {
                 "type": "json_schema",
-                "json_schema": {"name": "extracao_lead", "schema": _ESQUEMA_EXTRACAO},
+                "json_schema": {"name": "extracao_lead", "strict": True, "schema": _ESQUEMA_EXTRACAO},
             },
+            # Sem isto, o OpenRouter pode rotear para um provedor que não suporta
+            # `response_format`/`json_schema` de verdade e simplesmente ignora o parâmetro — é
+            # exatamente a causa medida do achado de 2026-09-12 (confirmado contra a documentação
+            # atual do OpenRouter, não escrito de memória).
+            "provider": {"require_parameters": True},
         }
+
+    def _chamar(self, mensagens: list[dict]) -> tuple[RespostaBrutaLLM, dict | None]:
+        payload = self._montar_payload(mensagens)
         resposta = self._transporte(payload, self.chave, self.timeout_segundos)
         self.ultima_resposta = resposta
-        return self._traduzir(resposta)
+        return resposta, self._extrair_json(resposta)
 
-    def _traduzir(self, resposta: RespostaBrutaLLM) -> SaidaDeLinguagem:
-        if resposta.excedeu_o_tempo:
-            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
-        if resposta.status_code != 200 or not resposta.corpo:
-            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
+    def _extrair_json(self, resposta: RespostaBrutaLLM) -> dict | None:
+        if resposta.excedeu_o_tempo or resposta.status_code != 200 or not resposta.corpo:
+            return None
         try:
             texto_json = resposta.corpo["choices"][0]["message"]["content"]
             dados = json.loads(_sem_cercas_markdown(texto_json))
         except (KeyError, IndexError, TypeError, json.JSONDecodeError):
-            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
-        if not isinstance(dados, dict):
-            return SaidaDeLinguagem(pedido_de_esclarecimento=_ESCLARECIMENTO_PADRAO)
+            return None
+        return dados if isinstance(dados, dict) else None
+
+    def _montar_saida(self, dados: dict) -> SaidaDeLinguagem:
         return SaidaDeLinguagem(
             idade=_inteiro_dentro_da_faixa(dados.get("idade"), minimo=0, maximo=130),
             veiculo_ano=_inteiro_dentro_da_faixa(dados.get("veiculo_ano"), minimo=1900, maximo=2100),
