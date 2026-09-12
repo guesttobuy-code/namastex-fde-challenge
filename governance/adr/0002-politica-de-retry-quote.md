@@ -32,7 +32,9 @@ de ~10s** (`timeout_da_tentativa = min(3s, orçamento_restante)`, nunca ultrapas
 **Precisão medida (achado da auditoria do PR #35, contra a trilha real):** os 3s não são parede
 dura por tentativa — é o `timeout` do `urllib`, que vale por operação de socket (conectar/ler), não
 um cronômetro de parede sobre a chamada inteira. Uma tentativa real chegou a **3617ms**
-(`examples/trilha_conv-7c44f694.jsonl`), ~600ms além do nominal. O que segura de verdade é o
+(`git show 8c35203:examples/trilha_conv-7c44f694.jsonl` — o exemplo original da medição; o arquivo
+foi apagado da árvore de trabalho por `dddfac7`, que regenerou os exemplos de `examples/`, e por
+isso só é acessível pelo sha antigo), ~600ms além do nominal. O que segura de verdade é o
 **orçamento total** (10s), provado por medição de tempo de parede real (abaixo) — nenhuma execução
 observada ultrapassou isso.
 

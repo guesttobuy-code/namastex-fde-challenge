@@ -7,6 +7,11 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- `scripts/checklist_definicao_pronto.py`: checklist automático da issue #15 (seção 3) — confere que
+  README.md, docs/DESAFIO.md, os dois exemplos de execução em `examples/` e (quando existir) o índice
+  `ai-logs/README.md` com cada sessão que ele cita estão presentes e não-vazios. Não é guard do
+  `full-check` nem entra em `package.json`/`governance/GUARDS_CATALOG.md` — é prova desta frente,
+  rodada a mão antes do smoke test em clone limpo (#15)
 - `tests/aplicacao/test_servico_conversa_trilha.py::test_payload_enviado_a_quote_carrega_o_cep_real_nunca_o_redigido` (achado da auditoria do PR #35): espiona o TRANSPORTE HTTP (não a trilha) e prova que o CEP que chega na `/quote` é o real, mesmo com a trilha ligada no mesmo fluxo — trava contra uma futura mudança que faça a redação vazar pro payload de saída (#6)
 - Trilha costurada em `aplicacao.servico_conversa.conduzir_conversa` (issue #7/#6, depois do merge da F4/#31): grava `mensagem_recebida`, um `tentativa_de_cotacao` **por tentativa HTTP** (não por cotação — ESPECIFICACAO.md §1, via o novo `on_tentativa` de `ClienteQuoteHTTP`), `decisao`, `mensagem_enviada` (com `decisao_id`/`regra_aplicada`/`origem_do_texto`/`dados_usados`/`quote_attempt_id` reais, nunca marcador) e `handoff` quando encaminha — tudo via `ServicoDeTrilha`, nunca o repositório direto. `infra/cliente_quote.py` ganha `TentativaObservada`/`_classificar` e `on_tentativa` em `executar_com_orcamento`/`cotar`; a porta `PortalDeCotacao` documenta o parâmetro (tipado solto, `aplicacao` continua sem importar `infra`). `interfaces/cli.py` grava a trilha de verdade em `examples/trilha_<id>.jsonl` e o log estruturado via `infra.exportador_trilha` em `examples/trilha_<id>.log`; a transcrição (`execucao_<id>.log`) passa a ser redigida (`redigir_texto`) antes de salvar, porque também é commitada. Seções F3/#6 apensadas a `src/aplicacao/CONTRACT.md` e `src/infra/CONTRACT.md` (R2/#16)
 - `src/dominio/CONTRACT.md`: seção da F4 por append no fim (R2 em #16, agora que a F2/#5 mergeou) — invariantes I-5/I-6/I-7 dos eventos da trilha e do redator de PII, sem editar nenhuma linha da seção da F2 (#7)
@@ -59,6 +64,17 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **Rastreabilidade dos arquivos vindos do kit (achado da auditoria fria, #17):** comentários nos 63 arquivos de `scripts/esteira/` citam números de issue e ADR do repositório de ORIGEM, que aqui significam outra coisa. Criado `scripts/esteira/README.md` declarando a proveniência, as quatro adaptações locais com o motivo, o limite conhecido dos 8 guards que não medem este diretório, e a regra para quem mexer (#17)
 
 ### Alterado
+- **README.md e docs/DESAFIO.md (issue #15):** o enunciado original da Namastex, que morava no
+  `README.md` da raiz, foi movido para `docs/DESAFIO.md` restaurando o texto original palavra por
+  palavra (conferido contra `git diff 52a006c -- docs/DESAFIO.md` — a única diferença antes era uma
+  linha nossa apontando pro `docs/PRIVACIDADE.md`, agora removida daquele arquivo). O `README.md` da
+  raiz passa a ser o nosso: como rodar, ponta a ponta, o que acontece quando a `/quote` falha,
+  critério de handoff, rastreabilidade, dados sensíveis, qualidade, como a IA foi usada e o que ficou
+  de fora — cada número com a fonte ao lado (#15)
+- `governance/adr/0002-politica-de-retry-quote.md`: a citação dos 3617ms passa a apontar para
+  `git show 8c35203:examples/trilha_conv-7c44f694.jsonl` em vez do caminho direto do arquivo, que
+  `dddfac7` apagou ao regenerar os exemplos de `examples/` — achado herdado da re-auditoria do PR #35
+  (#15)
 - `scripts/esteira/guards/companion-red-green.mjs`: a réplica descartável que o guard cria na base (para provar vermelho×verde) agora recebe um link (`fs.symlinkSync(..., 'junction')`) para o `.venv` do repositório real, no mesmo padrão que já existia para `node_modules`. Sem isso, `resolverPython(replica)` nunca achava o `.venv` (gitignored, ausente numa worktree recém-criada via `git worktree add`) e caía pro Python do sistema — que por decisão do dono não tem ruff/pytest instalados —, então **todo** PR Python com teste+fonte no diff saía `FERRAMENTA_AUSENTE` sempre, mesmo com o ambiente real funcionando. Achado e consertado durante a F1 (#4), com aval da coordenação; limite declarado: a réplica passa a compartilhar o mesmo `.venv` do repositório, não um isolado — aceitável porque o teste só lê o venv
 - **Extensão de escopo (#4, com aval da coordenação):** o ambiente Python do CI (`.github/workflows/esteira.yml`) não instalava o que os testes de arquitetura desta frente precisam. Dois jobs tocados, mesmo motivo: `companion-red-green` não instalava nada (só `setup-python`) e `python-check` instalava `ruff pytest` sem `import-linter` — os dois rodam `pytest -q` sobre `tests/`, que agora inclui testes que chamam `lint-imports` via subprocess. Os dois passam a instalar `ruff pytest import-linter`, espelhando o que já existia; nada mais mudou nesses jobs. Mesmo conjunto (+`pylint`) declarado em `pyproject.toml` (`[dependency-groups] dev`), instalável com `uv sync --group dev`
 - `.gitignore`: ignora `_local/`, `_PRIVADO/` e `*.token`; e abre duas exceções conscientes, porque as regras herdadas engoliriam entregáveis do desafio — `.env.example` (documenta variáveis sem segredo) e `examples/*.log` (o log da execução completa) (#3)
