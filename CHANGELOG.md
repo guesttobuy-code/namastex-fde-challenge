@@ -7,6 +7,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- `examples/painel/capturas/*.png`: captura de tela de cada uma das seis telas geradas, renderizadas de verdade num navegador (`chrome --headless --screenshot`) contra o `examples/painel/*.html` real — prova 6 do escopo #13 ("olho humano": interface se verifica no navegador, Regra 3 do CLAUDE.md)
 - `examples/painel/`: as seis telas geradas de uma trilha REAL (não fixture) — três conversas reais contra o `quote-service` de verdade: sucesso na 1ª tentativa (`conv-4e14f305`, execução própria desta frente), sucesso após retry 502/502/200 (`conv-d656ea8c`, do PR #35) e handoff por esgotamento 500/500/500 (`conv-9a861a37`, do PR #35). `gerar_paineis` passa a aceitar uma PASTA (lê todo `trilha_*.jsonl` dentro, ignora `.log` irmãos) além de um arquivo único — o formato real de `examples/` é uma trilha por conversa. Varredura de PII com `dominio.redator_pii._PADROES`: zero achados nas seis telas (#13)
 - `src/infra/config.py`: `url_quote_service()`, dono único da resolução de `QUOTE_SERVICE_URL` — antes do rebase sobre o PR #35, `interfaces/cli.py` e `infra/planos_http.py` liam a mesma variável cada um do seu jeito (mesmo nome, mesmo default, dois lugares). Os dois passam a chamar esta função; `interfaces/cli.py` perde o `os.environ.get(...)` inline (achado da coordenação, LEI 11) (#13)
 
