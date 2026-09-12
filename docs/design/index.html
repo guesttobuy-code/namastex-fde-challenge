@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Conversas</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .duas{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+  @media (max-width:1000px){.duas{grid-template-columns:1fr}}
+  .item{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;
+        padding:12px 15px;border-bottom:1px solid rgba(59,32,104,.55);font:inherit}
+  .item:hover{background:var(--superficie-2)}
+  .item[aria-current="true"]{background:var(--superficie-2);box-shadow:inset 3px 0 0 var(--magenta)}
+  .item .l1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item .nome{font-weight:600;font-size:14px}
+  .item .previa{color:var(--texto-fraco);font-size:12.5px;margin-top:3px;
+                display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .item .hora{color:var(--texto-mais-fraco);font-size:11px;font-family:var(--mono)}
+
+  .conversa{display:flex;flex-direction:column;height:min(72vh,660px)}
+  .fluxo{flex:1;overflow-y:auto;padding:18px 18px 8px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:66%;display:flex;flex-direction:column;gap:3px}
+  .msg.lead{align-self:flex-start}
+  .msg.agente{align-self:flex-end;align-items:flex-end}
+  .balao{border-radius:14px;padding:9px 13px;border:1px solid var(--borda);background:var(--superficie-2)}
+  .msg.agente .balao{border-color:rgba(255,0,255,.35);background:rgba(255,0,255,.07)}
+  .msg .rodape-msg{font-family:var(--mono);font-size:10.5px;color:var(--texto-mais-fraco);display:flex;gap:8px}
+  .estado-interno{align-self:center;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco);
+                  border:1px dashed var(--borda);border-radius:999px;padding:3px 12px}
+  .composicao{border-top:1px solid var(--borda);padding:12px 16px;display:flex;gap:10px;align-items:center;
+              color:var(--texto-mais-fraco);font-size:13px}
+  .composicao .caixa{flex:1;background:var(--superficie-2);border:1px solid var(--borda);
+                     border-radius:999px;padding:9px 15px}
+  .lateral-dados{display:flex;flex-direction:column;gap:12px}
+  .campo{display:flex;justify-content:space-between;gap:10px;padding:9px 15px;
+         border-bottom:1px solid rgba(59,32,104,.55);font-size:13.5px}
+  .campo:last-child{border-bottom:0}
+  .campo .rot{color:var(--texto-mais-fraco)}
+  .campo .val{font-family:var(--mono);font-size:12.5px}
+  .falta{color:var(--alerta)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html" aria-current="page"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Conversas</h1>
+      <p>O atendimento como o lead vê, e o estado interno do agente ao lado de cada passo. Aqui se confere o tom;
+         a prova do que aconteceu fica no <a href="rastreio.html">Rastreio</a>.</p>
+    </div>
+    <span class="chip viva">agente ativo</span>
+  </div>
+
+  <div class="duas">
+    <nav class="painel" aria-label="Lista de conversas">
+      <header><h2>Caixa de entrada</h2><span class="aux">whatsapp</span></header>
+      <button class="item" aria-current="true">
+        <span class="l1"><span class="nome">Bruno P.</span><span class="hora">09:15</span></span>
+        <span class="previa">Consegui o plano Completo por R$ 272,87/mês…</span>
+        <span class="chip cotada" style="margin-top:6px">Cotada</span>
+      </button>
+      <button class="item">
+        <span class="l1"><span class="nome">Marina S.</span><span class="hora">09:31</span></span>
+        <span class="previa">O sistema de cotação está indisponível agora…</span>
+        <span class="chip handoff" style="margin-top:6px">Encaminhada</span>
+      </button>
+      <button class="item">
+        <span class="l1"><span class="nome">Nicolas F.</span><span class="hora">09:48</span></span>
+        <span class="previa">Não conseguimos segurar veículos com mais de 20 anos…</span>
+        <span class="chip recusada" style="margin-top:6px">Recusa de negócio</span>
+      </button>
+    </nav>
+
+    <div style="display:grid;gap:16px">
+      <section class="painel conversa">
+        <header><h2>Bruno P. · conv_a41f</h2><span class="aux">+55 11 9****-**84</span></header>
+        <div class="fluxo">
+          <div class="msg lead"><div class="balao">Oi, queria fazer um seguro pro meu carro</div>
+            <div class="rodape-msg"><span>09:14:02</span><span>msg_01</span></div></div>
+          <div class="msg agente"><div class="balao">Olá! Posso ajudar. Qual o modelo e o ano do veículo?</div>
+            <div class="rodape-msg"><span>09:14:03</span><span>msg_02</span></div></div>
+          <div class="estado-interno">estado: coletando dados · faltam idade, CEP, plano</div>
+          <div class="msg lead"><div class="balao">é um Sandero 2022</div>
+            <div class="rodape-msg"><span>09:14:41</span><span>msg_03</span></div></div>
+          <div class="msg agente"><div class="balao">Perfeito. Para cotar certinho preciso da sua idade e do CEP onde o carro dorme.
+            <em>Não preciso do seu CPF.</em></div>
+            <div class="rodape-msg"><span>09:14:42</span><span>msg_04</span></div></div>
+          <div class="msg lead"><div class="balao">tenho 30 anos, cep <span class="mascarado" title="o valor original nunca é gravado">07***-**4</span></div>
+            <div class="rodape-msg"><span>09:15:20</span><span>msg_05</span></div></div>
+          <div class="estado-interno">estado: cotando · 1ª tentativa 503 · 2ª tentativa 200 · qa_7d31</div>
+          <div class="msg agente"><div class="balao">Consegui o plano <strong>Completo</strong> por <strong>R$ 272,87/mês</strong>,
+            franquia de R$ 3.000. Roubo e furto passam a valer após 30 dias de carência.</div>
+            <div class="rodape-msg"><span>09:15:22</span><span>msg_06</span><span>preço de qa_7d31</span></div></div>
+          <div class="estado-interno">decisão: explicar_cotacao</div>
+        </div>
+        <div class="composicao"><span class="caixa">O agente responde automaticamente — este console é de leitura</span>
+          <span class="chip viva">ao vivo</span></div>
+      </section>
+
+      <section class="painel lateral-dados">
+        <header><h2>O que o agente sabe</h2><span class="aux">estado da conversa</span></header>
+        <div class="campo"><span class="rot">Veículo</span><span class="val">Sandero · 2022</span></div>
+        <div class="campo"><span class="rot">Idade</span><span class="val">30</span></div>
+        <div class="campo"><span class="rot">CEP</span><span class="val">07***-**4 · região de risco</span></div>
+        <div class="campo"><span class="rot">Plano</span><span class="val">completo</span></div>
+        <div class="campo"><span class="rot">Início da vigência</span><span class="val falta">não informado — pró-rata não calculada</span></div>
+        <div class="campo"><span class="rot">CPF</span><span class="val">não solicitado (a cotação não usa)</span></div>
+      </section>
+    </div>
+  </div>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> Dados fictícios.
+    Os valores pessoais aparecem mascarados porque é assim que a trilha os grava — não é efeito de tela.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Regras e política</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .cartoes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .plano{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);padding:15px 16px}
+  .plano h3{margin:0 0 3px;font-size:16px}
+  .plano .preco{font-size:22px;font-weight:700;color:var(--ciano);font-variant-numeric:tabular-nums}
+  .plano ul{margin:9px 0 0;padding-left:18px;color:var(--texto-fraco);font-size:13px;line-height:1.7}
+  .nunca{display:grid;gap:8px;padding:15px 16px}
+  .nunca div{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--texto-fraco)}
+  .nunca b{color:var(--texto)}
+  .x{color:var(--falha);font-weight:700;flex:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html" aria-current="page"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Regras e política</h1>
+      <p>O que o agente sabe, e de onde esse conhecimento vem. Nada aqui é recalculado localmente:
+         esta tela <strong>lê</strong> a tabela do serviço de cotação.</p>
+    </div>
+    <span class="chip neutra mono">fonte: GET /planos</span>
+  </div>
+
+  <div class="aviso">
+    A seguradora é a <strong>autoridade</strong> sobre preço e elegibilidade. O agente nunca reimplementa essas regras —
+    ele as exibe para explicar, e pergunta ao serviço para decidir. Inclusive porque a idade do veículo é calculada com
+    a data de hoje no servidor: uma cópia local desincronizaria sozinha com o tempo.
+  </div>
+
+  <section style="margin-bottom:18px">
+    <div class="cartoes">
+      <div class="plano"><h3>Essencial</h3><div class="preco">R$ 119,90</div>
+        <div style="color:var(--texto-mais-fraco);font-size:12px">franquia R$ 4.500</div>
+        <ul><li>colisão</li><li>roubo *</li><li>furto *</li></ul></div>
+      <div class="plano"><h3>Completo</h3><div class="preco">R$ 209,90</div>
+        <div style="color:var(--texto-mais-fraco);font-size:12px">franquia R$ 3.000</div>
+        <ul><li>colisão</li><li>roubo * · furto *</li><li>terceiros</li><li>vidros</li></ul></div>
+      <div class="plano"><h3>Premium</h3><div class="preco">R$ 339,90</div>
+        <div style="color:var(--texto-mais-fraco);font-size:12px">franquia R$ 1.500</div>
+        <ul><li>colisão</li><li>roubo * · furto *</li><li>terceiros · vidros</li><li>carro reserva</li><li>assistência 24h</li></ul></div>
+    </div>
+    <p style="color:var(--texto-fraco);font-size:12.5px;margin:9px 2px 0">
+      * roubo e furto só passam a valer <strong>após 30 dias de carência</strong>, contados do início da vigência.
+      O agente diz isso <em>antes</em> de o lead perguntar.</p>
+  </section>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start" class="cartoes">
+    <section class="painel">
+      <header><h2>O que muda o preço</h2><span class="aux">multiplicadores</span></header>
+      <table>
+        <thead><tr><th>Fator</th><th>Faixa</th><th class="num">Multiplicador</th></tr></thead>
+        <tbody>
+          <tr><td>Idade do condutor</td><td class="mono">18–24</td><td class="num">1,60</td></tr>
+          <tr><td></td><td class="mono">25–29</td><td class="num">1,25</td></tr>
+          <tr><td></td><td class="mono">30–59</td><td class="num">1,00</td></tr>
+          <tr><td></td><td class="mono">60–75</td><td class="num">1,40</td></tr>
+          <tr><td></td><td class="mono">acima de 75</td><td class="num">recusa</td></tr>
+          <tr><td>Idade do veículo</td><td class="mono">0–5 anos</td><td class="num">1,00</td></tr>
+          <tr><td></td><td class="mono">6–10 anos</td><td class="num">1,15</td></tr>
+          <tr><td></td><td class="mono">11–20 anos</td><td class="num">1,45</td></tr>
+          <tr><td></td><td class="mono">acima de 20</td><td class="num">recusa</td></tr>
+          <tr><td>Região (CEP)</td><td class="mono">prefixos de risco</td><td class="num">1,30</td></tr>
+        </tbody>
+      </table>
+      <div style="padding:12px 16px;border-top:1px solid var(--borda);color:var(--texto-fraco);font-size:12.5px">
+        Sem CEP, a cotação sai <strong>até 30% mais barata em silêncio</strong>. Por isso o agente sempre pede o CEP —
+        decisão comercial nossa, não exigência da API.
+      </div>
+    </section>
+
+    <div style="display:grid;gap:16px">
+      <section class="painel">
+        <header><h2>Política de tentativas</h2><span class="aux">decidida por medição</span></header>
+        <table>
+          <tbody>
+            <tr><td>Orçamento total</td><td class="num">10 s</td></tr>
+            <tr><td>Timeout por tentativa</td><td class="num">min(3 s, tempo restante)</td></tr>
+            <tr><td>Tentativas</td><td class="num">até 3</td></tr>
+            <tr><td>Espera entre elas</td><td class="num">0,4 s · 0,8 s</td></tr>
+            <tr><td>Nunca repete</td><td class="num">422 · 400</td></tr>
+            <tr><td>Esgotou o orçamento</td><td class="num">handoff honesto</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="painel">
+        <header><h2>Dados pessoais</h2><span class="aux">o que é mascarado na trilha</span></header>
+        <table>
+          <tbody>
+            <tr><td>CPF</td><td class="mono">não é solicitado</td></tr>
+            <tr><td>CEP</td><td class="mono">07***-**4</td></tr>
+            <tr><td>Telefone</td><td class="mono">+55 11 9****-**84</td></tr>
+            <tr><td>E-mail</td><td class="mono">br***@***.com</td></tr>
+            <tr><td>Placa</td><td class="mono">GG***30</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+
+  <section class="painel" style="margin-top:18px">
+    <header><h2>O que o agente nunca faz</h2><span class="aux">invariantes com teste próprio</span></header>
+    <div class="nunca">
+      <div><span class="x">✕</span><span><b>Informar preço sem cotação bem-sucedida.</b> Não é instrução de texto: sem cotação, não existe objeto de preço para colocar na frase.</span></div>
+      <div><span class="x">✕</span><span><b>Decidir elegibilidade por conta própria.</b> Quem recusa é a seguradora; o agente explica a recusa.</span></div>
+      <div><span class="x">✕</span><span><b>Repetir uma recusa de negócio.</b> Invariante testada: recusa ⇒ exatamente uma chamada.</span></div>
+      <div><span class="x">✕</span><span><b>Inventar conteúdo de áudio, imagem ou documento.</b> Marcador de mídia não é conteúdo.</span></div>
+      <div><span class="x">✕</span><span><b>Criar desconto, cobertura ou condição comercial.</b> Isso é exceção comercial: vai para a fila humana.</span></div>
+      <div><span class="x">✕</span><span><b>Obedecer a instrução escondida na mensagem do lead.</b> Texto de quem chega é dado, não comando — nem que venha bem formatado.</span></div>
+      <div><span class="x">✕</span><span><b>Prometer o que o sistema não cumpre</b>, como “te retorno em instantes” sem ter fila de retomada.</span></div>
+      <div><span class="x">✕</span><span><b>Expor erro técnico ao lead</b> — nada de 503, timeout ou stack trace na conversa.</span></div>
+    </div>
+  </section>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> Planos e multiplicadores são os do serviço
+    de cotação do desafio; os formatos de mascaramento vêm da medição do dataset.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+</body>
+</html>

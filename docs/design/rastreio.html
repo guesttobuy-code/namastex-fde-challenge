@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Rastreio</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .duas{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+  @media (max-width:1000px){.duas{grid-template-columns:1fr}}
+  .item{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;
+        padding:12px 15px;border-bottom:1px solid rgba(59,32,104,.55);font:inherit}
+  .item:hover{background:var(--superficie-2)}
+  .item[aria-current="true"]{background:var(--superficie-2);box-shadow:inset 3px 0 0 var(--magenta)}
+  .item .l1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item .resumo{color:var(--texto-fraco);font-size:12.5px;margin-top:4px}
+  .tempo{padding:6px 16px 18px}
+  .ev{position:relative;padding:13px 0 13px 26px;border-left:2px solid var(--borda)}
+  .ev::before{content:"";position:absolute;left:-7px;top:19px;width:12px;height:12px;border-radius:50%;
+              background:var(--superficie);border:2px solid var(--texto-mais-fraco)}
+  .ev.lead::before{border-color:var(--ciano)} .ev.agente::before{border-color:var(--magenta)}
+  .ev.cotacao::before{border-color:var(--azul)} .ev.decisao::before{border-color:var(--ok)}
+  .ev.handoff::before{border-color:var(--alerta)}
+  .ev .meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--texto-mais-fraco);
+            font-size:11.5px;font-family:var(--mono)}
+  .ev .quem{color:var(--texto);font-family:system-ui;font-weight:600;font-size:12.5px}
+  .balao{background:var(--superficie-2);border:1px solid var(--borda);border-radius:12px;
+         padding:9px 13px;display:inline-block;max-width:62ch;margin-top:6px}
+  .ev.agente .balao{border-color:rgba(255,0,255,.32)}
+  .tentativas{margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:620px}
+  .tent{display:grid;grid-template-columns:76px 1fr auto;gap:10px;align-items:center;background:var(--superficie-2);
+        border:1px solid var(--borda);border-radius:10px;padding:8px 12px;font-family:var(--mono);font-size:12px}
+  .tent .n{color:var(--texto-mais-fraco)} .tent .estado{font-weight:700}
+  .tent.ruim .estado{color:var(--falha)} .tent.boa .estado{color:var(--ok)}
+  .tent .ms{color:var(--texto-fraco);text-align:right}
+  .prova{margin-top:10px;border:1px solid rgba(61,220,151,.4);border-radius:12px;overflow:hidden;max-width:620px}
+  .prova header{background:rgba(61,220,151,.10);padding:8px 13px;font-size:11px;letter-spacing:.08em;
+                text-transform:uppercase;color:var(--ok);font-weight:700}
+  .prova .corpo{padding:12px 13px;display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+  .prova .rot{color:var(--texto-mais-fraco);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+  .prova .val{font-family:var(--mono);font-size:13px;margin-top:3px}
+  .prova .val.grande{font-size:19px;font-weight:700;color:var(--ok);font-family:system-ui}
+  .motivo{display:inline-flex;gap:8px;background:rgba(255,200,87,.1);border:1px solid rgba(255,200,87,.38);
+          color:var(--alerta);border-radius:10px;padding:7px 12px;font-family:var(--mono);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html" aria-current="page"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Rastreio</h1>
+      <p>Cada mensagem e cada tentativa de cotação, com id, status e tempo — reconstruído a partir da trilha
+         que o agente grava. É aqui que se responde “o que aconteceu nessa conversa?” sem depender de memória.</p>
+    </div>
+    <span class="chip neutra mono">fonte: trilha JSONL</span>
+  </div>
+
+  <div class="duas">
+    <nav class="painel" aria-label="Conversas">
+      <header><h2>Conversas</h2><span class="aux">hoje</span></header>
+      <div id="lista"></div>
+    </nav>
+    <section class="painel">
+      <header><h2>Linha do tempo</h2><span class="aux" id="cab"></span></header>
+      <div class="tempo" id="tempo"></div>
+    </section>
+  </div>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> Dados fictícios; a estrutura dos eventos
+    é a que a trilha vai gravar de verdade. Valores pessoais aparecem mascarados porque é assim que são gravados.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+
+<script>
+const CONVERSAS=[
+ {id:"conv_a41f",estado:"cotada",rotulo:"Cotada",resumo:"Sandero 2022 · Completo · CEP de risco",linha:[
+  {t:"lead",hora:"09:14:02",id:"msg_01",texto:"Oi, queria fazer um seguro pro meu carro"},
+  {t:"agente",hora:"09:14:03",id:"msg_02",texto:"Olá! Posso ajudar. Qual o modelo e o ano do veículo?"},
+  {t:"lead",hora:"09:14:41",id:"msg_03",texto:"é um Sandero 2022"},
+  {t:"lead",hora:"09:15:20",id:"msg_05",texto:"tenho 30 anos, cep <span class='mascarado' title='mascarado na trilha'>07***-**4</span>"},
+  {t:"cotacao",hora:"09:15:21",id:"qa_7d31",tentativas:[
+    {n:"1ª",estado:"503 upstream_unavailable",ms:"0,04 s",ok:false},
+    {n:"2ª",estado:"200 OK",ms:"0,06 s",ok:true}],
+   nota:"espera de 0,4 s entre tentativas · orçamento de 10 s respeitado",
+   prova:{preco:"R$ 272,87",plano:"Completo",id:"qa_7d31",mult:"idade 1,00 · veículo 1,00 · região 1,30"}},
+  {t:"agente",hora:"09:15:22",id:"msg_06",texto:"Consegui o plano <strong>Completo</strong> por <strong>R$ 272,87/mês</strong>, franquia de R$ 3.000. Roubo e furto após 30 dias de carência."},
+  {t:"decisao",hora:"09:15:22",id:"dec_01",texto:"explicar_cotacao — dados completos, cotação com sucesso"}]},
+ {id:"conv_b93c",estado:"handoff",rotulo:"Encaminhada",resumo:"Cotação fora do ar · 3 tentativas",linha:[
+  {t:"lead",hora:"09:31:10",id:"msg_01",texto:"HB20 2021, 44 anos, cep <span class='mascarado' title='mascarado na trilha'>01***-**0</span>"},
+  {t:"cotacao",hora:"09:31:12",id:"qa_1188",tentativas:[
+    {n:"1ª",estado:"500 upstream_unavailable",ms:"0,03 s",ok:false},
+    {n:"2ª",estado:"502 upstream_unavailable",ms:"0,05 s",ok:false},
+    {n:"3ª",estado:"timeout (3 s)",ms:"3,00 s",ok:false}],
+   nota:"orçamento de 10 s esgotado · nenhuma tentativa devolveu preço",semPreco:true},
+  {t:"handoff",hora:"09:31:16",id:"ho_01",motivo:"QUOTE_UNAVAILABLE",texto:"Encaminhada com histórico e dados já coletados."},
+  {t:"agente",hora:"09:31:16",id:"msg_03",texto:"O sistema de cotação está indisponível agora. Já passei seu atendimento para um especialista."}]},
+ {id:"conv_c07e",estado:"recusada",rotulo:"Recusa de negócio",resumo:"Corolla 2004 · fora da faixa aceita",linha:[
+  {t:"lead",hora:"09:48:30",id:"msg_03",texto:"Corolla 2004, 52 anos, cep <span class='mascarado' title='mascarado na trilha'>26***-**4</span>"},
+  {t:"cotacao",hora:"09:48:31",id:"qa_5502",tentativas:[{n:"1ª",estado:"422 cotacao_recusada",ms:"0,05 s",ok:false}],
+   nota:"recusa de negócio não é repetida — invariante: recusa ⇒ 1 tentativa",semPreco:true},
+  {t:"decisao",hora:"09:48:31",id:"dec_01",texto:"encerrar — veículo com mais de 20 anos não é aceito"},
+  {t:"agente",hora:"09:48:32",id:"msg_04",texto:"Infelizmente não seguramos veículos com mais de 20 anos. Se tiver outro carro na família, posso cotar."}]}];
+
+const lista=document.getElementById('lista'),tempo=document.getElementById('tempo'),cab=document.getElementById('cab');
+function pintar(atual){
+  lista.innerHTML=CONVERSAS.map(c=>`<button class="item" data-id="${c.id}" aria-current="${c.id===atual}">
+    <span class="l1"><span class="mono">${c.id}</span><span class="chip ${c.estado}">${c.rotulo}</span></span>
+    <span class="resumo">${c.resumo}</span></button>`).join('');
+  lista.querySelectorAll('.item').forEach(b=>b.addEventListener('click',()=>selecionar(b.dataset.id)));
+}
+function ev(e){
+  if(e.t==='cotacao'){
+    const tents=e.tentativas.map(t=>`<div class="tent ${t.ok?'boa':'ruim'}"><span class="n">${t.n} tentativa</span>
+      <span class="estado">${t.estado}</span><span class="ms">${t.ms}</span></div>`).join('');
+    const prova=e.prova?`<div class="prova"><header>prova do preço — este valor veio desta cotação</header>
+      <div class="corpo">
+        <div><div class="rot">Prêmio mensal</div><div class="val grande">${e.prova.preco}</div></div>
+        <div><div class="rot">Plano</div><div class="val">${e.prova.plano}</div></div>
+        <div><div class="rot">quote_attempt_id</div><div class="val">${e.prova.id}</div></div>
+        <div><div class="rot">Multiplicadores</div><div class="val">${e.prova.mult}</div></div>
+      </div></div>`:'';
+    const sem=e.semPreco?`<div class="motivo">nenhum preço foi gerado — sem cotação com sucesso, não existe valor a informar</div>`:'';
+    return `<div class="ev cotacao"><div class="meta"><span class="quem">Cotação</span><span>${e.hora}</span><span>${e.id}</span></div>
+      <div class="tentativas">${tents}</div><div class="meta" style="margin-top:6px">${e.nota}</div>${prova}${sem}</div>`;
+  }
+  if(e.t==='handoff') return `<div class="ev handoff"><div class="meta"><span class="quem">Encaminhamento</span><span>${e.hora}</span><span>${e.id}</span></div>
+    <div class="balao">${e.texto}</div><div class="motivo">reason_code: ${e.motivo}</div></div>`;
+  if(e.t==='decisao') return `<div class="ev decisao"><div class="meta"><span class="quem">Decisão</span><span>${e.hora}</span><span>${e.id}</span></div>
+    <div class="balao">${e.texto}</div></div>`;
+  return `<div class="ev ${e.t}"><div class="meta"><span class="quem">${e.t==='lead'?'Lead':'Agente'}</span><span>${e.hora}</span><span>${e.id}</span></div>
+    <div class="balao">${e.texto}</div></div>`;
+}
+function selecionar(id){const c=CONVERSAS.find(x=>x.id===id);pintar(id);
+  cab.textContent=`${c.id} · ${c.linha.length} eventos`;tempo.innerHTML=c.linha.map(ev).join('');}
+selecionar(CONVERSAS[0].id);
+</script>
+</body>
+</html>

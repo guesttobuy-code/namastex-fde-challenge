@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Cotações</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .barra{display:flex;height:26px;border-radius:8px;overflow:hidden;border:1px solid var(--borda);margin:4px 0 10px}
+  .barra span{display:block;font-size:11px;font-family:var(--mono);color:#16012F;font-weight:700;
+              display:flex;align-items:center;justify-content:center}
+  .b-ok{background:var(--ok)} .b-lenta{background:var(--alerta)} .b-falha{background:var(--falha)}
+  .legenda{display:flex;gap:16px;flex-wrap:wrap;color:var(--texto-fraco);font-size:12.5px}
+  .legenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html" aria-current="page"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Cotações</h1>
+      <p>A saúde da integração com o sistema legado. Os números desta tela vieram de <strong>medição real</strong>
+         contra o serviço do desafio — não de estimativa.</p>
+    </div>
+    <span class="chip ok">integração saudável</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="rotulo">Sucesso</div><div class="valor">98,7%</div><div class="nota">148 de 150 cotações pedidas</div></div>
+    <div class="kpi"><div class="rotulo">Latência p50</div><div class="valor">0,02 s</div><div class="nota">p90 1,23 s · máx 7,22 s</div></div>
+    <div class="kpi"><div class="rotulo">Chamadas por cotação</div><div class="valor">1,31</div><div class="nota">1 chamada em 81% dos casos</div></div>
+    <div class="kpi perigo"><div class="rotulo">Falhas do legado</div><div class="valor">19,3%</div><div class="nota">500 · 502 · 503, absorvidas por retry</div></div>
+    <div class="kpi destaque"><div class="rotulo">Preço sem cotação</div><div class="valor">0</div><div class="nota">invariante do sistema</div></div>
+  </div>
+
+  <section class="painel" style="margin-bottom:18px">
+    <header><h2>Como o legado respondeu</h2><span class="aux">150 chamadas · série</span></header>
+    <div style="padding:15px 16px">
+      <div class="barra">
+        <span class="b-ok" style="width:72.7%">72,7% imediatas</span>
+        <span class="b-lenta" style="width:8%">8% lentas</span>
+        <span class="b-falha" style="width:19.3%">19,3% falha</span>
+      </div>
+      <div class="legenda">
+        <span><i class="b-ok"></i>resposta imediata (mediana 0,02 s)</span>
+        <span><i class="b-lenta"></i>lenta: dorme 8 s e responde 200 — por isso cortamos em 3 s e tentamos de novo</span>
+        <span><i class="b-falha"></i>5xx: repetida dentro do orçamento</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="painel" style="margin-bottom:18px">
+    <header><h2>Por que a política é essa</h2><span class="aux">decidido por medição, não por opinião</span></header>
+    <table>
+      <thead><tr><th>Política (timeout por tentativa)</th><th class="num">Sucesso</th><th class="num">p90</th>
+        <th class="num">Chamadas/cotação</th><th>Veredito</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">10 s / 10 s / 10 s</td><td class="num">147/150</td><td class="num">8,00 s</td><td class="num">1,35</td>
+          <td><span class="chip neutra">cauda longa demais</span></td></tr>
+        <tr><td class="mono"><strong>3 s / 3 s / 3 s</strong></td><td class="num">148/150</td><td class="num"><strong>1,23 s</strong></td><td class="num">1,31</td>
+          <td><span class="chip ok">escolhida</span></td></tr>
+        <tr><td class="mono">4 s / 4 s / 10 s</td><td class="num">149/150</td><td class="num">4,42 s</td><td class="num">1,39</td>
+          <td><span class="chip neutra">sem ganho que pague</span></td></tr>
+      </tbody>
+    </table>
+    <div style="padding:13px 16px;color:var(--texto-fraco);font-size:13px;border-top:1px solid var(--borda)">
+      Cortar cedo derruba a espera do lead de <strong>8 s para 1,2 s</strong> sem custar confiabilidade — a diferença
+      de sucesso está dentro do ruído — e sem gastar mais chamadas no sistema do cliente.
+    </div>
+  </section>
+
+  <section class="painel">
+    <header><h2>Últimas tentativas</h2><span class="aux">cada uma com id próprio</span></header>
+    <table>
+      <thead><tr><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Tempo</th><th>Classificação</th><th>O que o agente fez</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">qa_7d31·2</td><td class="mono">conv_a41f</td><td class="mono">200 OK</td><td class="num">0,06 s</td>
+          <td><span class="chip ok">sucesso</span></td><td>informou R$ 272,87</td></tr>
+        <tr><td class="mono">qa_7d31·1</td><td class="mono">conv_a41f</td><td class="mono">503</td><td class="num">0,04 s</td>
+          <td><span class="chip falha">infraestrutura</span></td><td>repetiu após 0,4 s</td></tr>
+        <tr><td class="mono">qa_5502·1</td><td class="mono">conv_c07e</td><td class="mono">422 cotacao_recusada</td><td class="num">0,05 s</td>
+          <td><span class="chip neutra">recusa de negócio</span></td><td>não repetiu; explicou e encerrou</td></tr>
+        <tr><td class="mono">qa_1188·3</td><td class="mono">conv_b93c</td><td class="mono">timeout</td><td class="num">3,00 s</td>
+          <td><span class="chip falha">infraestrutura</span></td><td>orçamento esgotado → handoff</td></tr>
+        <tr><td class="mono">qa_9f02·1</td><td class="mono">conv_e55b</td><td class="mono">422 detail (validação)</td><td class="num">0,03 s</td>
+          <td><span class="chip alerta">erro nosso</span></td><td>não repetiu; registrou e encaminhou</td></tr>
+      </tbody>
+    </table>
+    <div style="padding:13px 16px;color:var(--texto-fraco);font-size:13px;border-top:1px solid var(--borda)">
+      Repare nas duas linhas de <span class="mono">422</span>: a API usa o mesmo código para <strong>recusa de negócio</strong>
+      e para <strong>erro de validação</strong>. Distinguir os dois pelo corpo da resposta — e não pelo código — é o que
+      impede repetir o que nunca vai dar certo.
+    </div>
+  </section>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> As tentativas listadas são fictícias;
+    os percentuais e tempos vêm de medição real do serviço do desafio em 2026-09-12.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+</body>
+</html>

@@ -7,6 +7,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- Mock de design do console do agente em `docs/design/` — seis telas navegáveis por menu lateral (Conversas, Fila humana, Rastreio, Cotações, Avaliação, Regras e política), HTML estático sem dependência externa, com dados fictícios e a identidade visual derivada da marca do cliente. Serve para decidir o desenho antes de existir código de interface — e define, em particular, quais campos a trilha precisa gravar (requisito da F4, issue #7) (#18)
 - Esteira de produção instalada pelo kit: CLAUDE.md com as 12 leis, governança (ADR com reserva de número, matriz de impacto, contrato de veredito, documentos obrigatórios), 63 scripts de guards em `scripts/esteira/`, pre-commit ligado, `esteira.json` (stack python, 7 áreas, pastas privadas declaradas proibidas) e `package.json` com os comandos da esteira (#3)
 - Planejamento do projeto em `docs/`: proposta de design auditada externamente e plano da primeira frente; parecer da auditoria externa arquivado em `ai-logs/codex/` (#3)
 - Pasta `_local/` ignorada pelo git, para chaves, sondas e rascunhos, com o critério escrito em `_local/LEIA-ME.md` (#3)

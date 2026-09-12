@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Fila humana</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .cartao{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
+          padding:15px 17px;display:grid;gap:10px;margin-bottom:12px}
+  .cartao .topo-c{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .cartao h3{margin:0;font-size:15px}
+  .motivo{display:inline-flex;align-items:center;gap:8px;background:rgba(255,200,87,.1);
+          border:1px solid rgba(255,200,87,.35);color:var(--alerta);border-radius:10px;
+          padding:6px 11px;font-family:var(--mono);font-size:12px}
+  .contexto{background:var(--superficie-2);border:1px solid var(--borda);border-radius:10px;
+            padding:11px 13px;font-size:13.5px;color:var(--texto-fraco)}
+  .contexto b{color:var(--texto)}
+  .acoes{display:flex;gap:9px;flex-wrap:wrap}
+  .botao{border:1px solid var(--borda);background:var(--superficie-2);color:var(--texto);
+         border-radius:10px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer}
+  .botao.principal{border-color:rgba(255,0,255,.5);background:rgba(255,0,255,.12)}
+  .regras{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .regra{background:var(--superficie);border:1px solid var(--borda);border-radius:12px;padding:11px 13px}
+  .regra code{font-family:var(--mono);font-size:11.5px;color:var(--ciano)}
+  .regra p{margin:5px 0 0;color:var(--texto-fraco);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html" aria-current="page"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Fila humana</h1>
+      <p>Toda conversa encaminhada chega aqui <strong>com o motivo escrito</strong> e o contexto já coletado —
+         o vendedor nunca precisa pedir de novo o que o lead já disse.</p>
+    </div>
+    <span class="chip alerta">2 aguardando</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="rotulo">Na fila</div><div class="valor">2</div><div class="nota">mais antiga há 6 min</div></div>
+    <div class="kpi"><div class="rotulo">Encaminhadas hoje</div><div class="valor">11</div><div class="nota">de 150 atendimentos</div></div>
+    <div class="kpi destaque"><div class="rotulo">Com motivo registrado</div><div class="valor">100%</div><div class="nota">invariante: handoff ⇒ reason_code</div></div>
+    <div class="kpi"><div class="rotulo">Motivo mais comum</div><div class="valor" style="font-size:17px">QUOTE_UNAVAILABLE</div><div class="nota">6 das 11</div></div>
+  </div>
+
+  <section class="cartao">
+    <div class="topo-c">
+      <h3>Marina S. · conv_b93c</h3>
+      <span class="chip alerta">aguardando há 6 min</span>
+    </div>
+    <div class="motivo">reason_code: QUOTE_UNAVAILABLE — 3 tentativas, orçamento de 10 s esgotado</div>
+    <div class="contexto">
+      <b>Já coletado:</b> HB20 2021 · 44 anos · CEP <span class="mascarado" title="mascarado na trilha">01***-**0</span> · plano ainda não escolhido.<br>
+      <b>Última mensagem ao lead:</b> “O sistema de cotação está indisponível agora. Já passei seu atendimento para um especialista.”<br>
+      <b>O agente não prometeu retorno automático</b> — nenhuma promessa que o sistema não possa cumprir.
+    </div>
+    <div class="acoes">
+      <button class="botao principal">Assumir atendimento</button>
+      <button class="botao">Ver rastreio completo</button>
+      <button class="botao">Tentar cotar de novo</button>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <div class="topo-c">
+      <h3>Helena R. · conv_d12a</h3>
+      <span class="chip alerta">aguardando há 2 min</span>
+    </div>
+    <div class="motivo">reason_code: UNSUPPORTED_MEDIA_INFORMATION — documento enviado sem transcrição</div>
+    <div class="contexto">
+      <b>Já coletado:</b> Onix 2019 · idade não informada · CEP <span class="mascarado" title="mascarado na trilha">88***-**1</span>.<br>
+      <b>O que aconteceu:</b> o lead enviou <code>[documento] CNH_frente.pdf</code>. O agente <b>não leu</b> o arquivo e
+      <b>não inventou</b> o conteúdo: pediu a idade em texto e, sem resposta, encaminhou.<br>
+      <b>No histórico do dataset,</b> 56,8% das conversas têm mídia sem transcrição — este caminho é comum, não exceção.
+    </div>
+    <div class="acoes">
+      <button class="botao principal">Assumir atendimento</button>
+      <button class="botao">Abrir documento</button>
+    </div>
+  </section>
+
+  <section class="painel" style="margin-top:20px">
+    <header><h2>Quando o agente encaminha</h2><span class="aux">política explícita e testada</span></header>
+    <div style="padding:14px 16px">
+      <div class="regras">
+        <div class="regra"><code>HUMAN_REQUESTED</code><p>O lead pediu uma pessoa, em qualquer forma.</p></div>
+        <div class="regra"><code>QUOTE_UNAVAILABLE</code><p>Falha persistente da cotação: orçamento de tempo esgotado.</p></div>
+        <div class="regra"><code>QUOTE_PAYLOAD_ERROR</code><p>Erro nosso (400). Não repete, registra e passa adiante.</p></div>
+        <div class="regra"><code>UNSUPPORTED_MEDIA_INFORMATION</code><p>Áudio, imagem ou documento sem transcrição, e o dado é indispensável.</p></div>
+        <div class="regra"><code>COMMERCIAL_EXCEPTION_REQUEST</code><p>Pedido de desconto ou condição que o agente não tem autoridade para dar.</p></div>
+        <div class="regra"><code>AMBIGUOUS_CUSTOMER_DATA</code><p>Dados contraditórios que o lead não esclareceu.</p></div>
+        <div class="regra"><code>CLAIM_OR_URGENCY</code><p>Menção a sinistro ou urgência — nunca é assunto de robô.</p></div>
+        <div class="regra"><code>POLICY_CONFLICT</code><p>Tentativa de fazer o agente contrariar a política, inclusive por injeção de instrução.</p></div>
+      </div>
+      <p style="color:var(--texto-fraco);font-size:13px;margin:14px 0 0">
+        <strong>Recusa da seguradora não vem para esta fila.</strong> Idade acima do limite ou veículo fora da faixa são
+        resposta clara: o agente explica com educação e encerra. Fila humana é para o que precisa de gente — não para
+        transformar regra conhecida em espera.</p>
+    </div>
+  </section>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> Dados fictícios.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+</body>
+</html>

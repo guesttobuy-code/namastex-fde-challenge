@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Avaliação</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .melhor{color:var(--ok)} .pior{color:var(--falha)}
+  .regua{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px}
+  .regua .trilho{flex:1;height:8px;background:var(--superficie-2);border-radius:99px;overflow:hidden;border:1px solid var(--borda)}
+  .regua .preenche{height:100%;background:linear-gradient(90deg,var(--magenta),var(--ciano))}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
+    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
+    <div class="grupo">Observabilidade</div>
+    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio</a>
+    <a href="cotacoes.html"><span class="ic">📈</span> Cotações</a>
+    <a href="avaliacao.html" aria-current="page"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="regras.html"><span class="ic">⚖️</span> Regras e política</a>
+  </nav>
+  <div class="selo"><img src="assets/namastex-logo.svg" alt="Namastex Labs">
+    <small>desafio técnico FDE<br>mock de design · dados fictícios</small></div>
+</aside>
+
+<main class="conteudo">
+  <div class="cabecalho">
+    <div>
+      <h1>Avaliação</h1>
+      <p>O agente rodando contra conversas derivadas do histórico, com <strong>régua versionada</strong>:
+         cada mudança é comparada com a rodada anterior. Piorou, o teste fica vermelho — melhoria aqui é número, não impressão.</p>
+    </div>
+    <span class="chip ok">catraca verde</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="rotulo">Conversas avaliadas</div><div class="valor">200</div>
+      <div class="nota">derivadas da camada Silver, mascarada</div></div>
+    <div class="kpi"><div class="rotulo">Cotações concluídas</div><div class="valor">78,5% <span class="melhor" style="font-size:13px">▲ 2,1</span></div>
+      <div class="nota">régua anterior: 76,4%</div></div>
+    <div class="kpi"><div class="rotulo">Handoff correto</div><div class="valor">19/20 <span class="melhor" style="font-size:13px">▲ 1</span></div>
+      <div class="nota">contra gabarito rotulado à mão</div></div>
+    <div class="kpi destaque"><div class="rotulo">Preço sem cotação</div><div class="valor">0</div>
+      <div class="nota">não pode subir de zero, nunca</div></div>
+  </div>
+
+  <section class="painel" style="margin-bottom:18px">
+    <header><h2>Rodada atual × régua anterior</h2>
+      <span class="aux">dataset sha256 4f2a…9c1 · semente 42</span></header>
+    <table>
+      <thead><tr><th>Métrica</th><th class="num">Régua</th><th class="num">Agora</th><th class="num">Limite</th><th>Situação</th></tr></thead>
+      <tbody>
+        <tr><td>Cotações concluídas</td><td class="num">76,4%</td><td class="num melhor">78,5%</td><td class="num">≥ 75%</td>
+          <td><span class="chip ok">passou</span></td></tr>
+        <tr><td>Handoff correto (20 cenários rotulados)</td><td class="num">18</td><td class="num melhor">19</td><td class="num">≥ 18</td>
+          <td><span class="chip ok">passou</span></td></tr>
+        <tr><td>Chamadas por cotação</td><td class="num">1,34</td><td class="num melhor">1,31</td><td class="num">≤ 1,50</td>
+          <td><span class="chip ok">passou</span></td></tr>
+        <tr><td>p95 de latência</td><td class="num">1,60 s</td><td class="num pior">1,84 s</td><td class="num">≤ 2,00 s</td>
+          <td><span class="chip alerta">piorou, dentro do limite</span></td></tr>
+        <tr><td><strong>Preço sem cotação correspondente</strong></td><td class="num">0</td><td class="num">0</td><td class="num">= 0</td>
+          <td><span class="chip ok">invariante</span></td></tr>
+      </tbody>
+    </table>
+    <div style="padding:13px 16px;border-top:1px solid var(--borda);color:var(--texto-fraco);font-size:13px">
+      A régua é <strong>versionada no repositório</strong> junto com o hash do dataset. Sem isso, o medidor se compara
+      consigo mesmo e fica verde por definição — foi exatamente o que a auditoria externa apontou.
+    </div>
+  </section>
+
+  <section class="painel" style="margin-bottom:18px">
+    <header><h2>Cenários rotulados à mão</h2><span class="aux">o gabarito do handoff</span></header>
+    <table>
+      <thead><tr><th>Cenário</th><th>Decisão esperada</th><th>O agente decidiu</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td>Lead pede para falar com uma pessoa</td><td class="mono">encaminhar · HUMAN_REQUESTED</td><td class="mono">encaminhar</td><td><span class="chip ok">bate</span></td></tr>
+        <tr><td>Veículo de 2003</td><td class="mono">encerrar · recusa explicada</td><td class="mono">encerrar</td><td><span class="chip ok">bate</span></td></tr>
+        <tr><td>API caída em todas as tentativas</td><td class="mono">encaminhar · QUOTE_UNAVAILABLE</td><td class="mono">encaminhar</td><td><span class="chip ok">bate</span></td></tr>
+        <tr><td>Áudio sem transcrição, idade faltando</td><td class="mono">pedir em texto, depois encaminhar</td><td class="mono">pediu em texto</td><td><span class="chip ok">bate</span></td></tr>
+        <tr><td>“me dá qualquer preço aí”</td><td class="mono">coletar dados, sem preço</td><td class="mono">coletou dados</td><td><span class="chip ok">bate</span></td></tr>
+        <tr><td>Idade dita no texto diverge da informada antes</td><td class="mono">pedir esclarecimento</td><td class="mono">cotou com a última</td><td><span class="chip falha">não bate</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="painel">
+    <header><h2>Cobertura do histórico</h2><span class="aux">2.500 conversas medidas</span></header>
+    <div style="padding:15px 16px;display:grid;gap:13px">
+      <div class="regua"><span style="width:230px">carro recusado pela idade (531)</span>
+        <span class="trilho"><span class="preenche" style="width:21.2%"></span></span><span>21,2%</span></div>
+      <div class="regua"><span style="width:230px">lead acima de 75 anos (280)</span>
+        <span class="trilho"><span class="preenche" style="width:11.2%"></span></span><span>11,2%</span></div>
+      <div class="regua"><span style="width:230px">CEP de risco, agravo ×1,30 (895)</span>
+        <span class="trilho"><span class="preenche" style="width:35.8%"></span></span><span>35,8%</span></div>
+      <div class="regua"><span style="width:230px">mídia sem transcrição (1.420)</span>
+        <span class="trilho"><span class="preenche" style="width:56.8%"></span></span><span>56,8%</span></div>
+      <p style="margin:4px 0 0;color:var(--texto-fraco);font-size:13px">
+        Nenhum desses caminhos é exceção — juntos, são a maior parte do atendimento real. É por isso que o conjunto
+        de avaliação nasce do histórico, e não de exemplos inventados.</p>
+    </div>
+  </section>
+
+  <p class="nota-rodape"><strong>Mock de design, sem código de produto.</strong> Os percentuais de cobertura vêm de medição
+    real do dataset; os resultados da rodada são fictícios.
+    A marca Namastex Labs é usada apenas como selo de contexto do desafio e pertence a seus titulares.</p>
+</main>
+</div>
+</body>
+</html>
