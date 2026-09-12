@@ -31,6 +31,7 @@ from dominio.eventos_trilha import MensagemEnviada, MensagemRecebida
 from dominio.redator_pii import redigir_texto
 from infra.adaptador_de_linguagem import criar_adaptador_de_linguagem
 from infra.cliente_quote import ClienteQuoteHTTP
+from infra.config import url_quote_service
 from infra.exportador_trilha import exportar_execucao
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.dotenv_loader import carregar_dotenv_no_ambiente
@@ -201,7 +202,7 @@ def rodar_conversa(
         estado = montar_estado(conversation_id, dados)
 
     if portal is None:
-        portal = ClienteQuoteHTTP(base_url or os.environ.get("QUOTE_SERVICE_URL", "http://localhost:8000"))
+        portal = ClienteQuoteHTTP(base_url or url_quote_service())
 
     transcricao.emitir()
     transcricao.emitir("Consultando a /quote...")
