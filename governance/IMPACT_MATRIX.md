@@ -12,6 +12,7 @@ mudança aqui exige companion obrigatório na prova (Prova 1) e o olho do dono n
 | módulo | caminho | vizinhos (leem o mesmo dado) | teste do vizinho | crítico? |
 |---|---|---|---|---|
 | _(exemplo)_ `pricing` | `src/pricing/` | `reservas`, `financeiro` | `node --test tests/reservas.test.mjs tests/financeiro.test.mjs` | sim |
+| `dominio` | `src/dominio/` | `aplicacao` (F3, #6 — ainda não existe), `infra`/`interfaces` (F4/F5, #7/#8) | `pytest tests/dominio/` + `pytest tests/arquitetura/test_fronteiras.py` | sim |
 |  |  |  |  |  |
 
 ## Regras
