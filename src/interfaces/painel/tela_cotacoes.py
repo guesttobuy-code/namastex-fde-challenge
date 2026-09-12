@@ -45,8 +45,8 @@ def _kpis(tentativas: list[dict], grupos_de_cotacao: list[list[dict]]) -> str:
     )
     taxa_sucesso = 100 * cotacoes_com_sucesso / total_cotacoes if total_cotacoes else None
     chamadas_por_cotacao = len(tentativas) / total_cotacoes if total_cotacoes else None
-    falhas = sum(1 for t in tentativas if t.get("classificacao") != "sucesso")
-    taxa_falha = 100 * falhas / len(tentativas)
+    total_falhas, falhas_absorvidas = _absorcao_por_retry(grupos_de_cotacao)
+    taxa_absorcao = 100 * falhas_absorvidas / total_falhas if total_falhas else None
     latencias = sorted(t.get("latencia_ms") for t in tentativas if isinstance(t.get("latencia_ms"), (int, float)))
 
     def _fmt_pct(valor: float | None) -> str:
@@ -59,9 +59,24 @@ def _kpis(tentativas: list[dict], grupos_de_cotacao: list[list[dict]]) -> str:
         <div class="nota">máx {esc(max(latencias)) if latencias else buraco("latencia_ms")} ms</div></div>
       <div class="kpi"><div class="rotulo">Chamadas por cotação</div>
         <div class="valor">{f"{chamadas_por_cotacao:.2f}" if chamadas_por_cotacao else buraco("tentativa_de_cotacao")}</div></div>
-      <div class="kpi perigo"><div class="rotulo">Falhas do legado</div><div class="valor">{_fmt_pct(taxa_falha)}</div>
-        <div class="nota">absorvidas por retry</div></div>
+      <div class="kpi perigo"><div class="rotulo">Absorvidas por retry</div><div class="valor">{_fmt_pct(taxa_absorcao)}</div>
+        <div class="nota">{falhas_absorvidas} de {total_falhas} falhas</div></div>
     </div>"""
+
+
+def _absorcao_por_retry(grupos_de_cotacao: list[list[dict]]) -> tuple[int, int]:
+    """Falha ABSORVIDA é a que teve sucesso DEPOIS, na MESMA cotação — não qualquer falha (achado
+    da auditoria do PR #37: `falhas / total_tentativas` misturava os dois conceitos e chegava a
+    71,4% numa trilha onde só 40% das falhas foram de fato salvas pelo retry).
+    Devolve (total_de_falhas, falhas_absorvidas)."""
+    total_falhas = 0
+    falhas_absorvidas = 0
+    for grupo in grupos_de_cotacao:
+        falhas_do_grupo = sum(1 for t in grupo if t.get("classificacao") != "sucesso")
+        total_falhas += falhas_do_grupo
+        if any(t.get("classificacao") == "sucesso" for t in grupo):
+            falhas_absorvidas += falhas_do_grupo
+    return total_falhas, falhas_absorvidas
 
 
 def _mediana(valores: list[float]) -> str:
@@ -80,14 +95,14 @@ def _tabela_tentativas(tentativas: list[dict]) -> str:
     for tentativa in tentativas:
         classe = "ok" if tentativa.get("classificacao") == "sucesso" else "falha"
         linhas.append(f"""<tr>
+          <td><span class="chip {classe}">{campo(tentativa, "classificacao")}</span></td>
           <td class="mono">{campo(tentativa, "quote_attempt_id")}·{campo(tentativa, "numero_da_tentativa")}</td>
           <td class="mono">{campo(tentativa, "conversation_id")}</td>
           <td class="mono">{resposta_http_textual(tentativa)}</td>
           <td class="num">{campo(tentativa, "latencia_ms")} ms</td>
-          <td><span class="chip {classe}">{campo(tentativa, "classificacao")}</span></td>
           <td class="num">{campo(tentativa, "orcamento_restante_ms")} ms restantes</td>
         </tr>""")
     return f"""<table>
-      <thead><tr><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Latência</th><th>Classificação</th><th class="num">Orçamento</th></tr></thead>
+      <thead><tr><th>Classificação</th><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Latência</th><th class="num">Orçamento</th></tr></thead>
       <tbody>{"".join(linhas)}</tbody>
     </table>"""
