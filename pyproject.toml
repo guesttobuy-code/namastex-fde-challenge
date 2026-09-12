@@ -1,7 +1,7 @@
 [project]
 name = "namastex-fde-challenge"
 version = "0.0.0"
-requires-python = ">=3.12"
+requires-python = ">=3.11"  # o CI (esteira.yml) roda setup-python@v5 com python-version: '3.11'
 
 [dependency-groups]
 # Versões medidas e funcionando nesta máquina (issue #4 / ADR-0001) — mesmo conjunto que os jobs
