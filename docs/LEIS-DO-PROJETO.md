@@ -10,13 +10,17 @@
 
 ---
 
-## 1. Push e merge são do dono. Commit é livre.
+## 1. Merge é do dono. Commit e push da sua própria branch são livres.
 
 **Commite quantas vezes quiser** na sua branch — não precisa pedir. O portão é o pre-commit: guard vermelho
 não vira commit, e **`--no-verify` é proibido**, sempre.
 
-**Push:** só o da sua própria branch, para abrir o PR. Push na `main`, force-push em branch alheia ou qualquer
-outra publicação: **ordem do dono**.
+**Push da sua própria branch (`claude/<slug>`): livre, a qualquer momento** — para abrir o PR ou só como cópia
+de segurança fora da máquina. Ordem do dono em 12 set à noite: *"autorizar plenamente push, Merge só comigo"*.
+Antes de enviar: o commit passou pelo pre-commit, e o `.env` nunca vai junto.
+
+**Continuam sendo ordem do dono:** push na `main` (equivale a merge sem revisão), push em branch de outra frente e
+qualquer publicação fora do repositório. **Force-push é proibido** — apaga histórico (LEI 8 do `CLAUDE.md`).
 
 **Merge: nunca é seu.** Em nenhuma forma, nem com CI verde, nem com auditoria aprovada, nem "porque é só docs".
 Seu estado terminal é **PR aberto, CI verde, prova colada**.
