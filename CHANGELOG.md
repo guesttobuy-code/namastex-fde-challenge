@@ -6,6 +6,12 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Adicionado
+- `src/infra/config.py`: `url_quote_service()`, dono único da resolução de `QUOTE_SERVICE_URL` — antes do rebase sobre o PR #35, `interfaces/cli.py` e `infra/planos_http.py` liam a mesma variável cada um do seu jeito (mesmo nome, mesmo default, dois lugares). Os dois passam a chamar esta função; `interfaces/cli.py` perde o `os.environ.get(...)` inline (achado da coordenação, LEI 11) (#13)
+
+### Alterado
+- `src/interfaces/painel/tela_regras.py`: a política de tentativas deixa de ser buraco visível e passa a ler `ORCAMENTO_TOTAL_SEGUNDOS`/`TIMEOUT_POR_TENTATIVA_SEGUNDOS`/`MAX_TENTATIVAS`/`ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS` direto de `src/infra/cliente_quote.py` (mergeado no PR #35) — nenhum número redigitado (#13)
+
 ### Corrigido
 - `src/interfaces/painel/layout.py`: cada tela só embutia o `ui.css` compartilhado — o SEGUNDO bloco `<style>` de cada `docs/design/*.html` (a timeline do Rastreio, o balão de conversa, os cartões da Fila humana, etc.) não existia em lugar nenhum fora do próprio mock, e as telas geradas saíam sem esses estilos. `css_extra_da_tela` lê esse segundo bloco do disco (mesma disciplina do `css_embutido`, nunca uma cópia colada) e cada tela passa a embuti-lo. Também: botão `disabled` sem estilo visível de desabilitado em nenhum navegador (regra 4 do escopo) e a tabela "O que muda o preço" sem o rótulo do fator (Idade do condutor/veículo) na primeira linha de cada grupo — as três descobertas por inspeção visual real no navegador (Regra 3 do CLAUDE.md), não achando "que parecia certo" (#13)
 

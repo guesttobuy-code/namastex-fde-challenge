@@ -28,13 +28,25 @@ def test_regra_de_regras_motivos_de_handoff_e_exatamente_o_enum(monkeypatch):
     assert exibidos == {m.value for m in MotivoHandoff}
 
 
-def test_retry_e_buraco_enquanto_cliente_quote_nao_existir(monkeypatch):
+def test_retry_le_as_constantes_reais_de_cliente_quote(monkeypatch):
+    """Escopo #13, regra 3: nenhum número de retry é redigitado — a tela lê direto de
+    `infra.cliente_quote` (PR #35, mergeado)."""
+    from infra.cliente_quote import (
+        ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
+        MAX_TENTATIVAS,
+        ORCAMENTO_TOTAL_SEGUNDOS,
+        TIMEOUT_POR_TENTATIVA_SEGUNDOS,
+    )
+
     monkeypatch.setattr("interfaces.painel.tela_regras.buscar_planos", lambda base_url: None)
 
     html = tela_regras.render()
 
-    assert "cliente_quote.py" in html
-    assert "ausente na trilha" in html
+    assert f"{ORCAMENTO_TOTAL_SEGUNDOS:.0f} s" in html
+    assert f"{TIMEOUT_POR_TENTATIVA_SEGUNDOS:.0f} s" in html
+    assert str(MAX_TENTATIVAS) in html
+    for espera in ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS:
+        assert f"{espera:.1f}s" in html
 
 
 def test_planos_reais_quando_o_servico_responde(monkeypatch):
