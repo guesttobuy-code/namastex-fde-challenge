@@ -29,6 +29,16 @@ class RepositorioDeTrilhaJSONL:
                     eventos.append(evento)
         return eventos
 
+    def todos_os_eventos(self) -> list[dict]:
+        """Enumera a trilha inteira, na ordem gravada — para quem precisa descobrir as conversas
+        existentes sem conhecer os ids de antemão (painel, issue #13). `eventos_da_conversa` exige
+        o id e por isso não serve para esse caso.
+        """
+        if not self._caminho.exists():
+            return []
+        with self._caminho.open(encoding="utf-8") as arquivo:
+            return [json.loads(linha) for linha in arquivo]
+
 
 class RepositorioDeTrilhaMemoria:
     """Dublê determinístico — mesma interface, sem tocar disco. Para teste de quem consome a porta."""
@@ -41,3 +51,6 @@ class RepositorioDeTrilhaMemoria:
 
     def eventos_da_conversa(self, conversation_id: str) -> list[dict]:
         return [e for e in self._eventos if e.get("conversation_id") == conversation_id]
+
+    def todos_os_eventos(self) -> list[dict]:
+        return list(self._eventos)

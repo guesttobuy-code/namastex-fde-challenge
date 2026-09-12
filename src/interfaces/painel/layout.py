@@ -1,0 +1,112 @@
+"""Casca HTML compartilhada pelas seis telas — menu lateral + CSS embutido, fiel ao desenho
+aprovado em `docs/design/`. O CSS embutido é o `docs/design/ui.css` real, lido do disco
+(`css_embutido`), mais o segundo bloco `<style>` PRÓPRIO de cada mock (`css_extra_da_tela`) — cada
+`docs/design/<tela>.html` tem componentes que não estão no `ui.css` compartilhado (a timeline do
+Rastreio, o balão de conversa, os cartões da Fila humana...). Os dois são lidos do disco, nunca
+colados aqui — divergiria do desenho aprovado no primeiro ajuste feito só num dos dois lugares
+(LEI 11).
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from interfaces.painel.campos import esc
+
+_RAIZ_DESIGN = Path(__file__).resolve().parents[3] / "docs" / "design"
+
+# O painel introduz um conceito que o mock não tinha (campo ausente na trilha vira buraco visível,
+# ESPECIFICACAO.md §3) — não há bloco correspondente em nenhum docs/design/*.html para reler daqui.
+# Reaproveita a variável de cor `--alerta` já definida em ui.css, mesma classe usada por
+# `campos.buraco()`.
+_CSS_BURACO_VISIVEL = ".falta{color:var(--alerta)}"
+
+# Idem para botão desabilitado: o mock nunca precisou disso, porque lá os botões só pareciam
+# clicáveis (nenhum tinha `disabled` de verdade). Regra 4 do escopo exige que fiquem VISIVELMENTE
+# desabilitados — o atributo HTML sozinho, sem isto, não basta em todo navegador.
+_CSS_BOTAO_DESABILITADO = "button[disabled]{opacity:.45;cursor:not-allowed}"
+
+_ITENS_MENU = (
+    ("Atendimento", (
+        ("index.html", "💬", "Conversas", "conversas"),
+        ("handoffs.html", "🙋", "Fila humana", "fila"),
+    )),
+    ("Observabilidade", (
+        ("rastreio.html", "🧭", "Rastreio", None),
+        ("cotacoes.html", "📈", "Cotações", None),
+        ("avaliacao.html", "🎯", "Avaliação", None),
+    )),
+    ("Configuração", (
+        ("regras.html", "⚖️", "Regras e política", None),
+    )),
+)
+
+
+def css_embutido(caminho_ui_css: Path | None = None) -> str:
+    """Lê `docs/design/ui.css` do disco — uma cópia colada aqui divergiria do desenho aprovado
+    no primeiro ajuste que alguém fizer só num dos dois lugares."""
+    caminho = caminho_ui_css or (_RAIZ_DESIGN / "ui.css")
+    return Path(caminho).read_text(encoding="utf-8")
+
+
+def css_extra_da_tela(nome_arquivo_mock: str, *, raiz_design: Path | None = None) -> str:
+    """Lê o(s) bloco(s) `<style>` PRÓPRIO(S) de `docs/design/<nome_arquivo_mock>` — tudo depois do
+    primeiro, que é o `ui.css` compartilhado repetido em cada mock. Sem isso, componentes como a
+    timeline do Rastreio ou o balão de conversa ficam sem estilo nenhum: existem só no segundo
+    bloco de cada arquivo, nunca em `ui.css`."""
+    caminho = (raiz_design or _RAIZ_DESIGN) / nome_arquivo_mock
+    html = Path(caminho).read_text(encoding="utf-8")
+    blocos = re.findall(r"<style>(.*?)</style>", html, flags=re.DOTALL)
+    return "\n".join(blocos[1:])
+
+
+def pagina(
+    *,
+    titulo: str,
+    pagina_ativa: str,
+    corpo: str,
+    contagens: dict[str, int] | None = None,
+    caminho_ui_css: Path | None = None,
+    css_extra: str = "",
+) -> str:
+    contagens = contagens or {}
+    menu_html = []
+    for grupo, itens in _ITENS_MENU:
+        menu_html.append(f'<div class="grupo">{esc(grupo)}</div>')
+        for arquivo, icone, rotulo, chave_contagem in itens:
+            ativo = ' aria-current="page"' if arquivo == pagina_ativa else ""
+            cont = f'<span class="cont">{contagens[chave_contagem]}</span>' if chave_contagem in contagens else ""
+            menu_html.append(
+                f'<a href="{arquivo}"{ativo}><span class="ic">{icone}</span> {esc(rotulo)} {cont}</a>'
+            )
+    menu = "\n    ".join(menu_html)
+
+    return f"""<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · {esc(titulo)}</title>
+<style>
+{css_embutido(caminho_ui_css)}
+{_CSS_BURACO_VISIVEL}
+{_CSS_BOTAO_DESABILITADO}
+{css_extra}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    {menu}
+  </nav>
+  <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
+</aside>
+<main class="conteudo">
+{corpo}
+</main>
+</div>
+</body>
+</html>
+"""
