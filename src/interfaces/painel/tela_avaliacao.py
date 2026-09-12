@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from interfaces.painel.campos import buraco
-from interfaces.painel.layout import pagina
+from interfaces.painel.layout import css_extra_da_tela, pagina
 
 _CAMINHO_CASOS = Path("eval") / "casos.jsonl"
 
@@ -36,4 +36,5 @@ def render(*, caminho_casos: Path | None = None, caminho_ui_css=None) -> str:
   </div>
 </section>
 """
-    return pagina(titulo="Avaliação", pagina_ativa="avaliacao.html", corpo=corpo, caminho_ui_css=caminho_ui_css)
+    return pagina(titulo="Avaliação", pagina_ativa="avaliacao.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
+                  css_extra=css_extra_da_tela("avaliacao.html"))

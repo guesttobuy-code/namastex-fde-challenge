@@ -42,7 +42,10 @@ def test_planos_reais_quando_o_servico_responde(monkeypatch):
         "moeda": "BRL",
         "planos": [{"id": "essencial", "nome": "Essencial", "base_mensal": 119.9, "franquia": 4500, "coberturas": ["colisao"]}],
         "regras": {
-            "faixa_etaria": [{"idade_min": 18, "idade_max": 24, "multiplicador": 1.6}],
+            "faixa_etaria": [
+                {"idade_min": 18, "idade_max": 24, "multiplicador": 1.6},
+                {"idade_min": 25, "idade_max": 29, "multiplicador": 1.25},
+            ],
             "idade_veiculo": [{"anos_min": 0, "anos_max": 5, "multiplicador": 1.0}],
             "regiao_cep": {"multiplicador": 1.3},
         },
@@ -53,3 +56,4 @@ def test_planos_reais_quando_o_servico_responde(monkeypatch):
 
     assert "Essencial" in html
     assert "119.9" in html
+    assert html.count("Idade do condutor") == 1  # rótulo só na primeira faixa do grupo

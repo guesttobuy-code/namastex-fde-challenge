@@ -12,7 +12,7 @@ from dominio.decisao import MotivoHandoff
 from infra.planos_http import buscar_planos
 
 from interfaces.painel.campos import buraco, esc
-from interfaces.painel.layout import pagina
+from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
 def render(*, base_url_quote_service: str | None = None, caminho_ui_css=None) -> str:
@@ -33,7 +33,8 @@ def render(*, base_url_quote_service: str | None = None, caminho_ui_css=None) ->
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Esta tela não guarda número em memória —
   cada valor é lido do código ou do serviço no momento da geração.</p>
 """
-    return pagina(titulo="Regras e política", pagina_ativa="regras.html", corpo=corpo, caminho_ui_css=caminho_ui_css)
+    return pagina(titulo="Regras e política", pagina_ativa="regras.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
+                  css_extra=css_extra_da_tela("regras.html"))
 
 
 def _secao_planos(planos: dict | None) -> str:
@@ -49,8 +50,8 @@ def _secao_planos(planos: dict | None) -> str:
           <ul>{coberturas}</ul></div>""")
 
     regras = planos.get("regras", {})
-    linhas_idade = "".join(_linha_faixa(f, "idade_min", "idade_max") for f in regras.get("faixa_etaria", []))
-    linhas_veiculo = "".join(_linha_faixa(f, "anos_min", "anos_max") for f in regras.get("idade_veiculo", []))
+    linhas_idade = _linhas_do_fator("Idade do condutor", regras.get("faixa_etaria", []), "idade_min", "idade_max")
+    linhas_veiculo = _linhas_do_fator("Idade do veículo", regras.get("idade_veiculo", []), "anos_min", "anos_max")
     regiao = regras.get("regiao_cep", {})
 
     return f"""<section style="margin-bottom:18px">
@@ -67,12 +68,19 @@ def _secao_planos(planos: dict | None) -> str:
     </section>"""
 
 
-def _linha_faixa(faixa: dict, chave_min: str, chave_max: str) -> str:
-    if faixa.get("recusar"):
-        valor = f'<span class="chip falha">recusa — {esc(faixa.get("motivo"))}</span>'
-    else:
-        valor = esc(faixa.get("multiplicador"))
-    return f'<tr><td></td><td class="mono">{esc(faixa.get(chave_min))}–{esc(faixa.get(chave_max))}</td><td class="num">{valor}</td></tr>'
+def _linhas_do_fator(nome_fator: str, faixas: list[dict], chave_min: str, chave_max: str) -> str:
+    linhas = []
+    for indice, faixa in enumerate(faixas):
+        rotulo = esc(nome_fator) if indice == 0 else ""
+        if faixa.get("recusar"):
+            valor = f'<span class="chip falha">recusa — {esc(faixa.get("motivo"))}</span>'
+        else:
+            valor = esc(faixa.get("multiplicador"))
+        linhas.append(
+            f'<tr><td>{rotulo}</td><td class="mono">{esc(faixa.get(chave_min))}–{esc(faixa.get(chave_max))}</td>'
+            f'<td class="num">{valor}</td></tr>'
+        )
+    return "".join(linhas)
 
 
 def _secao_motivos_handoff() -> str:

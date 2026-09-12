@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa
 from interfaces.painel.campos import buraco, campo, esc
-from interfaces.painel.layout import pagina
+from interfaces.painel.layout import css_extra_da_tela, pagina
 
 _EVENTOS_RELEVANTES = {"mensagem_recebida", "mensagem_enviada", "decisao"}
 
@@ -50,7 +50,8 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Campo que a trilha não gravou aparece como buraco visível.</p>
 """
     return pagina(titulo="Conversas", pagina_ativa="index.html", corpo=corpo,
-                  contagens={"conversas": len(por_conversa)}, caminho_ui_css=caminho_ui_css)
+                  contagens={"conversas": len(por_conversa)}, caminho_ui_css=caminho_ui_css,
+                  css_extra=css_extra_da_tela("index.html"))
 
 
 def _secao_conversa(conversation_id: str, eventos: list[dict], estado: str) -> str:

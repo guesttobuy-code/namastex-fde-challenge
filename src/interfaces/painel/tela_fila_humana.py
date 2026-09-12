@@ -9,7 +9,7 @@ from dominio.decisao import MotivoHandoff
 
 from interfaces.painel.agrupar import agrupar_por_conversa
 from interfaces.painel.campos import buraco, campo, esc
-from interfaces.painel.layout import pagina
+from interfaces.painel.layout import css_extra_da_tela, pagina
 
 _DESCRICAO_MOTIVO = {
     MotivoHandoff.QUOTE_INDISPONIVEL.value: "Cotação indisponível: o serviço de cotação falhou de forma persistente.",
@@ -49,7 +49,8 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
   frente — aparecem desabilitados, com o motivo ao lado, em vez de prometer o que não existe (ESPECIFICACAO.md §3).</p>
 """
     return pagina(titulo="Fila humana", pagina_ativa="handoffs.html", corpo=corpo,
-                  contagens={"fila": len(handoffs)}, caminho_ui_css=caminho_ui_css)
+                  contagens={"fila": len(handoffs)}, caminho_ui_css=caminho_ui_css,
+                  css_extra=css_extra_da_tela("handoffs.html"))
 
 
 def _cartao(conversation_id: str, evento: dict) -> str:
