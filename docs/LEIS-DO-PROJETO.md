@@ -81,8 +81,22 @@ vezes em que um chat parou e perguntou, o achado era real**.
 
 ## 8. Texto simples, nunca menu ou widget
 
-Enquanto um menu espera resposta, a sessão fica surda para todas as mensagens, inclusive as da coordenação.
-Pergunte em texto, diga quais são as alternativas e qual você recomenda, e siga com o que não depende da resposta.
+**Proibido mandar pergunta de ticar** — widget, menu, `AskUserQuestion`. Para o dono, para a coordenação,
+para qualquer chat. Sem exceção de "é só uma escolha rápida".
+
+São **dois** custos, e o segundo é o que o dono cobra (ordem dele, 2026-09-12):
+
+1. **Trava o avanço.** Enquanto o menu espera, a sessão fica surda para todas as mensagens — inclusive as
+   da coordenação, que muitas vezes são exatamente o que destravaria você.
+2. **Custa trabalho a ele.** Nas palavras do dono: *"a pergunta que tica trava o avanço e a gente precisa
+   ir lá destravar ticando. dá mais trabalho. quero eficiência."* Ele tem que sair do que está fazendo,
+   ir até a sessão e ticar — quando um parágrafo de texto ele lê e responde no fluxo, de onde estiver.
+
+O widget transfere trabalho da IA para o dono. É o oposto do que a esteira existe para fazer.
+
+**Como se pergunta aqui:** a pergunta, **as alternativas que você enxerga** e **qual você recomenda e por
+quê**. Depois, siga com tudo o que não depende da resposta. Se a resposta muda o trabalho de quem chegar
+depois, a pergunta também vira comentário na issue — chat evapora, issue fica.
 
 ---
 
