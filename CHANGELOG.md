@@ -7,6 +7,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- ADR-0002 (`governance/adr/0002-politica-de-retry-quote.md`, issue #6): registra a política de retry do cliente `/quote` — 3s/tentativa, 3 tentativas, orçamento de 10s — com a tabela de medição colada da issue #3 e a classificação de resposta (o que repete × o que é terminal) implementada em `_traduzir`
 - `src/dominio/`: esqueleto do domínio puro (`EstadoDaConversa`, `ResultadoDaCotacao`, `PrecoCotado`, `Decisao`/`MotivoHandoff`, `politica.decidir`, `validacao` de formato, `redator.montar_mensagem`) e `tests/dominio/` com a bateria de testes das invariantes — commit 1/2 (esqueleto permissivo, vermelho por assertiva conforme o veredito de auditoria do plano; a invariante real entra no commit seguinte) (#5)
 - `src/dominio/`: implementadas as 4 invariantes do domínio (I-1 a I-4, `src/dominio/CONTRACT.md`) — `PrecoCotado` só nasce de resposta com os campos de uma cotação bem-sucedida (`ValueError` senão), `Decisao(ENCAMINHAR)` sempre com `reason_code` e nenhum outro tipo aceita `reason_code`, `ResultadoDaCotacao` com `preco`/`motivo` mutuamente exclusivos, `redator.montar_mensagem` recusa qualquer coisa que não seja `PrecoCotado`; `politica.decidir` com a tabela de casos completa (R5 do #16: `erro_de_payload`/`timeout` viram `ENCAMINHAR`); `validacao` com formato real de CEP/data ISO — commit 2/2 (#5)
 - `governance/IMPACT_MATRIX.md`: nova linha para o módulo `dominio` (#5)
