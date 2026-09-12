@@ -41,13 +41,13 @@ echo "35
 2022
 01310-100
 completo
-2026-07-15" | PYTHONPATH=src python -m interfaces.cli
+2026-10-15" | PYTHONPATH=src python -m interfaces.cli
 ```
 
 ```powershell
 # Windows PowerShell
 $env:PYTHONPATH = "src"
-"35`n2022`n01310-100`ncompleto`n2026-07-15`n" | python -m interfaces.cli
+"35`n2022`n01310-100`ncompleto`n2026-10-15`n" | python -m interfaces.cli
 ```
 
 Cada execução grava, em `examples/`: a transcrição (`execucao_<id>.log`), a trilha bruta

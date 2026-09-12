@@ -7,6 +7,22 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- `scripts/sanitizar_ai_logs.py`: exportador/sanitizador dos `ai-logs/` (issue #15) — cobre o `.jsonl`
+  principal de cada sessão **e** as transcrições de `subagents/` (achado da coordenação: uma chave real
+  do OpenRouter vazou numa transcrição de subagente de outra frente, fora do alcance de uma varredura
+  que só olhasse o `.jsonl` da sessão); troca bloco de imagem por texto, aplica os padrões pessoais
+  (lidos de `_local/ai-logs-config.json`, nunca commitado) e o redator de PII sintética
+  (`dominio.redator_pii.redigir_texto`) em todo valor string da árvore; verificação final que **aborta**
+  a exportação inteira (apaga o que foi escrito) se sobrar qualquer padrão de segredo conhecido
+  (`sk-or-v1-`, `sk-ant-`, `ghp_`, `github_pat_`, `nvapi-`, `Bearer `+20 chars) ou bloco de imagem, ou se
+  alguma linha deixar de ser JSON válido — citando os ARQUIVOS, nunca o valor. `--self-test` roda o
+  roteiro de mutação (planta chave falsa, mostra abortando; remove, mostra passando limpo). Ensaiado
+  contra as 11 sessões reais de hoje, saída em `_local/` (nunca commitada nesta leva): 15 arquivos, 40
+  blocos de imagem removidos, milhares de substituições de padrão pessoal aplicadas, zero segredo
+  remanescente. Achado no caminho: a checagem final de `sk-ant-` estava solta demais e reprovava
+  documentação sobre o FORMATO da Admin API (`sk-ant-admin...`, só 5 chars depois do prefixo) como se
+  fosse uma chave de verdade — corrigido para exigir 20+ chars depois do prefixo, como as outras
+  checagens já exigiam
 - `scripts/checklist_definicao_pronto.py`: checklist automático da issue #15 (seção 3) — confere que
   README.md, docs/DESAFIO.md, os dois exemplos de execução em `examples/` e (quando existir) o índice
   `ai-logs/README.md` com cada sessão que ele cita estão presentes e não-vazios. Não é guard do
