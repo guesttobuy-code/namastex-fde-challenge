@@ -35,23 +35,26 @@ def construir_trilha_fixture(caminho: Path) -> None:
         decisao_id="dec_00", regra_aplicada="faltam veiculo_ano, idade, cep, plano",
         origem_do_texto="redator_deterministico:abertura", dados_usados=(),
     ))
+    # Medido na trilha real do PR #35 (infra/cliente_quote.py:163): cada tentativa recebe o seu
+    # PRÓPRIO quote_attempt_id ("correlação, não idempotência") -- retries da MESMA cotação NÃO
+    # compartilham id. O agrupamento por cotação usa numero_da_tentativa == 1, não o id.
     servico.registrar_evento(TentativaDeCotacao(
-        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_1",
+        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_t1",
         instante="2026-09-12T09:15:21", numero_da_tentativa=1, http_status=503,
         classificacao="indisponivel", latencia_ms=40, orcamento_restante_ms=9600,
-        quote_attempt_id="qa_7d31",
+        quote_attempt_id="qa_7d31_t1",
     ))
     servico.registrar_evento(TentativaDeCotacao(
-        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_2",
-        instante="2026-09-12T09:15:22", numero_da_tentativa=2, http_status=503,
-        classificacao="indisponivel", latencia_ms=45, orcamento_restante_ms=9100,
-        quote_attempt_id="qa_7d31",
+        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_t2",
+        instante="2026-09-12T09:15:22", numero_da_tentativa=2, http_status=0,
+        classificacao="timeout", latencia_ms=3005, orcamento_restante_ms=6555,
+        quote_attempt_id="qa_7d31_t2",
     ))
     servico.registrar_evento(TentativaDeCotacao(
-        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_3",
+        evento="tentativa_de_cotacao", conversation_id="conv_a41f", id="qa_7d31_t3",
         instante="2026-09-12T09:15:23", numero_da_tentativa=3, http_status=200,
         classificacao="sucesso", latencia_ms=60, orcamento_restante_ms=8500,
-        quote_attempt_id="qa_7d31", premio_mensal=272.87, franquia=3000.0,
+        quote_attempt_id="qa_7d31_t3", premio_mensal=272.87, franquia=3000.0,
         coberturas=("colisao", "roubo", "furto"),
     ))
     servico.registrar_evento(Decisao(
@@ -62,8 +65,8 @@ def construir_trilha_fixture(caminho: Path) -> None:
         evento="mensagem_enviada", conversation_id="conv_a41f", id="msg_03",
         instante="2026-09-12T09:15:25", texto="Consegui o plano Completo por R$ 272,87/mes.",
         decisao_id="dec_01", regra_aplicada="carencia de 30 dias informada sem o lead perguntar",
-        origem_do_texto="redator_deterministico:cotacao", dados_usados=("qa_7d31",),
-        quote_attempt_id="qa_7d31",
+        origem_do_texto="redator_deterministico:cotacao", dados_usados=("qa_7d31_t3",),
+        quote_attempt_id="qa_7d31_t3",
     ))
 
     servico.registrar_evento(MensagemRecebida(

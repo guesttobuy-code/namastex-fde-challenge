@@ -53,3 +53,23 @@ def test_conversa_com_handoff_mostra_reason_code(trilha_fixture):
 def test_sem_conversas_mostra_buraco_em_vez_de_pagina_vazia():
     html = _html([])
     assert "ausente na trilha" in html
+
+
+def test_numeracao_com_buraco_no_meio_mostra_buraco_visivel_na_posicao_certa():
+    """Achado da coordenação: sem `cotacao_id` na ESPECIFICACAO, o grupo é inferido pela ordem de
+    `numero_da_tentativa` — uma trilha parcial (1, 3, sem o 2) não pode juntar em silêncio o que
+    veio depois com o que veio antes."""
+    eventos = [
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_gap", "id": "t1",
+         "numero_da_tentativa": 1, "http_status": 503, "classificacao": "indisponivel",
+         "latencia_ms": 40, "quote_attempt_id": "t1"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_gap", "id": "t3",
+         "numero_da_tentativa": 3, "http_status": 200, "classificacao": "sucesso",
+         "latencia_ms": 50, "quote_attempt_id": "t3"},
+    ]
+
+    html = _html(eventos)
+
+    assert html.count('class="tent') >= 3  # 1ª real + 2ª buraco + 3ª real (mais o wrapper .tentativas)
+    assert "ausente na trilha" in html
+    assert "2ª" in html

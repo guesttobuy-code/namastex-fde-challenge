@@ -35,6 +35,19 @@ def buraco(chave: str) -> str:
     return f'<span class="falta">⚠ {MARCADOR_AUSENTE}: {esc(chave)}</span>'
 
 
+def resposta_http_textual(tentativa: dict) -> str:
+    """Texto de resposta de uma `tentativa_de_cotacao` — nunca o `http_status` cru quando ele é 0.
+
+    Medido na trilha real do PR #35: um timeout de conexão/leitura não chega a ter resposta HTTP, e
+    `infra.cliente_quote` grava `http_status: 0` nesse caso. Mostrar "0" sugeriria um código que não
+    existe; inventar um código (ex.: 504) seria a mesma fabricação que a regra 2 do escopo #13
+    proíbe. A `classificacao` é a fonte real do que aconteceu."""
+    http_status = tentativa.get("http_status")
+    if http_status == 0:
+        return f"sem resposta ({campo(tentativa, 'classificacao')})"
+    return campo(tentativa, "http_status")
+
+
 def lista(valores: Iterable[Any] | None, vazio_e_buraco: bool = True) -> str:
     """Junta uma lista de valores (ex.: `dados_usados`, `coberturas`) escapando cada item."""
     itens = list(valores) if valores else []

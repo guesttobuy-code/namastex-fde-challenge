@@ -14,11 +14,12 @@ from __future__ import annotations
 
 from interfaces.painel.agrupar import (
     agrupar_por_conversa,
-    agrupar_tentativas_por_cotacao,
+    agrupar_tentativas_em_cotacoes,
     classe_chip_do_estado,
     estado_da_conversa,
+    numeros_de_tentativa_ausentes,
 )
-from interfaces.painel.campos import buraco, campo, esc, lista
+from interfaces.painel.campos import buraco, campo, esc, lista, resposta_http_textual
 from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
@@ -130,24 +131,45 @@ def _ev_mensagem_enviada(evento: dict, eventos_da_conversa: list[dict]) -> str:
     </div>"""
 
 
-def _ev_cotacao_agrupada(evento: dict, eventos_da_conversa: list[dict]) -> str:
-    quote_attempt_id = evento.get("quote_attempt_id")
-    todas = agrupar_tentativas_por_cotacao(eventos_da_conversa).get(quote_attempt_id, [evento])
-    # Só renderiza no primeiro evento do grupo — evita repetir o mesmo bloco por tentativa.
-    if todas[0] is not evento:
-        return ""
-    linhas_tentativa = []
-    sucesso = None
-    for tentativa in todas:
+def _linhas_de_tentativas_com_buracos(grupo: list[dict]):
+    """Uma `<div class="tent">` por número de tentativa 1..máximo — número que a trilha não tem
+    vira buraco visível na posição certa, em vez de o agrupamento juntar em silêncio o que veio
+    depois com o que veio antes (achado da coordenação: a ESPECIFICACAO.md não tem um
+    `cotacao_id`, só `numero_da_tentativa`; o painel infere o grupo pela ordem, e uma numeração que
+    pula não pode desaparecer nessa inferência)."""
+    por_numero = {t.get("numero_da_tentativa"): t for t in grupo}
+    for numero in numeros_de_tentativa_ausentes(grupo) or []:
+        por_numero.setdefault(numero, None)
+    for numero in sorted(n for n in por_numero if isinstance(n, int)):
+        tentativa = por_numero[numero]
+        if tentativa is None:
+            yield f'<div class="tent ruim"><span class="n">{numero}ª</span><span class="estado">{buraco("tentativa_de_cotacao")}</span></div>'
+            continue
         ok = tentativa.get("classificacao") == "sucesso"
-        if ok:
-            sucesso = tentativa
         classe = "boa" if ok else "ruim"
-        estado_txt = f'{campo(tentativa, "http_status")} {esc(tentativa.get("classificacao"))}'
-        linhas_tentativa.append(
+        estado_txt = (
+            resposta_http_textual(tentativa) if tentativa.get("http_status") == 0
+            else f'{resposta_http_textual(tentativa)} {esc(tentativa.get("classificacao"))}'
+        )
+        yield (
             f'<div class="tent {classe}"><span class="n">{campo(tentativa, "numero_da_tentativa")}ª</span>'
             f'<span class="estado">{estado_txt}</span><span class="ms">{campo(tentativa, "latencia_ms")} ms</span></div>'
         )
+
+
+def _ev_cotacao_agrupada(evento: dict, eventos_da_conversa: list[dict]) -> str:
+    grupo = next(
+        (g for g in agrupar_tentativas_em_cotacoes(eventos_da_conversa) if evento in g),
+        [evento],
+    )
+    # Só renderiza no primeiro evento do grupo — evita repetir o mesmo bloco por tentativa.
+    if grupo[0] is not evento:
+        return ""
+    sucesso = None
+    for tentativa in grupo:
+        if tentativa.get("classificacao") == "sucesso":
+            sucesso = tentativa
+    linhas_tentativa = list(_linhas_de_tentativas_com_buracos(grupo))
     prova = ""
     if sucesso is not None:
         prova = f"""<div class="prova"><header>cotação obtida</header><div class="corpo">
@@ -156,7 +178,7 @@ def _ev_cotacao_agrupada(evento: dict, eventos_da_conversa: list[dict]) -> str:
           <div><span class="rot">orçamento restante</span><div class="val">{campo(sucesso, "orcamento_restante_ms")} ms</div></div>
         </div></div>"""
     return f"""<div class="ev cotacao">
-      <div class="meta"><span class="quem">cotação</span><span>{esc(evento.get("instante"))}</span><span>{esc(quote_attempt_id)}</span></div>
+      <div class="meta"><span class="quem">cotação</span><span>{esc(evento.get("instante"))}</span><span>{campo(evento, "quote_attempt_id")}</span></div>
       <div class="tentativas">{"".join(linhas_tentativa)}</div>
       {prova}
     </div>"""

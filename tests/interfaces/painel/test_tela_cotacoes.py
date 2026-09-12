@@ -4,14 +4,18 @@ from interfaces.painel import tela_cotacoes
 def test_uma_linha_por_tentativa_nao_por_cotacao(trilha_fixture):
     html = tela_cotacoes.render(trilha_fixture)
 
-    assert html.count("qa_7d31·") == 3  # as 3 tentativas da mesma cotação, não 1 linha resumida
-    assert "qa_1188·1" in html
+    # 3 tentativas da mesma cotação (conv_a41f) + 1 da outra (conv_b93c) = 4 linhas, cada uma com
+    # o SEU PRÓPRIO quote_attempt_id (medido na trilha real: id não é compartilhado entre retries).
+    assert "qa_7d31_t1·1" in html
+    assert "qa_7d31_t2·2" in html
+    assert "qa_7d31_t3·3" in html
+    assert "qa_1188·1" in html  # conv_b93c: id do evento difere do quote_attempt_id de propósito
 
 
 def test_kpis_calculados_sobre_a_fixture(trilha_fixture):
     html = tela_cotacoes.render(trilha_fixture)
 
-    # 2 cotações (qa_7d31, qa_1188); só qa_7d31 teve sucesso -> 50,0%
+    # 2 cotações (conv_a41f com 3 tentativas, conv_b93c com 1); só a de conv_a41f teve sucesso -> 50,0%
     assert "50.0%" in html
 
 

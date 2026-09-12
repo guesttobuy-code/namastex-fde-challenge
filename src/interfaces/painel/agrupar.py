@@ -53,13 +53,34 @@ def tentativas_de_cotacao(eventos_da_conversa: list[dict]) -> list[dict]:
     return [e for e in eventos_da_conversa if e.get("evento") == "tentativa_de_cotacao"]
 
 
-def agrupar_tentativas_por_cotacao(eventos: list[dict]) -> dict[str, list[dict]]:
-    """Agrupa `tentativa_de_cotacao` por `quote_attempt_id` — a história do retry de UMA cotação
-    é o conjunto de tentativas com o mesmo id, ordenadas por `numero_da_tentativa` na trilha."""
-    por_cotacao: dict[str, list[dict]] = {}
+def agrupar_tentativas_em_cotacoes(eventos: list[dict]) -> list[list[dict]]:
+    """Agrupa `tentativa_de_cotacao` consecutivas em cotações — cada grupo começa numa tentativa
+    com `numero_da_tentativa == 1`.
+
+    Medido na trilha real do PR #35 (`infra/cliente_quote.py:163`): cada tentativa recebe o seu
+    PRÓPRIO `quote_attempt_id` ("correlação, não idempotência") — retries da MESMA cotação não
+    compartilham id nenhum. Agrupar por `quote_attempt_id` (como a fixture de desenvolvimento
+    sugeria) juntava zero tentativas por grupo contra a trilha real. `numero_da_tentativa == 1` é
+    o único sinal confiável de "começou uma cotação nova" que a trilha grava."""
+    grupos: list[list[dict]] = []
     for evento in eventos:
         if evento.get("evento") != "tentativa_de_cotacao":
             continue
-        quote_attempt_id = evento.get("quote_attempt_id") or "?"
-        por_cotacao.setdefault(quote_attempt_id, []).append(evento)
-    return por_cotacao
+        if evento.get("numero_da_tentativa") == 1 or not grupos:
+            grupos.append([])
+        grupos[-1].append(evento)
+    return grupos
+
+
+def numeros_de_tentativa_ausentes(grupo: list[dict]) -> list[int]:
+    """A ESPECIFICACAO.md não tem um identificador da COTAÇÃO (só da tentativa) — o painel infere
+    o grupo pela ordem de `numero_da_tentativa` na trilha (achado registrado, sugestão de
+    `cotacao_id` para depois da entrega). Essa inferência não pode juntar em silêncio uma trilha
+    parcial: se a numeração pular (1, 3 — sem o 2), o buraco é da tentativa que falta, não do
+    agrupamento. Devolve os números que deveriam existir (1..máximo) e não aparecem no grupo."""
+    numeros = {e.get("numero_da_tentativa") for e in grupo}
+    numeros_validos = {n for n in numeros if isinstance(n, int)}
+    if not numeros_validos:
+        return []
+    esperado = set(range(1, max(numeros_validos) + 1))
+    return sorted(esperado - numeros_validos)

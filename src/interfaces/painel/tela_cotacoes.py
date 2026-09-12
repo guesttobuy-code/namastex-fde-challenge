@@ -5,14 +5,14 @@ cotação) são agregação simples sobre os eventos reais — não regra de neg
 
 from __future__ import annotations
 
-from interfaces.painel.agrupar import agrupar_tentativas_por_cotacao
-from interfaces.painel.campos import buraco, campo, esc
+from interfaces.painel.agrupar import agrupar_tentativas_em_cotacoes
+from interfaces.painel.campos import buraco, campo, esc, resposta_http_textual
 from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
 def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
     tentativas = [e for e in eventos if e.get("evento") == "tentativa_de_cotacao"]
-    por_cotacao = agrupar_tentativas_por_cotacao(eventos)
+    grupos_de_cotacao = agrupar_tentativas_em_cotacoes(eventos)
 
     corpo = f"""
 <div class="cabecalho">
@@ -23,9 +23,9 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
   </div>
   <span class="chip neutra mono">fonte: trilha JSONL</span>
 </div>
-{_kpis(tentativas, por_cotacao)}
+{_kpis(tentativas, grupos_de_cotacao)}
 <section class="painel">
-  <header><h2>Tentativas</h2><span class="aux">{len(tentativas)} tentativa(s) em {len(por_cotacao)} cotação(ões)</span></header>
+  <header><h2>Tentativas</h2><span class="aux">{len(tentativas)} tentativa(s) em {len(grupos_de_cotacao)} cotação(ões)</span></header>
   {_tabela_tentativas(tentativas)}
 </section>
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Nenhum número aqui é estimado — cada um vem de
@@ -35,13 +35,13 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
                   css_extra=css_extra_da_tela("cotacoes.html"))
 
 
-def _kpis(tentativas: list[dict], por_cotacao: dict[str, list[dict]]) -> str:
+def _kpis(tentativas: list[dict], grupos_de_cotacao: list[list[dict]]) -> str:
     if not tentativas:
         return f'<div class="kpis"><div class="kpi">{buraco("tentativa_de_cotacao")}</div></div>'
 
-    total_cotacoes = len(por_cotacao)
+    total_cotacoes = len(grupos_de_cotacao)
     cotacoes_com_sucesso = sum(
-        1 for grupo in por_cotacao.values() if any(t.get("classificacao") == "sucesso" for t in grupo)
+        1 for grupo in grupos_de_cotacao if any(t.get("classificacao") == "sucesso" for t in grupo)
     )
     taxa_sucesso = 100 * cotacoes_com_sucesso / total_cotacoes if total_cotacoes else None
     chamadas_por_cotacao = len(tentativas) / total_cotacoes if total_cotacoes else None
@@ -82,7 +82,7 @@ def _tabela_tentativas(tentativas: list[dict]) -> str:
         linhas.append(f"""<tr>
           <td class="mono">{campo(tentativa, "quote_attempt_id")}·{campo(tentativa, "numero_da_tentativa")}</td>
           <td class="mono">{campo(tentativa, "conversation_id")}</td>
-          <td class="mono">{_resposta(tentativa)}</td>
+          <td class="mono">{resposta_http_textual(tentativa)}</td>
           <td class="num">{campo(tentativa, "latencia_ms")} ms</td>
           <td><span class="chip {classe}">{campo(tentativa, "classificacao")}</span></td>
           <td class="num">{campo(tentativa, "orcamento_restante_ms")} ms restantes</td>
@@ -91,14 +91,3 @@ def _tabela_tentativas(tentativas: list[dict]) -> str:
       <thead><tr><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Latência</th><th>Classificação</th><th class="num">Orçamento</th></tr></thead>
       <tbody>{"".join(linhas)}</tbody>
     </table>"""
-
-
-def _resposta(tentativa: dict) -> str:
-    """`http_status` vem 0 quando não houve resposta HTTP (timeout de conexão/leitura) — medido na
-    trilha real do #35. 0 não é um código de status; mostrar cru sugeriria um dado que não existe,
-    e inventar um código seria a mesma fabricação que a regra 2 do escopo proíbe. A classificação já
-    diz a causa real."""
-    http_status = tentativa.get("http_status")
-    if http_status == 0:
-        return f"sem resposta ({campo(tentativa, 'classificacao')})"
-    return campo(tentativa, "http_status")

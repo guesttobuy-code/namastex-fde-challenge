@@ -1,6 +1,7 @@
-"""Gerador do painel (issue #13): lê um arquivo de trilha JSONL e escreve as seis telas em HTML
-estático — sem servidor, sem dependência externa, CSS embutido. `python -m interfaces.painel.gerar
-<trilha.jsonl> <dir_saida>`.
+"""Gerador do painel (issue #13): lê uma trilha JSONL — um arquivo, ou uma pasta com vários
+`trilha_*.jsonl` (o formato que `interfaces.cli` grava em `examples/`, uma por conversa) — e
+escreve as seis telas em HTML estático, sem servidor, sem dependência externa, CSS embutido.
+`python -m interfaces.painel.gerar <trilha.jsonl ou pasta> <dir_saida>`.
 """
 
 from __future__ import annotations
@@ -26,11 +27,21 @@ _ARQUIVOS = {
 }
 
 
+def _ler_eventos(caminho_trilha: Path) -> list[dict]:
+    caminho_trilha = Path(caminho_trilha)
+    if caminho_trilha.is_dir():
+        eventos: list[dict] = []
+        for arquivo in sorted(caminho_trilha.glob("trilha_*.jsonl")):
+            eventos.extend(RepositorioDeTrilhaJSONL(arquivo).todos_os_eventos())
+        return eventos
+    return RepositorioDeTrilhaJSONL(caminho_trilha).todos_os_eventos()
+
+
 def gerar_paineis(caminho_trilha: Path, dir_saida: Path, *, caminho_ui_css: Path | None = None) -> list[Path]:
-    """Gera as seis telas em `dir_saida` a partir da trilha em `caminho_trilha`. Retorna os
-    caminhos escritos, na ordem de prioridade do escopo #13."""
-    repositorio = RepositorioDeTrilhaJSONL(Path(caminho_trilha))
-    eventos = repositorio.todos_os_eventos()
+    """Gera as seis telas em `dir_saida` a partir da trilha em `caminho_trilha` — um arquivo
+    `.jsonl`, ou uma pasta com vários `trilha_*.jsonl`. Retorna os caminhos escritos, na ordem de
+    prioridade do escopo #13."""
+    eventos = _ler_eventos(caminho_trilha)
 
     dir_saida = Path(dir_saida)
     dir_saida.mkdir(parents=True, exist_ok=True)
@@ -56,7 +67,7 @@ def gerar_paineis(caminho_trilha: Path, dir_saida: Path, *, caminho_ui_css: Path
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if len(argv) != 2:
-        print("uso: python -m interfaces.painel.gerar <trilha.jsonl> <dir_saida>", file=sys.stderr)
+        print("uso: python -m interfaces.painel.gerar <trilha.jsonl ou pasta> <dir_saida>", file=sys.stderr)
         return 2
     caminho_trilha, dir_saida = argv
     escritos = gerar_paineis(Path(caminho_trilha), Path(dir_saida))
