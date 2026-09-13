@@ -19,6 +19,7 @@ linha alheia (R2, #16).
 | I-1 | `interfaces` nunca importa nada de `dominio` para decidir — só repassa dados; decisão é sempre de `aplicacao` | leitura de código (sem guard automático; `import-linter` não restringe `interfaces` importar `dominio`, só cobra `dominio`/`infra` não importarem `interfaces`) |
 | I-2 | `servidor.py` nunca escreve em `conhecimento/` diretamente — sempre via `aplicacao.servico_conhecimento` | `tests/interfaces/test_servidor.py` (usa dublê de repositório, nunca grava fora dele) |
 | I-3 | Toda rota estática (`/painel/...`) resolve o caminho e confere contra a raiz do diretório antes de ler — nenhum `id`/caminho vindo de fora escapa do diretório servido | `tests/interfaces/test_servidor.py::test_painel_recusa_escapar_do_diretorio` |
+| I-4 | Só `cli.py`, `servidor.py` e `painel/gerar.py` são raízes de composição — só eles podem importar `infra` direto. Telas do painel (`painel/tela_*.py`) recebem dado pronto por parâmetro, nunca importam `infra`. | leitura de código (sem guard automático; .importlinter não restringe interfaces→infra) + tests/interfaces/painel/test_tela_regras.py (render não aceita URL nem lê infra) |
 
 ## Entradas e saídas públicas
 
@@ -57,3 +58,10 @@ linha alheia (R2, #16).
   comercial ganhou rota + tela + ligação real com `interfaces.cli` (B4) — `rodar_conversa` carrega
   `dominio.configuracao_comercial.ConfiguracaoComercial` de `conhecimento/configuracao_comercial.json`
   por padrão e passa para `aplicacao.servico_conversa.conduzir_conversa`.
+- 2026-09-13 — issues #51/#55: `interfaces.cli` deixou de gravar a trilha em parte (`coletar_dados`
+  não gravava nada) e em parte errado (`coletar_dados_por_texto_livre` chamava
+  `trilha.registrar_evento` direto) — agora as duas passam por
+  `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/`registrar_resposta_de_coleta` (dono
+  único da escrita da trilha). `interfaces.painel.tela_regras` deixou de importar `infra` direto
+  (I-4 acima): `planos` e a política de retry chegam prontos por parâmetro, buscados só em
+  `painel/gerar.py`.

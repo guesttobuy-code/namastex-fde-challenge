@@ -178,3 +178,19 @@ def test_payload_enviado_a_quote_carrega_o_cep_real_nunca_o_redigido():
     # e, ainda assim, a trilha grava redigido -- as duas coisas têm que ser verdade ao mesmo tempo.
     (recebida,) = [e for e in repositorio.eventos_da_conversa("conv-payload-real") if e["evento"] == "mensagem_recebida"]
     assert "01310-100" not in recebida["texto"]
+
+
+def test_mensagem_recebida_do_resumo_de_estado_marca_sender_role_sistema():
+    """O evento `mensagem_recebida` que `conduzir_conversa` grava aqui é o resumo sintético do
+    estado coletado (`idade=...; veiculo_ano=...; ...`) — nunca uma fala real do lead. `sender_role`
+    (campo já existente em `MensagemRecebida`, default "lead", nunca lido até esta frente) marca
+    isso como "sistema" para quem consome a trilha não confundir com fala do lead (issue #51/#55)."""
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.sucesso(_PRECO)])
+    estado = montar_estado("conv-sender-role", DADOS_COMPLETOS)
+
+    conduzir_conversa(portal, estado, trilha=trilha)
+
+    (recebida,) = [e for e in repositorio.eventos_da_conversa("conv-sender-role") if e["evento"] == "mensagem_recebida"]
+    assert recebida["sender_role"] == "sistema"
