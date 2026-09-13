@@ -1,0 +1,583 @@
+  <div id="chat-raiz">
+    <section class="hero" id="hero">
+      <div class="marca">AutoSeguro · seguro auto</div>
+      <h2>Faça aqui sua cotação <em>gratuita</em></h2>
+      <p>Encontre o melhor seguro para o seu carro. São poucas perguntas rápidas, e o preço sai na
+         hora, calculado pela tabela oficial.</p>
+      <button class="cta" id="btn-comecar" type="button">Começar minha cotação →<small>sem cadastro · sem compromisso</small></button>
+      <ul class="garantias">
+        <li><b>Preço de verdade</b>Só mostramos valor confirmado pelo sistema de cotação. Nada de estimativa.</li>
+        <li><b>Nunca fica sem resposta</b>Se o sistema falhar, tentamos de novo. Se não der, um corretor assume com seus dados.</li>
+        <li><b>Seus dados protegidos</b>CEP e dados pessoais ficam mascarados no nosso registro.</li>
+      </ul>
+    </section>
+
+    <div id="conversa" hidden>
+      <div class="progresso" id="progresso">
+        <span id="passo-txt">Pergunta 1 de 9</span>
+        <div class="trilho"><span id="barra"></span></div>
+      </div>
+      <div class="fio" id="fio" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="doca" id="doca" hidden>
+    <div class="rapidas" id="rapidas"></div>
+    <form class="caixa" id="form">
+      <select id="pais" aria-label="País do WhatsApp" hidden></select>
+      <input id="entrada" autocomplete="off" aria-label="Sua resposta">
+      <button class="enviar" id="enviar" type="submit">Enviar</button>
+    </form>
+    <p class="ajuda" id="ajuda"></p>
+  </div>
+
+<style>
+/* Componentes do chat sem equivalente em docs/design/ui.css (balão, doca, cards de plano) —
+   decisão registrada em tela_chat.py: sem mock novo em docs/design/, CSS inline aqui. */
+/* Armadilha já medida no briefing #41: display:flex/grid num elemento anula o atributo `hidden`
+   nativo (baixa especificidade do UA stylesheet). Sem esta regra, hero/#conversa/.doca nunca
+   escondem de verdade — achado ao vivo no Browser desta sessão, PR 2 (issue #46). */
+[hidden]{display:none!important}
+.hero{min-height:calc(100vh - 280px);display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;gap:14px;padding:20px 0}
+.hero .marca{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--texto-mais-fraco)}
+.hero h2{font-size:clamp(26px,3.6vw,38px);line-height:1.12;margin:0;max-width:17ch;letter-spacing:-.8px}
+.hero h2 em{font-style:normal;background:linear-gradient(90deg,var(--magenta),var(--ciano));
+            -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0;color:var(--texto-fraco);max-width:52ch;font-size:15.5px}
+.cta{margin-top:8px;border:0;border-radius:14px;padding:14px 24px;font-size:16px;font-weight:650;cursor:pointer;
+     color:#16012F;background:linear-gradient(90deg,#FF5CFF,#7DFFFF)}
+.cta small{display:block;font-size:12px;font-weight:500;opacity:.75}
+.garantias{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%;max-width:640px}
+@media (max-width:640px){ .garantias{grid-template-columns:1fr} }
+.garantias li{background:var(--superficie);border:1px solid var(--borda);border-radius:12px;padding:11px 12px;
+              text-align:left;font-size:12.5px;color:var(--texto-fraco)}
+.garantias b{display:block;color:var(--texto);font-size:13px;margin-bottom:2px}
+
+.fio{display:flex;flex-direction:column;gap:14px;max-width:760px}
+.msg{display:flex;gap:10px;align-items:flex-end;max-width:100%}
+.avatar{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:11px;font-weight:700;
+        color:#16012F;background:linear-gradient(135deg,var(--magenta),var(--ciano))}
+.bolha{background:var(--superficie);border:1px solid var(--borda);border-radius:16px 16px 16px 4px;padding:10px 14px;max-width:560px}
+.bolha .quem{display:block;font-family:var(--mono);font-size:10.5px;color:var(--texto-mais-fraco);margin-bottom:3px}
+.bolha details summary{color:var(--ciano);cursor:pointer}
+.msg.lead{justify-content:flex-end}
+.msg.lead .bolha{background:rgba(255,0,255,.14);border-color:rgba(255,0,255,.35);border-radius:16px 16px 4px 16px}
+.msg.sistema .bolha{background:transparent;border-style:dashed;color:var(--texto-fraco);font-size:13.5px}
+
+.progresso{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--texto-mais-fraco);margin:0 0 18px;max-width:760px}
+.progresso .trilho{flex:1;height:4px;background:var(--superficie-2);border-radius:99px;overflow:hidden}
+.progresso .trilho span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--magenta),var(--ciano));transition:width .3s}
+
+.planos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:4px 0 0 36px;max-width:560px}
+@media (max-width:640px){ .planos{grid-template-columns:1fr;margin-left:0} }
+.plano{background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:14px;text-align:left;cursor:pointer;
+       display:flex;flex-direction:column;gap:8px}
+.plano:hover{border-color:var(--texto-mais-fraco)}
+.plano[aria-pressed="true"]{border-color:var(--ciano);box-shadow:0 0 0 1px var(--ciano) inset}
+.plano h4{margin:0;font-size:16px}
+.plano .franquia{font-size:12px;color:var(--texto-fraco)}
+.plano .franquia b{font-variant-numeric:tabular-nums;color:var(--texto)}
+.plano ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--texto-fraco)}
+.plano li::before{content:"✓ ";color:var(--ok)}
+.plano:disabled,.plano[disabled]{opacity:.6;cursor:not-allowed}
+
+.cartao-resumo{background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:14px 16px;margin-left:36px;max-width:560px}
+@media (max-width:640px){ .cartao-resumo{margin-left:0} }
+.cartao-resumo dl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;margin:0;font-size:14px}
+.cartao-resumo dt{color:var(--texto-mais-fraco)} .cartao-resumo dd{margin:0;font-variant-numeric:tabular-nums}
+.cartao-resumo .alt{font-size:12px;background:none;border:0;color:var(--ciano);cursor:pointer;padding:0}
+.preco{font-size:32px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;margin:2px 0}
+.preco small{font-size:14px;font-weight:500;color:var(--texto-fraco)}
+.chips-plano{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.nota-preco{font-size:12.5px;color:var(--texto-fraco);margin:6px 0 0}
+.rastro-tentativas{margin-top:10px;padding-top:8px;border-top:1px solid var(--borda);font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco)}
+
+.doca{border-top:1px solid var(--borda);background:rgba(22,1,47,.85);padding:12px 4px 4px;max-width:760px}
+.rapidas{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.rapida{background:var(--superficie);border:1px solid var(--borda);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13.5px;color:var(--texto)}
+.rapida:hover{border-color:var(--ciano)}
+.rapida.primaria{border-color:rgba(0,255,255,.55);color:var(--ciano)}
+.caixa{display:flex;gap:8px;background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:6px 6px 6px 14px;align-items:center}
+.caixa input{flex:1;background:none;border:0;color:var(--texto);font-size:15px;padding:8px 0;min-width:0;outline:none}
+.caixa input::placeholder{color:var(--texto-mais-fraco)}
+.caixa select#pais{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;color:var(--texto);
+           font:inherit;font-size:13px;padding:7px 6px;max-width:180px;flex:none}
+.enviar{border:0;border-radius:10px;padding:9px 14px;font-weight:650;cursor:pointer;color:#16012F;background:var(--ciano)}
+.ajuda{font-size:11.5px;color:var(--texto-mais-fraco);margin:7px 2px 0;min-height:1em}
+.ajuda.erro{color:var(--falha)}
+</style>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── identidade da conversa (ADR-0005: o estado entre turnos vive no servidor, por
+  // conversation_id, dentro de um dict em memória do processo — perdido ao reiniciar). O cliente só
+  // precisa gerar um id estável para esta aba e reenviá-lo em toda chamada de /api/chat/*.
+  const conversationId = "chat-" + (
+    window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(16) + Math.random().toString(16).slice(2)
+  );
+
+  const $ = (id) => document.getElementById(id);
+  const hero = $("hero"), conversa = $("conversa"), fio = $("fio"), doca = $("doca");
+  const rapidas = $("rapidas"), form = $("form"), entrada = $("entrada"), ajuda = $("ajuda"), paisSel = $("pais");
+
+  let dados = {};        // o que o lead já respondeu, nesta aba
+  let passoAtual = null;  // validador/handler da pergunta em tela
+  let voltarAoResumo = false; // "alterar" no resumo: responde só o campo escolhido e volta pro resumo
+  let paises = [{ iso: "BR", nome: "Brasil", ddi: 55, bandeira: "🇧🇷" }]; // fallback até o fetch chegar
+
+  function el(tag, cls, html) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+
+  function rolar() {
+    setTimeout(() => { const p = fio.closest(".conteudo") || document.scrollingElement; if (p) p.scrollTop = p.scrollHeight; }, 30);
+  }
+
+  function mensagemLead(texto) {
+    const m = el("div", "msg lead"); const b = el("div", "bolha"); b.textContent = texto;
+    m.append(b); fio.append(m); rolar();
+  }
+
+  function mensagemBot(html, { quem = "Assistente AutoSeguro", cls = "" } = {}) {
+    const m = el("div", "msg bot " + cls); const av = el("div", "avatar", "A");
+    const b = el("div", "bolha", `<span class="quem">${quem}</span>${html}`);
+    m.append(av, b); fio.append(m); rolar();
+    return m;
+  }
+
+  function anexar(no) { fio.append(no); rolar(); }
+
+  function limparDoca() { rapidas.innerHTML = ""; entrada.oninput = null; }
+
+  function mostrarDoca({ placeholder = "", tipo = "text", botoes = [], textoLivre = true, dica = "", pais = false }) {
+    doca.hidden = false;
+    limparDoca();
+    botoes.forEach((b) => {
+      const x = el("button", "rapida" + (b.primaria ? " primaria" : ""), b.rotulo);
+      x.type = "button"; x.onclick = () => b.acao();
+      rapidas.append(x);
+    });
+    form.style.display = textoLivre ? "" : "none";
+    paisSel.hidden = !pais;
+    entrada.type = tipo; entrada.value = ""; entrada.placeholder = placeholder;
+    ajuda.textContent = dica; ajuda.className = "ajuda";
+    if (textoLivre) entrada.focus();
+    rolar();
+  }
+
+  function esconderDoca() { doca.hidden = true; limparDoca(); }
+
+  function erro(msg) { ajuda.textContent = msg; ajuda.className = "ajuda erro"; }
+
+  function progresso(n) {
+    $("passo-txt").textContent = n > 9 ? "Tudo pronto" : `Pergunta ${n} de 9`;
+    $("barra").style.width = Math.min(n - 1, 9) / 9 * 100 + "%";
+  }
+
+  // ── contato: salvo assim que nome+WhatsApp existem, atualizado quando o e-mail chega — nunca
+  // espera o fim do fluxo (o corretor pode precisar do contato mesmo se o lead abandonar antes do
+  // preço). Nome/WhatsApp/e-mail NUNCA entram no payload de /api/chat/cotar (ver cotar(), abaixo).
+  async function salvarContato() {
+    if (!dados.nome || !dados.whatsappExibicao) return;
+    try {
+      await fetch("/api/chat/contato", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          nome: dados.nome,
+          whatsapp: dados.whatsappExibicao,
+          email: dados.email || null,
+        }),
+      });
+    } catch (e) {
+      // Falha ao salvar contato não pode travar a cotação em andamento — o corretor perde o
+      // registro deste lead, mas o lead continua a conversa (e o texto de preço, quando existir,
+      // segue vindo só da /quote via /api/chat/cotar).
+    }
+  }
+
+  // ── os passos, um por vez, na ordem da issue #46 (B.3) ──────────────────────────
+  const PASSOS = {
+    nome() {
+      progresso(1);
+      mensagemBot("Para começar, <b>qual é o seu nome completo?</b>");
+      mostrarDoca({ placeholder: "Nome completo", dica: "Usamos seu nome para o corretor falar com você." });
+      passoAtual = (v) => {
+        const nome = v.trim();
+        const partesValidas = nome.split(/\s+/).filter((p) => (p.match(/[A-Za-zÀ-ÿ]/g) || []).length >= 2);
+        if (partesValidas.length < 2) return erro("Digite nome e sobrenome.");
+        mensagemLead(nome); dados.nome = nome; seguir("whatsapp");
+      };
+    },
+    whatsapp() {
+      progresso(2);
+      mensagemBot("Qual o seu <b>WhatsApp</b>? Escolha o país e digite o número.");
+      mostrarDoca({ placeholder: "Número, com DDD", pais: true });
+      paisSel.innerHTML = "";
+      paises.forEach((p) => {
+        const o = document.createElement("option");
+        o.value = p.iso; o.textContent = `${p.bandeira} ${p.nome} +${p.ddi}`;
+        if (p.iso === "BR") o.selected = true;
+        paisSel.append(o);
+      });
+      const paisAtual = () => paises.find((p) => p.iso === paisSel.value) || paises[0];
+      const aplicarMascaraBR = () => {
+        const d = entrada.value.replace(/\D/g, "").slice(0, 11);
+        if (d.length > 6) entrada.value = `(${d.slice(0, 2)}) ${d.slice(2, d.length > 10 ? 7 : 6)}-${d.slice(d.length > 10 ? 7 : 6)}`;
+        else if (d.length > 2) entrada.value = `(${d.slice(0, 2)}) ${d.slice(2)}`;
+        else entrada.value = d;
+      };
+      const aplicarMascaraOutro = () => { entrada.value = entrada.value.replace(/\D/g, "").slice(0, 14); };
+      const atualizarTextos = () => {
+        const p = paisAtual();
+        // Textos EXATOS da issue #46: Brasil "Número, com DDD"; outros "Número de telefone, sem o
+        // código do país" — nunca redigitados fora deste ponto único.
+        if (p.iso === "BR") { entrada.placeholder = "Número, com DDD"; ajuda.textContent = "Ex.: (11) 91234-5678"; }
+        else { entrada.placeholder = "Número de telefone, sem o código do país"; ajuda.textContent = `Só os números. O código +${p.ddi} já está no país escolhido.`; }
+      };
+      paisSel.onchange = () => { entrada.value = ""; entrada.oninput = paisSel.value === "BR" ? aplicarMascaraBR : aplicarMascaraOutro; atualizarTextos(); };
+      entrada.oninput = aplicarMascaraBR;
+      atualizarTextos();
+      passoAtual = (v) => {
+        const p = paisAtual();
+        const digitos = v.replace(/\D/g, "");
+        let exibicao;
+        if (p.iso === "BR") {
+          if (digitos.length !== 10 && digitos.length !== 11) return erro("Digite DDD e número, ex.: (11) 91234-5678.");
+          const ddd = digitos.slice(0, 2), resto = digitos.slice(2);
+          exibicao = `+${p.ddi} (${ddd}) ${digitos.length === 11 ? resto.slice(0, 5) + "-" + resto.slice(5) : resto.slice(0, 4) + "-" + resto.slice(4)}`;
+        } else {
+          if (digitos.length < 4 || digitos.length > 14) return erro("Digite só os números do telefone, sem o código do país.");
+          exibicao = `+${p.ddi} ${digitos}`;
+        }
+        mensagemLead(exibicao);
+        dados.whatsappExibicao = exibicao;
+        salvarContato();
+        seguir("email");
+      };
+    },
+    email() {
+      progresso(3);
+      mensagemBot("Se quiser, deixe seu <b>e-mail</b>. É opcional.");
+      mostrarDoca({
+        placeholder: "seuemail@exemplo.com", tipo: "email",
+        botoes: [{ rotulo: "Pular", acao: () => { mensagemLead("Prefiro não informar"); dados.email = null; salvarContato(); seguir("idade"); } }],
+      });
+      passoAtual = (v) => {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return erro("Esse e-mail não parece válido. Confira ou toque em Pular.");
+        mensagemLead(v.trim()); dados.email = v.trim(); salvarContato(); seguir("idade");
+      };
+    },
+    idade() {
+      progresso(4);
+      mensagemBot("E <b>quantos anos você tem?</b>");
+      mostrarDoca({ placeholder: "Sua idade, ex.: 35", tipo: "number", dica: "Usamos a idade para a faixa de preço." });
+      passoAtual = (v) => {
+        const n = parseInt(v, 10);
+        if (!Number.isInteger(n) || n <= 0) return erro("Digite só o número, ex.: 35.");
+        mensagemLead(`${n} anos`); dados.idade = n;
+        // Menor de 18: mensagem exata da issue #46, sem tentativa de cotação — decisão de
+        // política que é só do frontend guiado (nunca chega a chamar /api/chat/cotar).
+        if (n < 18) return menorDeIdade();
+        seguir("modelo");
+      };
+    },
+    modelo() {
+      progresso(5);
+      mensagemBot("Qual o <b>modelo</b> do seu carro? (ex.: Onix, HB20, Corolla)");
+      mostrarDoca({ placeholder: "Modelo do carro", dica: "O modelo fica registrado para o corretor; nesta cotação não altera o preço." });
+      passoAtual = (v) => {
+        const modelo = v.trim();
+        if (modelo.length < 2) return erro("Digite o modelo do carro.");
+        mensagemLead(modelo); dados.veiculo_modelo = modelo; seguir("ano");
+      };
+    },
+    ano() {
+      progresso(6);
+      const anoAtual = new Date().getFullYear();
+      mensagemBot(`E o seu ${esc(dados.veiculo_modelo)}, <b>de que ano é?</b>`);
+      const anos = [0, 1, 2, 3, 4].map((i) => anoAtual - i);
+      mostrarDoca({
+        placeholder: "Ou digite o ano, ex.: 2019", tipo: "number",
+        botoes: anos.map((a) => ({ rotulo: String(a), acao: () => passoAtual(String(a)) })),
+        dica: "Carros com até 20 anos de uso são aceitos.",
+      });
+      passoAtual = (v) => {
+        const n = parseInt(v, 10);
+        if (!Number.isInteger(n) || n < 1950 || n > anoAtual + 1) return erro(`Digite um ano entre 1950 e ${anoAtual + 1}.`);
+        mensagemLead(String(n)); dados.veiculo_ano = n; seguir("cep");
+      };
+    },
+    cep() {
+      progresso(7);
+      // Decisão do dono (13/09/2026, comentário na #46): CEP fica OBRIGATÓRIO, sem botão de
+      // pular — sem ele a /quote cobra até 30% a menos, em silêncio, pra carro que dorme em
+      // região de risco (regra já existente em dominio/validacao.py, achado da Fase B do PR 2).
+      mensagemBot("Qual o <b>CEP</b> onde o carro fica à noite?");
+      mostrarDoca({
+        placeholder: "00000-000",
+        dica: "O CEP entra só no cálculo e fica mascarado no nosso registro.",
+      });
+      entrada.oninput = () => { let d = entrada.value.replace(/\D/g, "").slice(0, 8); entrada.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d; };
+      passoAtual = (v) => {
+        if (!/^\d{5}-\d{3}$/.test(v)) return erro("CEP com 8 números, ex.: 01310-100.");
+        mensagemLead(v); dados.cep = v; seguir("plano");
+      };
+    },
+    async plano() {
+      progresso(8);
+      // Coberturas e franquia vêm SEMPRE de GET /api/planos (proxy de infra.planos_http) — nunca
+      // escritas à mão aqui (issue #46, B.3.8).
+      const resposta = await fetch("/api/planos");
+      if (!resposta.ok) {
+        mensagemBot("Não consegui carregar os planos agora. Toque para tentar de novo.", { cls: "sistema" });
+        mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", primaria: true, acao: () => PASSOS.plano() }] });
+        return;
+      }
+      const catalogo = await resposta.json();
+      const planos = catalogo.planos || [];
+      const moeda = catalogo.moeda || "BRL";
+      mensagemBot(
+        'Agora escolha o <b>plano</b>. Toque no card que faz mais sentido para você:' +
+        '<details><summary>O que é franquia?</summary>Franquia é o valor que você paga do seu bolso ' +
+        'quando usa o seguro para consertar o carro depois de um dano parcial, como uma batida. O ' +
+        'seguro paga o restante do conserto. Exemplo ilustrativo: com franquia de R$ 3.000,00, um ' +
+        'conserto de R$ 8.000,00 fica R$ 3.000,00 para você e R$ 5.000,00 para o seguro. Quanto ' +
+        'menor a franquia, menos você paga quando precisa usar o seguro.</details>'
+      );
+      const grade = el("div", "planos");
+      planos.forEach((p) => {
+        const franquia = Number(p.franquia || 0).toLocaleString("pt-BR", { style: "currency", currency: moeda });
+        const coberturas = (p.coberturas || []).map((c) => `<li>${esc(c)}</li>`).join("");
+        const card = el("button", "plano");
+        card.type = "button"; card.setAttribute("aria-pressed", "false");
+        card.innerHTML = `<h4>${esc(p.nome || p.id)}</h4><div class="franquia">Franquia <b>${franquia}</b></div><ul>${coberturas}</ul>`;
+        card.onclick = () => {
+          grade.querySelectorAll(".plano").forEach((c) => { c.setAttribute("aria-pressed", "false"); c.disabled = true; });
+          card.setAttribute("aria-pressed", "true");
+          mensagemLead(`Plano ${p.nome || p.id}`);
+          dados.plano_id = p.id; dados.planoNome = p.nome || p.id;
+          seguir("inicio");
+        };
+        grade.append(card);
+      });
+      anexar(grade);
+      mostrarDoca({ textoLivre: false, dica: "O preço de cada plano depende do seu perfil. Ele aparece depois do resumo." });
+    },
+    inicio() {
+      progresso(9);
+      mensagemBot("Por último: <b>quando o seguro deve começar?</b>");
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+      const dataBR = (d) => d.toLocaleDateString("pt-BR");
+      mostrarDoca({
+        tipo: "date",
+        botoes: [
+          { rotulo: `Hoje (${dataBR(hoje)})`, acao: () => escolherInicio(hoje) },
+          { rotulo: `1º do próximo mês (${dataBR(proximoMes)})`, acao: () => escolherInicio(proximoMes) },
+        ],
+        dica: "Ou escolha outra data no campo acima.",
+      });
+      entrada.min = hoje.toISOString().slice(0, 10);
+      passoAtual = (v) => {
+        if (!v) return erro("Escolha uma data.");
+        const [a, m, d] = v.split("-").map(Number);
+        escolherInicio(new Date(a, m - 1, d));
+      };
+    },
+    resumo() {
+      progresso(10);
+      mensagemBot("Confere se está tudo certo:");
+      // `new Date("2026-09-13")` (string SEM hora) é interpretado como meia-noite UTC — num
+      // fuso atrás de UTC (Brasil, UTC-3) isso vira "12/09/2026" na tela, um dia a menos do que
+      // foi escolhido (achado ao vivo no Browser desta sessão, PR 2 issue #46). Construindo a
+      // partir dos componentes ano/mês/dia (fuso LOCAL, igual ao construtor já usado em
+      // escolherInicio/passoAtual do CEP) evita o parse como UTC.
+      const dataBR = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(a, m - 1, d).toLocaleDateString("pt-BR"); };
+      const linha = (rot, val, passo) => `<dt>${esc(rot)}</dt><dd>${esc(val)}</dd><dd><button class="alt" type="button" data-passo="${passo}">alterar</button></dd>`;
+      const c = el("div", "cartao-resumo");
+      c.innerHTML = `<dl>
+        ${linha("Nome", dados.nome, "nome")}
+        ${linha("WhatsApp", dados.whatsappExibicao, "whatsapp")}
+        ${linha("E-mail", dados.email || "não informado", "email")}
+        ${linha("Idade", dados.idade + " anos", "idade")}
+        ${linha("Carro", dados.veiculo_modelo + " " + dados.veiculo_ano, "modelo")}
+        ${linha("CEP", dados.cep || "não informado", "cep")}
+        ${linha("Plano", dados.planoNome, "plano")}
+        ${linha("Início", dataBR(dados.data_inicio), "inicio")}
+      </dl>`;
+      c.querySelectorAll(".alt").forEach((b) => b.onclick = () => {
+        voltarAoResumo = true;
+        mensagemLead("Quero alterar: " + b.previousElementSibling.textContent);
+        PASSOS[b.dataset.passo]();
+      });
+      anexar(c);
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Cotar agora →", primaria: true, acao: cotar }] });
+    },
+  };
+
+  async function menorDeIdade() {
+    passoAtual = null;
+    // Texto EXATO da issue #46 (B.3.4) — não cota, sem caixa de texto. Numa string só (sem
+    // concatenação entre linhas) para o texto aparecer literal no HTML gerado, verificável por
+    // um teste de substring simples (tests/interfaces/chat/test_tela_chat.py).
+    mensagemBot(
+      "Que bom que você está pesquisando um seguro! A cotação e a contratação precisam ser feitas por um adulto, com 18 anos ou mais. Chame seu pai, sua mãe ou o responsável para fazer a cotação com os dados dele. Leva poucos minutos, e a gente fica esperando vocês por aqui.",
+      { cls: "sistema" }
+    );
+    mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Recomeçar com os dados do responsável", acao: reiniciar }] });
+  }
+
+  function escolherInicio(d) {
+    entrada.min = "";
+    mensagemLead(d.toLocaleDateString("pt-BR"));
+    dados.data_inicio = d.toISOString().slice(0, 10);
+    seguir("resumo");
+  }
+
+  function seguir(proximo) {
+    passoAtual = null;
+    if (voltarAoResumo && proximo !== "resumo") { voltarAoResumo = false; proximo = "resumo"; }
+    PASSOS[proximo]();
+  }
+
+  function esc(v) {
+    const d = document.createElement("div"); d.textContent = v == null ? "" : String(v); return d.innerHTML;
+  }
+
+  // ── cotação real: um único POST a /api/chat/cotar, sem polling ao vivo (decisão desta frente,
+  // dado o prazo — o número final de tentativas vem no corpo da resposta e aparece como
+  // "tentativa X de 3" no resultado, não em tempo real durante a espera). O texto e o preço vêm
+  // SEMPRE do que o backend devolveu — nunca calculados aqui.
+  async function cotar() {
+    mensagemLead("Cotar agora");
+    esconderDoca();
+    const status = mensagemBot("Consultando a tabela de preços…");
+    let resposta;
+    try {
+      resposta = await fetch("/api/chat/cotar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          idade: dados.idade,
+          veiculo_ano: dados.veiculo_ano,
+          veiculo_modelo: dados.veiculo_modelo,
+          cep: dados.cep,
+          plano_id: dados.plano_id,
+          data_inicio: dados.data_inicio,
+        }),
+      });
+    } catch (e) {
+      status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora. Um corretor pode continuar daqui.';
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: cotar }] });
+      return;
+    }
+    const turno = await resposta.json();
+    const notaTentativas = turno.tentativas ? `<div class="rastro-tentativas">tentativa ${turno.tentativas.realizada} de ${turno.tentativas.max}</div>` : "";
+
+    if (turno.preco) {
+      const c = el("div", "cartao-resumo");
+      const moeda = turno.preco.moeda || "BRL";
+      const valorFmt = Number(turno.preco.premio_mensal).toLocaleString("pt-BR", { style: "currency", currency: moeda });
+      const franquiaFmt = Number(turno.preco.franquia).toLocaleString("pt-BR", { style: "currency", currency: moeda });
+      const chips = (turno.preco.coberturas || []).map((cob) => `<span class="chip neutra">${esc(cob)}</span>`).join("");
+      c.innerHTML = `<div style="font-size:13px;color:var(--texto-fraco)">Plano ${esc(turno.preco.plano_nome)}</div>
+        <div class="preco">${valorFmt} <small>/mês</small></div>
+        <div style="font-size:13px;color:var(--texto-fraco)">Franquia ${franquiaFmt}</div>
+        <div class="chips-plano">${chips}</div>
+        <p class="nota-preco">${esc(turno.texto)}</p>
+        ${notaTentativas}`;
+      status.remove();
+      anexar(c);
+      mostrarDoca({
+        textoLivre: false,
+        botoes: [
+          { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar") },
+          { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor") },
+          { rotulo: "Ver outro plano", acao: () => { mensagemLead("Quero ver outro plano"); PASSOS.plano(); } },
+        ],
+      });
+      return;
+    }
+
+    // Sem preço: o texto já vem pronto do backend (mensagem de coleta pendente, recusa 422 traduzida,
+    // ou o texto cru de ENCERRAR) — o JS só exibe o que veio, nunca decide (LEI: preço só de 200).
+    status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(turno.texto)}${notaTentativas}`;
+    if (turno.decisao && turno.decisao.tipo === "encaminhar") {
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
+    } else if (turno.decisao && turno.decisao.tipo === "encerrar") {
+      mostrarDoca({ textoLivre: false, botoes: [
+        { rotulo: "Falar com um corretor", primaria: true, acao: () => contratar("Quero falar com um corretor") },
+        { rotulo: "Fazer nova cotação", acao: reiniciar },
+      ] });
+    } else {
+      // coletar_informacao: o fluxo guiado já pediu tudo que preenche os campos obrigatórios
+      // (idade, veiculo_ano, cep — os três sem botão de pular); se ainda assim faltar algo,
+      // oferece só recomeçar em vez de fingir que sabe qual campo falta.
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Recomeçar", acao: reiniciar }] });
+    }
+  }
+
+  // ── "Quero contratar" e "Falar com um corretor" caem no MESMO endpoint: o domínio (issue #42)
+  // só tem um sinal de escalonamento explícito do lead (Intencao.QUER_CONTRATAR ->
+  // MotivoHandoff.LEAD_QUER_CONTRATAR), incondicional e antes de qualquer outra regra — não existe
+  // um segundo `reason_code` para "pedir humano" sem contratar. Documentado no relatório do PR.
+  async function contratar(textoDoLead) {
+    mensagemLead(textoDoLead);
+    esconderDoca();
+    const status = mensagemBot("Um momento…", { cls: "sistema" });
+    let resposta;
+    try {
+      resposta = await fetch("/api/chat/contratar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId }),
+      });
+    } catch (e) {
+      status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui confirmar agora — tente de novo.';
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead) }] });
+      return;
+    }
+    const corpo = await resposta.json();
+    status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}<br><span style="font-size:11px;color:var(--alerta)">entra na Fila humana</span>`;
+    mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer outra cotação", acao: reiniciar }] });
+  }
+
+  function enviar() { const v = entrada.value.trim(); if (passoAtual && v) passoAtual(v); }
+  form.addEventListener("submit", (e) => { e.preventDefault(); enviar(); });
+  // Achado da auditoria do PR #62 (13/09/2026): Enter não enviava. O protótipo aprovado
+  // (index.html:598) trata `keydown` explicitamente além do `submit` do form — mesma armadilha já
+  // medida no briefing #41 ("Enter em input não enviou pela ferramenta de teste; tratar keydown
+  // Enter explicitamente").
+  entrada.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); enviar(); } });
+
+  function reiniciar() {
+    dados = {}; passoAtual = null; voltarAoResumo = false; fio.innerHTML = "";
+    entrada.oninput = null; paisSel.hidden = true;
+    hero.hidden = false; conversa.hidden = true; doca.hidden = true;
+  }
+
+  $("btn-comecar").addEventListener("click", () => {
+    hero.hidden = true; conversa.hidden = false;
+    mensagemBot("Oi! Sou o assistente da AutoSeguro. Vou te fazer algumas perguntas rápidas e já te mostro o preço.");
+    // Aviso LGPD — texto EXATO da issue #46 (B.2), antes das perguntas, sem caixa de aceite.
+    mensagemBot("Seus dados são usados só para esta cotação e para um corretor falar com você, conforme a LGPD.", { cls: "sistema" });
+    PASSOS.nome();
+  });
+
+  // Lista de países (libphonenumber, gerada por scripts/gerar-paises-whatsapp.mjs — ver
+  // docs/design/paises.json): buscada uma vez, com fallback só-Brasil se o fetch falhar.
+  fetch("/docs/design/paises.json")
+    .then((r) => r.json())
+    .then((j) => { if (Array.isArray(j.paises) && j.paises.length) paises = j.paises; })
+    .catch(() => {});
+})();
+</script>

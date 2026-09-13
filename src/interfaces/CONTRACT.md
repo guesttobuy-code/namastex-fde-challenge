@@ -57,3 +57,79 @@ linha alheia (R2, #16).
   comercial ganhou rota + tela + ligação real com `interfaces.cli` (B4) — `rodar_conversa` carrega
   `dominio.configuracao_comercial.ConfiguracaoComercial` de `conhecimento/configuracao_comercial.json`
   por padrão e passa para `aplicacao.servico_conversa.conduzir_conversa`.
+
+---
+
+## Seção da issue #46 (PR 2 de 2) — chat centralizado ligado ao agente real (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `interfaces.chat.tela_chat` (novo pacote, mesmo molde de `interfaces.conhecimento.tela_edicao`):
+  `render()` monta o chat via `layout.pagina`, sem `css_extra_da_tela` — decisão desta frente, sem
+  oitavo mock em `docs/design/` (CSS inline em `_corpo.html`, documentado no docstring do módulo).
+- `servidor.py`: `GET /` passa a servir `interfaces.chat.tela_chat.render()` (o placeholder do PR 1
+  sai de cena); `GET /api/planos` (proxy só-leitura de `infra.planos_http.buscar_planos`, o MESMO
+  cliente que a base de conhecimento já usa — nunca um segundo cliente HTTP); `GET
+  /docs/design/paises.json` (estático, lista de países para o seletor do WhatsApp); `POST
+  /api/chat/contato` (único caminho de escrita do contato real do lead, via
+  `aplicacao.servico_contato.ServicoDeContato`); `POST /api/chat/cotar` (monta/atualiza
+  `EstadoDaConversa` em memória, chama `aplicacao.servico_conversa.conduzir_conversa` — o MESMO
+  caso de uso que `interfaces.cli` já chama, nunca reimplementado aqui —, grava a trilha e
+  regenera o painel); `POST /api/chat/contratar` ("Quero contratar" e "Falar com um corretor" —
+  ver a nota da decisão abaixo — marcam `ultimo_intent=QUER_CONTRATAR` e chamam `conduzir_conversa`
+  de novo).
+- Estado da conversa entre turnos (ADR-0005, decisão 1): `_ESTADOS_EM_MEMORIA`, um
+  `dict[str, EstadoDaConversa]` a nível de MÓDULO em `servidor.py` — não escondido atrás de uma
+  classe. Perdido ao reiniciar o processo, limite aceito e declarado no ADR.
+- O painel é regenerado a cada `/api/chat/cotar`/`/api/chat/contratar` bem-sucedido (ADR-0005,
+  decisão 2) — chamando `interfaces.painel.gerar.gerar_paineis` de novo, com
+  `repositorio_contato=` para a Fila humana ganhar nome/WhatsApp.
+
+### Leitura de I-1 pedida pela orientação da coordenação (PLANO, item 7)
+
+A análise de impacto original supôs que "`servidor.py` nunca importa `dominio` direto" contradizia
+a I-1 já registrada, mas a I-1 real diz "`interfaces` nunca importa `dominio` PARA DECIDIR — só
+repassa dados". `servidor.py` já importava `dominio.ficha_objecao.MarcadorInvalido` (para capturar
+a exceção) antes desta frente; esta frente acrescenta `dominio.estado_conversa.EstadoDaConversa` e
+`dominio.intencao.Intencao` pelo MESMO motivo — são tipos de dado que atravessam a borda HTTP
+(quem monta o `EstadoDaConversa`/decide o que `Intencao.QUER_CONTRATAR` significa continua sendo
+`aplicacao.servico_conversa`/`dominio.politica`, nunca `servidor.py`). Nenhuma contradição; a
+leitura correta da I-1 já estava certa, só precisava ser registrada explicitamente — como pedido.
+
+### Decisão registrada — "Falar com um corretor" cai no mesmo endpoint de "Quero contratar"
+
+O domínio (issue #42) só tem UM sinal de escalonamento explícito do lead:
+`Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, incondicional e antes de qualquer
+outra regra (`dominio.politica.decidir`). Não existe um segundo `reason_code` para "pedir humano
+sem contratar" — inventar um exigiria mudar `dominio` (fora do escopo desta frente e da leitura da
+LEI 2/LEI 11: duplicar um handoff que já existe, não criar um novo dono). Por isso os dois botões
+do chat ("Quero contratar" e "Falar com um corretor") chamam a MESMA rota `POST /api/chat/contratar`
+— o texto que o lead vê muda (o que ele digitou/clicou), o texto que volta do backend é sempre
+"Logo um corretor vai entrar em contato para te dar todo o suporte." (issue #46, aprovado no #41).
+
+### Cotação: resposta única, sem polling ao vivo (decisão desta frente)
+
+`POST /api/chat/cotar` devolve o resultado FINAL de `conduzir_conversa` de uma vez (não expõe
+progresso por tentativa via um segundo endpoint) — a issue permitia os dois caminhos ("decida pelo
+mais simples que ainda mostra a tentativa final"). O número de tentativas que a `/quote` levou
+aparece no corpo da resposta (`tentativas: {realizada, max}`, lido dos eventos
+`tentativa_de_cotacao` já gravados na trilha desta chamada) e o chat mostra "tentativa X de 3" no
+resultado — não ao vivo durante a espera. Mais simples de implementar e testar no prazo; menos
+fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no relatório do PR.
+
+### Entradas e saídas públicas acrescentadas
+
+- `interfaces.chat.tela_chat.render(*, caminho_ui_css=None) -> str`.
+- `interfaces.servidor.criar_app(...)` ganha os parâmetros aditivos `servico_contato`,
+  `trilha_dir`, `repositorio_contato`, `portal_de_cotacao` (todos com default seguro — nenhum
+  chamador existente precisa mudar; ver docstring de `criar_app`).
+- `interfaces.servidor.main()` lê `TRILHA_DIR` (padrão `"examples"`) e `CONTATO_DIR` (padrão
+  `"contato/leads"`) do ambiente, além das variáveis já existentes.
+
+### O que NÃO é responsabilidade desta seção
+
+- Decidir o texto de preço/recusa/handoff (`dominio.redator`/`_texto_da_decisao` em
+  `aplicacao.servico_conversa`) — o JS do chat só EXIBE o que `/api/chat/cotar`/`contratar`
+  devolveu, nunca calcula nem reformata valor monetário.
+- Responder com o LLM/base de conhecimento — fora de escopo (declarado na issue #46), o chat é
+  guiado e determinístico de propósito.
