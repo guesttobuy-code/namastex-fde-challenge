@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from dominio.intencao import Intencao
+
 
 @dataclass(frozen=True)
 class EstadoDaConversa:
@@ -20,5 +22,5 @@ class EstadoDaConversa:
     data_inicio: str | None = None
     campos_faltantes: frozenset[str] = field(default_factory=frozenset)
     ambiguidades: tuple[str, ...] = field(default_factory=tuple)
-    ultimo_intent: str | None = None
+    ultimo_intent: Intencao | None = None
     status: str | None = None

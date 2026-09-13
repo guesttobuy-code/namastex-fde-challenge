@@ -120,3 +120,32 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
   ou linha sem o nome da variável não pode virar silêncio).
 - 2026-09-12 — Chamada ao OpenRouter via `urllib.request` (stdlib), sem SDK novo — decisão do dono
   (emenda ao escopo da #9), registrada em ADR-0003.
+
+---
+
+## Seção da issue #42 — `ConfiguracaoComercial` em `conduzir_conversa` (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `aplicacao.servico_conversa.conduzir_conversa` ganha o parâmetro
+  `configuracao: dominio.configuracao_comercial.ConfiguracaoComercial = ConfiguracaoComercial()`
+  (aditivo — todo chamador existente continua funcionando sem passar o valor). Esta camada só
+  **repassa** o valor a `dominio.politica.decidir`; não lê `conhecimento/` nem decide o padrão —
+  isso é da infraestrutura (F13, #43).
+- `extrair_dados_da_mensagem` converte a string livre de `SaidaDeLinguagem.intent` (território da
+  F6/#9, que não muda) para `dominio.intencao.Intencao` — string desconhecida vira `None`, no
+  mesmo padrão de silêncio de campo que `idade`/`veiculo_ano` já usam nesta função.
+- `_texto_da_decisao` ganha os textos de `MotivoHandoff.LEAD_QUER_CONTRATAR` e
+  `MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO` (o segundo com a tabela de tradução dos motivos
+  conhecidos da `/quote`, aprovada pelo dono na issue #42).
+
+### Entradas e saídas públicas alteradas
+
+- `aplicacao.servico_conversa.conduzir_conversa(portal: PortalDeCotacao, estado: EstadoDaConversa, trilha: ServicoDeTrilha | None = None, configuracao: ConfiguracaoComercial = ConfiguracaoComercial()) -> TurnoDaConversa`
+  (linha 66 acima documentava a assinatura sem `configuracao` — o parâmetro novo é aditivo, com
+  default, então nenhum chamador documentado ali precisa mudar).
+
+### Decisões registradas
+
+- 2026-09-13 — issue #42 (decisão do dono, #41): ver `dominio/CONTRACT.md`, seção "Decisões
+  registradas", para o texto completo da decisão de recusa configurável e "quero contratar".

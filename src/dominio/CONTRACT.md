@@ -23,8 +23,11 @@
 - `dominio.estado_conversa.EstadoDaConversa` — dataclass, sem função pública além do construtor.
 - `dominio.resultado_cotacao.ResultadoDaCotacao` / `StatusCotacao` — `ResultadoDaCotacao.sucesso|recusa_de_negocio|erro_de_payload|indisponivel|timeout(...)` → `ResultadoDaCotacao`.
 - `dominio.preco_cotado.PrecoCotado.de_resposta_http_200(quote_attempt_id: str, conversation_id: str, resposta: dict)` → `PrecoCotado`.
-- `dominio.decisao.Decisao` / `TipoDecisao` / `MotivoHandoff` (Enum fechado, R5 do #16).
-- `dominio.politica.decidir(estado: EstadoDaConversa, resultado: ResultadoDaCotacao | None)` → `Decisao`.
+- `dominio.decisao.Decisao` / `TipoDecisao` / `MotivoHandoff` (Enum fechado, R5 do #16; issue #42
+  acrescenta `RECUSA_REGRA_DE_ACEITACAO` e `LEAD_QUER_CONTRATAR`).
+- `dominio.configuracao_comercial.ConfiguracaoComercial` (issue #42) — `encaminhar_lead_fora_do_padrao: bool = True`.
+- `dominio.intencao.Intencao` (issue #42) — Enum fechado: `INFORMAR_DADOS`, `QUER_CONTRATAR`.
+- `dominio.politica.decidir(estado: EstadoDaConversa, resultado: ResultadoDaCotacao | None, configuracao: ConfiguracaoComercial = ConfiguracaoComercial())` → `Decisao`.
 - `dominio.validacao.cep_valido(str) -> bool` · `data_iso_valida(str) -> bool` · `campos_obrigatorios_faltantes(dict) -> frozenset[str]`.
 - `dominio.redator.montar_mensagem(preco: PrecoCotado) -> str`.
 
@@ -39,6 +42,12 @@
 
 ## Decisões registradas
 
+- 2026-09-13 — issue #42 (decisão do dono, #41): recusa de negócio (422) vira `ENCAMINHAR` com
+  `RECUSA_REGRA_DE_ACEITACAO` quando `ConfiguracaoComercial.encaminhar_lead_fora_do_padrao=True`
+  (padrão); `False` mantém `ENCERRAR` (comportamento anterior). "Quero contratar" (`Intencao.QUER_CONTRATAR`
+  em `estado.ultimo_intent`) vira `ENCAMINHAR` com `LEAD_QUER_CONTRATAR`, incondicional e antes de
+  qualquer outro ramo. `SaidaDeLinguagem.intent` e o adaptador do LLM (F6/#9) ficam fora — o Enum
+  `Intencao` tipa só `EstadoDaConversa.ultimo_intent`.
 - 2026-09-12 — Ajuste 3 do veredito de auditoria do PLANO (#5): a exceção da invariante I-1 é
   `ValueError` (payload inválido), nunca `KeyError`.
 - 2026-09-12 — R1/R5 da coordenação (#16): `__init__.py` vazio (sem reexport); `MotivoHandoff` é
