@@ -1,3 +1,5 @@
 #!/bin/sh
-# pre-commit da esteira -base: os portoes do repo antes de cada commit. Nunca --no-verify.
-npm run -s full-check || { echo "[pre-commit] full-check reprovou. Conserte; nao use --no-verify."; exit 1; }
+# pre-commit da esteira -base: os portoes de PRODUTO antes de cada commit. Self-test dos guards e
+# meta-guards (guards:selftest*, guard-wiring, guards-catalog, guard-change-ritual) so rodam no CI
+# (issue #72) -- full-check continua existindo e roda tudo, a mao ou no CI.
+npm run -s precommit-check || { echo "[pre-commit] precommit-check reprovou. Conserte; nao use --no-verify."; exit 1; }
