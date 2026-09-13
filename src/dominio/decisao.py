@@ -24,6 +24,9 @@ class MotivoHandoff(str, Enum):
     QUOTE_ERRO_DE_PAYLOAD = "quote_erro_de_payload"
     RECUSA_REGRA_DE_ACEITACAO = "recusa_regra_de_aceitacao"
     LEAD_QUER_CONTRATAR = "lead_quer_contratar"
+    # issue #57 (P9), decisão do dono: pedido explícito de humano é motivo próprio, nunca
+    # reaproveita LEAD_QUER_CONTRATAR — são pedidos diferentes do lead.
+    LEAD_PEDIU_HUMANO = "lead_pediu_humano"
 
 
 @dataclass(frozen=True)

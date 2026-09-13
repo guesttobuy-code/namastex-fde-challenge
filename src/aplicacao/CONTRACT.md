@@ -283,3 +283,27 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 - 2026-09-13 — ADR-0005: contato fora do git, um arquivo por lead — decisão de arquitetura das 3
   tratadas no ADR (estado entre turnos, painel regenerado por evento, contato fora do git).
+
+---
+
+## Seção da issue #57 (P9, PR 1 de 2) — texto de `LEAD_PEDIU_HUMANO` (append)
+
+### O que esta frente acrescenta
+
+- `_texto_da_decisao` (`src/aplicacao/servico_conversa.py`) ganha o `case MotivoHandoff.LEAD_PEDIU_HUMANO`,
+  apontando para a MESMA constante de texto que `LEAD_QUER_CONTRATAR` já usava
+  (`_TEXTO_ENCAMINHAMENTO_PARA_CORRETOR`, nova, LEI 11 — nunca duas strings iguais copiadas).
+- Decisão da coordenação (13/09/2026): texto novo ao lead exigiria aprovação do dono (indisponível
+  no momento desta frente) — por isso o mesmo texto já aprovado para "quero contratar" é reusado,
+  em vez de uma frase nova sem aprovação.
+
+### O que NÃO é responsabilidade desta seção
+
+- O botão "Falar com um corretor" do chat (`interfaces.chat`, PR #62) continuar chamando
+  `LEAD_QUER_CONTRATAR` em vez do motivo novo — troca de rota é do PR 2 desta frente, depois do
+  merge do #62 (fronteira registrada na Análise de impacto da #57).
+
+### Decisões registradas
+
+- 2026-09-13 — issue #57 (P9): mesmo texto ao lead de `LEAD_QUER_CONTRATAR`, reason_code próprio
+  (`LEAD_PEDIU_HUMANO`) preservado na trilha/evento `handoff` — só o texto visível é compartilhado.
