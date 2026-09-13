@@ -93,7 +93,7 @@ def test_rodar_conversa_ponta_a_ponta_com_portal_falso_gera_log(tmp_path, monkey
     assert caminho.exists()
     conteudo = caminho.read_text(encoding="utf-8")
     assert "explicar_cotacao" in conteudo
-    assert "119.9" in conteudo
+    assert "119,90" in conteudo  # achado #54: formato brasileiro, não mais "119.9" cru
     assert len(portal.chamadas) == 1
 
 

@@ -72,23 +72,54 @@ def test_sucesso_explica_a_cotacao_com_o_texto_do_redator():
 
     assert turno.decisao.tipo == TipoDecisao.EXPLICAR_COTACAO
     assert "Completo" in turno.texto
-    assert "245.67" in turno.texto
+    assert "245,67" in turno.texto
     assert len(portal.chamadas) == 1
 
 
-def test_recusa_de_negocio_com_config_desligada_encerra_com_o_motivo_da_quote():
-    """issue #42: comportamento anterior a esta issue, preservado com
-    `encaminhar_lead_fora_do_padrao=False` — é o teste que ficaria vermelho se a recusa passasse
-    a encaminhar mesmo com a config desligada."""
-    motivo = "Idade fora das faixas aceitas."
-    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.recusa_de_negocio(motivo)])
+@pytest.mark.parametrize(
+    "motivo_da_quote,motivo_esperado_no_texto",
+    [
+        pytest.param(
+            "Idade acima do limite de aceitacao (75 anos).",
+            "idade acima do limite de aceitação (75 anos)",
+            id="idade_acima_do_limite",
+        ),
+        pytest.param(
+            "Veiculo com mais de 20 anos nao e aceito.",
+            "veículo com mais de 20 anos não é aceito",
+            id="veiculo_com_mais_de_20_anos",
+        ),
+        pytest.param("Idade fora das faixas aceitas.", "idade fora das faixas aceitas", id="idade_fora_das_faixas"),
+        pytest.param(
+            "Idade do veiculo fora das faixas aceitas.",
+            "idade do veículo fora das faixas aceitas",
+            id="idade_do_veiculo_fora_das_faixas",
+        ),
+        pytest.param(
+            "Motivo novo que a quote ainda não documentou.",
+            "Motivo novo que a quote ainda não documentou",
+            id="motivo_desconhecido_sem_ponto_final",
+        ),
+    ],
+)
+def test_recusa_de_negocio_com_config_desligada_encerra_com_texto_educado(motivo_da_quote, motivo_esperado_no_texto):
+    """issue #52 (achado da auditoria): o ramo ENCERRAR devolvia o motivo CRU da `/quote` em vez de
+    traduzido — a decisão do dono (#41: "explica o motivo e encerra com educação") pede a MESMA
+    tabela de tradução do ramo ligado (#42), sem a parte do corretor (config desligada = sem
+    encaminhamento). Frase aceita pela coordenação, 13/09/2026."""
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.recusa_de_negocio(motivo_da_quote)])
     estado = montar_estado("conv-1", DADOS_COMPLETOS)
     configuracao = ConfiguracaoComercial(encaminhar_lead_fora_do_padrao=False)
 
     turno = conduzir_conversa(portal, estado, configuracao=configuracao)
 
     assert turno.decisao.tipo == TipoDecisao.ENCERRAR
-    assert turno.texto == motivo
+    assert turno.texto == (
+        "Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: "
+        f"{motivo_esperado_no_texto}."
+    )
+    for motivo_handoff in MotivoHandoff:
+        assert motivo_handoff.value not in turno.texto
 
 
 @pytest.mark.parametrize(
