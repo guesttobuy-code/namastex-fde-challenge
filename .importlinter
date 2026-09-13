@@ -26,3 +26,15 @@ source_modules =
     infra
 forbidden_modules =
     interfaces
+
+; Contrato acrescentado pela issue #50 (achado da auditoria #49): `aplicacao/CONTRACT.md` I-2 já
+; afirmava esta regra, mas nenhum contrato aqui a cobrava — emenda ao ADR-0001 (que registrou só
+; os 2 contratos acima, de propósito).
+[importlinter:contract:aplicacao-nao-importa-infra-nem-interfaces]
+name = aplicacao não importa infra nem interfaces
+type = forbidden
+source_modules =
+    aplicacao
+forbidden_modules =
+    infra
+    interfaces

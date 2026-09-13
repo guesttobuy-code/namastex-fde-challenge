@@ -7,16 +7,29 @@ exista aqui.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from datetime import datetime, timezone
 
 from dominio.ficha_objecao import FichaDeObjecao
 
 from .portas.repositorio_conhecimento import RepositorioDeConhecimento
 
 
+def _agora_utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 class ServicoDeConhecimento:
-    def __init__(self, repositorio: RepositorioDeConhecimento) -> None:
+    def __init__(
+        self,
+        repositorio: RepositorioDeConhecimento,
+        agora: Callable[[], str] = _agora_utc_iso,
+    ) -> None:
+        """`agora` (#53): relógio injetável — o domínio não lê `datetime.now`, então esta camada
+        (que pode fazer IO) fornece o instante. Padrão de produção é o relógio real; testes passam
+        um `Callable` fixo para conferir `atualizado_em` sem depender do horário da máquina."""
         self._repositorio = repositorio
+        self._agora = agora
 
     def listar_objecoes(self) -> list[dict]:
         return self._repositorio.listar_objecoes()
@@ -32,7 +45,7 @@ class ServicoDeConhecimento:
         domínio montar o vocabulário de marcadores por plano, nunca fala com rede."""
         ficha = FichaDeObjecao.de_dict(dados)
         if dados.get("status") == "publicado":
-            ficha = ficha.publicar(ids_dos_planos)
+            ficha = ficha.publicar(self._agora(), ids_dos_planos)
         persistido = ficha.para_dict()
         self._repositorio.salvar_objecao(ficha.id, persistido)
         return persistido
