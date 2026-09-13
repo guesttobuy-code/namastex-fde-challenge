@@ -348,3 +348,27 @@ def test_transcricao_salvar_nao_redige_o_prompt_mas_redige_a_resposta(tmp_path):
     assert "[REDIGIDO]" not in linhas[0]
     assert "01310-100" not in linhas[1]
     assert "[REDIGIDO]" in linhas[1]
+
+
+def test_coletar_dados_ponta_a_ponta_prompt_do_cep_sobrevive_e_resposta_sai_redigida(tmp_path):
+    """Achado da auditoria do PR (veredito no #64): o teste acima chama `_Transcricao.emitir`
+    direto, com literais — nunca passa por `_perguntar`/`coletar_dados`, então uma mutação que
+    também marcasse a RESPOSTA como `redigir=False` dentro de `_perguntar` ficava verde. Este teste
+    roda `coletar_dados` de ponta a ponta (o caminho de produção real) com um CEP de verdade na
+    entrada simulada e lê o arquivo que `_Transcricao.salvar` escreveria — o mesmo formato do log
+    de execução, que é entregável público (`examples/execucao_*.log`)."""
+    transcricao = _Transcricao()
+
+    coletar_dados(
+        transcricao, "conv-teste-log", entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01")
+    )
+
+    caminho = tmp_path / "transcricao.log"
+    transcricao.salvar(caminho)
+    linhas = caminho.read_text(encoding="utf-8").splitlines()
+
+    linha_prompt_cep = next(l for l in linhas if l.startswith("Qual o seu CEP?"))
+    linha_resposta_cep = next(l for l in linhas if l.startswith("> ") and ("01310-100" in l or "[REDIGIDO]" in l))
+    assert linha_prompt_cep == "Qual o seu CEP? (formato 00000-000)"
+    assert "01310-100" not in linha_resposta_cep
+    assert linha_resposta_cep == "> [REDIGIDO]"

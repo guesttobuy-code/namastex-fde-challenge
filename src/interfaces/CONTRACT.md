@@ -19,7 +19,7 @@ linha alheia (R2, #16).
 | I-1 | `interfaces` nunca importa nada de `dominio` para decidir — só repassa dados; decisão é sempre de `aplicacao` | leitura de código (sem guard automático; `import-linter` não restringe `interfaces` importar `dominio`, só cobra `dominio`/`infra` não importarem `interfaces`) |
 | I-2 | `servidor.py` nunca escreve em `conhecimento/` diretamente — sempre via `aplicacao.servico_conhecimento` | `tests/interfaces/test_servidor.py` (usa dublê de repositório, nunca grava fora dele) |
 | I-3 | Toda rota estática (`/painel/...`) resolve o caminho e confere contra a raiz do diretório antes de ler — nenhum `id`/caminho vindo de fora escapa do diretório servido | `tests/interfaces/test_servidor.py::test_painel_recusa_escapar_do_diretorio` |
-| I-4 | Só `cli.py`, `servidor.py` e `painel/gerar.py` são raízes de composição — só eles podem importar `infra` direto. Telas do painel (`painel/tela_*.py`) recebem dado pronto por parâmetro, nunca importam `infra`. | leitura de código (sem guard automático; .importlinter não restringe interfaces→infra) + tests/interfaces/painel/test_tela_regras.py (render não aceita URL nem lê infra) |
+| I-4 | Só `cli.py`, `servidor.py` e `painel/gerar.py` são raízes de composição — só eles podem importar `infra` direto. Telas do painel (`painel/tela_*.py`) recebem dado pronto por parâmetro, nunca importam `infra`. | `tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto` (varre `painel/*.py` exceto `gerar.py`; `.importlinter` não restringe `interfaces`→`infra`, achado da auditoria do PR #64) |
 
 ## Entradas e saídas públicas
 
