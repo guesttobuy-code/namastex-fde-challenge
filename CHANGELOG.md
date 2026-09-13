@@ -15,6 +15,20 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **`dominio.ficha_objecao.FichaDeObjecao.publicar` lia o relógio do sistema (achado da auditoria de arquitetura #49, issue #53):** `datetime.now(timezone.utc)` direto no domínio violava a doutrina "dominio/ regras puras, sem IO" do roadmap #3 §4. `publicar()` passa a exigir `instante: str` como parâmetro obrigatório; `aplicacao.ServicoDeConhecimento` ganha um relógio injetável (`agora: Callable[[], str]`, default de produção = relógio real) e fornece o instante na chamada. Sem porta `Relogio` formal (decisão de escopo da coordenação) — nova invariante I-11 em `dominio/CONTRACT.md`, seção F13/#43 (#53)
 
 ### Alterado
+- **`README.md` reconciliado com o estado real da `main` (issue #15, pedido da coordenação):** o
+  produto cresceu muito desde a última versão do README (servidor local em `:8080`, base de
+  conhecimento editável, LLM real para coleta por texto livre, política de handoff configurável,
+  formato BR) e o documento ainda descrevia só o CLI. Reescrito medindo contra o código, não por
+  resumo: comando único (`docker compose up --build`) com as 3 rotas do app documentadas — inclusive
+  que `/` é hoje um placeholder honesto (o chat de verdade é o PR #62, ainda não mergeado); seção
+  nova de coleta por texto livre (`LLM_PROVEDOR=openrouter`) com a execução real citada; tabela de
+  `MotivoHandoff` atualizada (3→5 valores) com `ConfiguracaoComercial` e `Intencao.QUER_CONTRATAR`;
+  nota de privacidade sobre dado saindo pro OpenRouter (pendência aberta na ADR-0003, não escondida);
+  3º contrato do `.importlinter` citado; "o que ficou de fora" reescrito com o estado real de
+  #62/#58/#55/#51/#39/#38/#57 (`[PENDENTE: #n]`, nunca adivinhado); limite novo sobre menor de 18 só
+  validado no cliente; números da extração por LLM (0/5→5/5 intenção, PR #44; 2/4→20/20 campos,
+  issue #9) com o link do comentário de auditoria ao lado. Números que a coordenação passou de
+  memória (ex. taxa de acerto) só entraram depois de confirmados contra o comentário real da issue
 - **`docs/DESIGN-PROPOSTA-v1.md` §5.2 desatualizada frente à arquitetura vigente (issue #56):** nota datada declarando a seção superada pelo roadmap #3 §4 (4 camadas planas, não módulos por domínio) e as portas previstas e não criadas (`Relogio`, `RepositorioDeConversa`, `FilaDeHandoff`, `CanalDeMensagem`) como simplificação declarada, não pendência escondida (#56)
 
 ### Corrigido

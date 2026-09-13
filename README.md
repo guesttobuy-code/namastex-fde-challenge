@@ -14,17 +14,32 @@ tomei, com o porquê** — na mesma ordem em que o enunciado diz que vai olhar
 
 Um agente que conversa com um lead, cota um seguro de veículo contra a `/quote` real, decide sozinho
 quando dá e encaminha pra um humano com motivo explícito quando não dá. O caminho de decisão
-(`src/dominio/politica.py`) é 100% determinístico — sem relógio, sem rede, sem LLM — de propósito
-(docstring de `src/interfaces/cli.py:1-7`); se um adaptador de LLM real entrou nesta entrega para
-outra parte do fluxo (extração/redação de texto, nunca a decisão), o estado final está na
-[issue #9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) e em [§9](#9-o-que-ficou-de-fora-e-por-quê).
+(`src/dominio/politica.py`) é 100% determinístico — sem relógio, sem rede, sem LLM na decisão em si
+— de propósito. Um LLM real (OpenRouter, `deepseek/deepseek-chat-v3.1` — ver
+[ADR-0003](governance/adr/0003-provedor-e-modelo-do-llm.md)) já existe no repositório para **coletar
+dados por texto livre** em vez do roteiro fixo de perguntas, opcional e desligado por padrão — ver
+[§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) e a seção sobre coleta livre abaixo.
+
+**Um comando só sobe tudo** (decisão do dono, [ADR-0004](governance/adr/0004-servidor-local-conhecimento-json.md)):
 
 ```bash
-# 1. sobe a API de cotação (comando do enunciado, docs/DESAFIO.md)
 docker compose up --build
-# API em http://localhost:8000
+```
 
-# 2. roda uma conversa completa (comando real, docstring de src/interfaces/cli.py:9-13)
+Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (inalterada,
+`docs/DESAFIO.md`) e o app desta entrega em `http://localhost:8080`
+(`docker-compose.yml`, serviço `app`) — três rotas nele:
+
+| Rota | O que é | Estado |
+|---|---|---|
+| `/` | tela "Conversas" — hoje é um **placeholder honesto**, sem formulário nem chat funcional: o texto da própria tela diz que o chat ligado ao agente real chega com o [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (`src/interfaces/servidor.py:90-105`) | `[PENDENTE: #62]` |
+| `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
+| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)), servido estático — gerado em build-time, nunca em runtime | funcional |
+
+**Para ter uma conversa de ponta a ponta hoje** (enquanto o `/` do app é só o placeholder acima), o
+caminho que funciona é a CLI, direto no terminal — o mesmo agente, a mesma trilha, a mesma `/quote`:
+
+```bash
 # macOS/Linux (bash/zsh):
 PYTHONPATH=src python -m interfaces.cli
 # Windows (PowerShell):
@@ -32,8 +47,7 @@ $env:PYTHONPATH = "src"; python -m interfaces.cli
 ```
 
 O agente pergunta idade, ano do veículo, CEP (obrigatórios), plano e data de início (opcionais, Enter
-pula) — nessa ordem (`src/interfaces/cli.py::coletar_dados`, linhas 72-96). Para automatizar sem
-digitar:
+pula) — nessa ordem (`src/interfaces/cli.py::coletar_dados`). Para automatizar sem digitar:
 
 ```bash
 # macOS/Linux
@@ -52,6 +66,25 @@ $env:PYTHONPATH = "src"
 
 Cada execução grava, em `examples/`: a transcrição (`execucao_<id>.log`), a trilha bruta
 (`trilha_<id>.jsonl`) e a trilha legível (`trilha_<id>.log`) — ver [§5](#5-dá-pra-rastrear-o-que-aconteceu).
+
+**Coleta por texto livre (opcional, LLM real):** em vez do roteiro fixo acima, o lead pode escrever
+livre e um `PortalDeLinguagem` extrai os dados turno a turno (`src/interfaces/cli.py`,
+`coletar_dados_por_texto_livre` — caminho **adicional**, nunca substitui o determinístico, que
+continua sendo o padrão). Liga com uma variável de ambiente:
+
+```bash
+# .env na raiz (copie .env.example) com:
+#   LLM_PROVEDOR=openrouter
+#   OPENROUTER_API_KEY=<sua chave>
+PYTHONPATH=src python -m interfaces.cli
+```
+
+Sem `LLM_PROVEDOR=openrouter` no ambiente, o comportamento é exatamente o de cima — sem chave, sem
+LLM, ninguém trava esperando uma variável que não tem (`src/interfaces/cli.py`, trecho do
+`if __name__ == "__main__":`). Execução real ponta a ponta com o adaptador de verdade contra o
+OpenRouter: [`examples/execucao_conv-4aa7be91.log`](examples/execucao_conv-4aa7be91.log) — a trilha
+grava `origem_do_texto="llm:deepseek/deepseek-chat-v3.1@v1"` por turno
+([`examples/trilha_conv-4aa7be91.jsonl`](examples/trilha_conv-4aa7be91.jsonl)).
 
 ---
 
@@ -119,25 +152,33 @@ tentativas retentáveis esgotadas, handoff explícito, nunca um preço inventado
 ## 4. O critério de passar pra humano é explícito e defensável?
 
 Sim, e é uma função pura: `src/dominio/politica.py::decidir` — sem relógio, sem rede, sem LLM, recebe
-estado + resultado e devolve uma `Decisao`. O `Decisao.__post_init__`
-(`src/dominio/decisao.py:32-37`) é uma invariante do domínio: **toda decisão `ENCAMINHAR` exige um
-motivo — nunca existe handoff silencioso.**
+estado + resultado (e, desde a issue #42, a `ConfiguracaoComercial` do momento) e devolve uma
+`Decisao`. O `Decisao.__post_init__` (`src/dominio/decisao.py`) é uma invariante do domínio: **toda
+decisão `ENCAMINHAR` exige um motivo — nunca existe handoff silencioso.**
 
-Os três motivos são um Enum fechado (`MotivoHandoff`, `src/dominio/decisao.py:21-24`) — vocabulário
-único que atravessa domínio (decide), trilha (grava `.value`) e tela (mostra), decisão da coordenação
-na issue #16 (R5) para não nascerem três grafias da mesma coisa:
+`MotivoHandoff` é um Enum fechado — vocabulário único que atravessa domínio (decide), trilha (grava
+`.value`) e tela (mostra), decisão da coordenação na issue #16 (R5) para não nascerem três grafias da
+mesma coisa. **Tinha 3 valores, ganhou mais 2 na issue #42:**
 
 | `StatusCotacao` (resultado da `/quote`) | `MotivoHandoff` | Decisão |
 |---|---|---|
 | `SUCESSO` | — | `EXPLICAR_COTACAO` (mostra o preço) |
-| `RECUSA_DE_NEGOCIO` (422 de regra) | — | `ENCERRAR` |
+| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=False` (padrão) | — | `ENCERRAR`, com recusa educada e o motivo traduzido |
+| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=True` | `RECUSA_REGRA_DE_ACEITACAO` | `ENCAMINHAR` a um corretor |
 | `INDISPONIVEL` (5xx esgotado) | `QUOTE_INDISPONIVEL` | `ENCAMINHAR` |
 | `TIMEOUT` (timeout esgotado) | `QUOTE_TIMEOUT` | `ENCAMINHAR` |
 | `ERRO_DE_PAYLOAD` (400/422 de validação) | `QUOTE_ERRO_DE_PAYLOAD` | `ENCAMINHAR` |
+| lead diz explicitamente que quer contratar (`Intencao.QUER_CONTRATAR`, checado **antes** de qualquer outro ramo, sem esperar dado completo nem cotação) | `LEAD_QUER_CONTRATAR` | `ENCAMINHAR` — fechamento é sempre de um corretor |
 
 Timeout e erro de payload viram `ENCAMINHAR` pelo mesmo motivo prático: nenhum dos dois é culpa do
-lead, e nos dois um humano precisa saber que a cotação não saiu (comentário de código em
-`src/dominio/politica.py`, decisão R5/#16).
+lead, e nos dois um humano precisa saber que a cotação não saiu (decisão R5/#16). A recusa de negócio
+(422) é **configurável**: `ConfiguracaoComercial.encaminhar_lead_fora_do_padrao` (padrão `True`)
+decide se um lead fora do padrão de aceitação da seguradora vai pra um corretor ou só recebe uma
+recusa educada — editável em [`/conhecimento`](#1-em-uma-frase-e-como-rodar) (`/api/configuracao-comercial`).
+
+O mock de design (`docs/design/handoffs.html`) lista 8 motivos; o Enum real tem **5** hoje (era 3) —
+o gap fechou em 2, os 3 que faltam (mídia não suportada, dado ambíguo do cliente, pedido humano
+direto) não têm frente aberta ainda.
 
 ---
 
@@ -208,14 +249,24 @@ os dois são commitados num repo público.
 Limite conhecido e declarado, não escondido: a extração não usa NER — um nome que não esteja na lista
 de nomes conhecidos passa intacto. Detalhe completo em [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md).
 
+**Gap declarado, ainda sem conserto:** quando a coleta por texto livre está ligada
+([§1](#1-em-uma-frase-e-como-rodar)), o CEP é extraído do texto **bruto** antes do mascaramento e
+enviado à `/quote` (a API precisa dele) — mas o restante da mensagem do lead viaja mascarado até o
+OpenRouter, um provedor externo. A política de retenção de dados do roteamento do OpenRouter para o
+modelo escolhido é uma pendência aberta na própria decisão, não uma afirmação de que está resolvida
+([`governance/adr/0003-provedor-e-modelo-do-llm.md`](governance/adr/0003-provedor-e-modelo-do-llm.md));
+`docs/PRIVACIDADE.md` ainda não tem uma seção sobre isso.
+
 ---
 
 ## 7. Qualidade: outro engenheiro entende as decisões?
 
 Quatro camadas com fronteira cobrada por ferramenta, não por convenção verbal — `.importlinter`
-(raiz do repo) proíbe `dominio` de importar `aplicacao`/`infra`/`interfaces`, e `infra` de importar
-`interfaces`; roda no CI. Cada camada tem `CONTRACT.md` próprio com as invariantes e o teste que cobre
-cada uma (ex.: `src/infra/CONTRACT.md`, `src/dominio/CONTRACT.md`).
+(raiz do repo) tem 3 contratos: `dominio` não importa `aplicacao`/`infra`/`interfaces`, `infra` não
+importa `interfaces`, e `aplicacao` não importa `infra`/`interfaces` (o 3º entrou depois — uma
+auditoria de arquitetura achou que `aplicacao/CONTRACT.md` já AFIRMAVA essa regra havia tempo, mas
+nada no CI cobrava de verdade); roda no CI. Cada camada tem `CONTRACT.md` próprio com as invariantes
+e o teste que cobre cada uma (ex.: `src/infra/CONTRACT.md`, `src/dominio/CONTRACT.md`).
 
 O método de prova por trás de cada PR é medido, não alegado: guard `companion-red-green` (o teste tem
 que estar vermelho antes do conserto e verde depois — nunca nascer verde), e roteiros de reprodução
@@ -260,21 +311,25 @@ mostrar o erro com o conserto ao lado é mais honesto do que fingir que não aco
 
 ## 9. O que ficou de fora, e por quê
 
-Escopo cortado por prazo (3 dias), sempre com issue aberta e razão declarada — nada sumiu em silêncio:
+Escopo cortado por prazo, sempre com issue aberta e razão declarada — nada sumiu em silêncio. Estado
+medido contra `main` e os PRs abertos no momento em que este README foi escrito (13/09), não por
+resumo — o que já tem PR pronto (mesmo sem merge) diz isso; o resto é `[PENDENTE: #n]` porque ainda
+não tem:
 
-| Ficou de fora | Por quê | Issue |
+| Ficou de fora | Estado | Issue |
 |---|---|---|
-| Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | prazo | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
+| Chat centralizado ligado ao agente real (`/` deixa de ser placeholder) | `[PENDENTE: #62]` — PR aberto, pronto, não mergeado (fecha #46); traz também privacidade do contato do lead (ADR-0005) | [#62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) |
+| IA respondendo o lead usando a base de conhecimento (hoje o `/conhecimento` só edita; nada ainda consome as fichas numa conversa) | `[PENDENTE: #58]` — sem PR ainda | [#58](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/58) |
+| `interfaces` falando com `infra` fora das raízes de composição (`painel/tela_regras.py`); CLI orquestrando a trilha | `[PENDENTE: #55]` — violação de arquitetura declarada, sem PR ainda (P7 do roadmap #3) | [#55](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/55) |
+| Coleta padrão (sem LLM) não grava cada pergunta/resposta na trilha com id e status | `[PENDENTE: #51]` — sem PR ainda (P2) | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
+| Trilha grava estado da conversa como se fosse fala literal do lead | `[PENDENTE: #39]` — sem PR ainda (P3) | [#39](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/39) |
+| CLI mascara o próprio texto fixo do prompt de CEP no log, como se fosse PII do lead (over-redaction) | `[PENDENTE: #38]` — sem PR ainda | [#38](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/38) |
+| Pedido explícito de humano ("quero falar com um atendente") — vai pra Fila humana? | `[PENDENTE: #57]` — decisão de escopo ainda não tomada pelo dono (P9) | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
+| Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
 | Especificação formal das 6 telas do mock (inclusive "Avaliação") | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
-| Adaptador de LLM real — coleta de dados por texto livre em vez do roteiro fixo de perguntas do [§1](#1-em-uma-frase-e-como-rodar) | **em aberto no momento em que este README foi escrito** (12/09), corte às 14h de 13/09 — a política de decisão (`src/dominio/politica.py`) é e continua 100% determinística de qualquer forma; um LLM, se entrar, cobriria só a coleta/extração de dados, nunca preço/recusa/handoff. Se entrar, o comando de rodar ganha uma forma nova além da do §1 — **este parágrafo tem que estar atualizado com o desfecho real antes da entrega; se ainda disser "em aberto", é sinal de que ficou pra trás** | [#9](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/9) |
 | Dataset em camadas (Silver mascarado) | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
-
-**O mock de design (`docs/design/handoffs.html`) lista 8 motivos de handoff; o Enum real
-(`MotivoHandoff`) tem 3.** O mock foi desenhado antes da política determinística existir — é uma
-UI mais rica do que a política atual decide, e é exatamente o gap que a issue
-[#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) cobre.
 
 O guard `plano-na-issue` ficou **vermelho** no PR #35 — troca consciente: essa frente rodou em
 "regime enxuto", autorizado explicitamente pelo dono no comentário de escopo, sem a rodada normal de
@@ -288,6 +343,20 @@ PLANO antes do código. Todos os outros 27 checks daquele PR passaram.
 - **O mascaramento de PII não usa NER** — só redige nomes de uma lista conhecida; um nome fora dela passa intacto (`docs/PRIVACIDADE.md`).
 - **Sem projeto Python instalável** (sem `pip install -e .`) — decisão deliberadamente adiada (nota R9/#16); por isso rodar exige `PYTHONPATH=src`, documentado no comando acima.
 - **`.arch-layers.json` não existe** — a fronteira de camadas é cobrada de verdade pelo `.importlinter` no CI, mas o guard `docs-required` do kit ainda não confere essa fronteira automaticamente (nota registrada no `CHANGELOG.md`).
+- **Menor de 18 anos: a recusa é só do lado do cliente.** O protótipo de chat bloqueia visualmente
+  (`docs/design/prototipo-conversas-v2/index.html`); não existe nenhuma checagem de idade em
+  `src/dominio/` nem em nenhum módulo de backend — se o cliente for contornado (chamada direta à
+  API), nada no servidor recusa um lead menor de idade hoje. Conserto real chega com o
+  [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (ainda não mergeado).
+- **Não há fichas de exemplo na base de conhecimento** — `conhecimento/objecoes/` está vazio no
+  repositório (só `.gitkeep`); quem abrir `/conhecimento` num clone limpo vê a tela sem nenhuma
+  objeção cadastrada ainda.
+- **A extração por texto livre já foi medida contra o modelo real, não simulada:** PR #44,
+  intenção "quero contratar" — antes do conserto do esquema, **0 de 5** frases explícitas chegavam à
+  política; depois, **5 de 5** positivas e **0 de 7** falsos positivos num controle negativo
+  ([comentário de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/44#issuecomment-5650702038)).
+  Extração de campos (idade/ano do veículo): issue #9, **2 de 4** respostas fugiam do esquema antes
+  do conserto, **20 de 20** depois, ~US$ 0,001 por lote de 10 chamadas reais.
 
 ---
 
