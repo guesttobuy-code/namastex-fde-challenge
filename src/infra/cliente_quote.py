@@ -23,6 +23,7 @@ real, no padrão de `infra/trilha_jsonl.py` (F4/#7).
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import time
 import urllib.error
@@ -50,6 +51,11 @@ class RespostaBruta:
     status_code: int | None
     corpo: dict | None
     excedeu_o_tempo: bool = False
+    # issue #67: conexão recusada/DNS/reset (URLError que não é timeout) e corpo que não é JSON
+    # válido (em sucesso ou em erro) — nenhum dos dois tem um HTTP status confiável para basear a
+    # decisão de retry, então viram este marcador em vez de status_code (LEI 2: não inventa um
+    # código HTTP que a rede não devolveu).
+    falha_de_transporte: bool = False
 
 
 Transporte = Callable[[dict, float], RespostaBruta]
@@ -73,8 +79,9 @@ OnTentativa = Callable[[TentativaObservada], None]
 
 
 def _e_retentavel(resposta: RespostaBruta) -> bool:
-    """5xx e timeout repetem; qualquer outra coisa (200, 4xx) é terminal — issue #6."""
-    if resposta.excedeu_o_tempo:
+    """5xx, timeout e falha de transporte (issue #67: conexão recusada, corpo não-JSON) repetem;
+    qualquer outra coisa (200, 4xx) é terminal — issue #6."""
+    if resposta.excedeu_o_tempo or resposta.falha_de_transporte:
         return True
     return resposta.status_code in _STATUS_QUE_REPETE
 
@@ -127,18 +134,51 @@ class ClienteQuoteHTTP:
         try:
             resp = urllib.request.urlopen(req, timeout=timeout_segundos)  # noqa: S310 (URL é config nossa, não input externo)
         except urllib.error.HTTPError as erro:
-            corpo = json.loads(erro.read().decode("utf-8"))
+            try:
+                corpo = json.loads(erro.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # issue #67: corpo de erro que não é JSON válido — sem como confiar no conteúdo,
+                # mesmo com um HTTP status em mãos; tratado como falha de transporte (retentável).
+                return RespostaBruta(status_code=None, corpo=None, falha_de_transporte=True)
             return RespostaBruta(status_code=erro.code, corpo=corpo)
         except TimeoutError:
             return RespostaBruta(status_code=None, corpo=None, excedeu_o_tempo=True)
         except urllib.error.URLError as erro:
             if isinstance(erro.reason, TimeoutError):
                 return RespostaBruta(status_code=None, corpo=None, excedeu_o_tempo=True)
-            raise
+            # issue #67: conexão recusada, DNS ou reset — antes subia sem tratamento até virar 500
+            # do wsgiref; agora vira tentativa retentável dentro do MESMO orçamento (ADR-0002).
+            return RespostaBruta(status_code=None, corpo=None, falha_de_transporte=True)
         else:
             with resp:
-                corpo = json.loads(resp.read().decode("utf-8"))
+                try:
+                    corpo = json.loads(resp.read().decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    # issue #67: 200 com corpo que não é JSON válido nunca pode virar PrecoCotado
+                    # (I-1 exigiria os campos, mas não há corpo para ler) — falha de transporte,
+                    # nunca "sucesso com preço 0" (achado de mutação M19).
+                    return RespostaBruta(status_code=None, corpo=None, falha_de_transporte=True)
                 return RespostaBruta(status_code=resp.status, corpo=corpo)
+
+    def _chamar_com_prazo_de_parede(self, payload: dict, timeout_segundos: float) -> RespostaBruta:
+        """Roda `self._transporte` num worker próprio, com o RELÓGIO DE PAREDE real como árbitro
+        final do prazo — issue #67, achado de medição ao vivo (`docker compose stop quote-api`,
+        stack isolada): `getaddrinfo` (resolução de DNS) não respeita o `timeout` do
+        `socket`/`urlopen` neste ambiente — uma tentativa mediu ~4s contra os 3s configurados, e o
+        orçamento total estourou (~13-19s contra ~10s do ADR-0002). Se o worker não responde a
+        tempo, a tentativa conta como TIMEOUT (retentável, mesma regra de sempre — nada na
+        política muda) e a thread fica abandonada, terminando sozinha depois sem efeito colateral
+        (a `/quote` não muda nada do lado do cliente). Nunca `socket.setdefaulttimeout` (não cobre
+        `getaddrinfo` e mudaria o processo inteiro) nem cache de IP (esconderia troca de endereço
+        real) — decisão da coordenação, 13/09/2026."""
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        futuro = executor.submit(self._transporte, payload, timeout_segundos)
+        try:
+            return futuro.result(timeout=timeout_segundos)
+        except concurrent.futures.TimeoutError:
+            return RespostaBruta(status_code=None, corpo=None, excedeu_o_tempo=True)
+        finally:
+            executor.shutdown(wait=False)
 
     def executar_com_orcamento(
         self, payload: dict, on_tentativa: OnTentativa | None = None
@@ -162,7 +202,7 @@ class ClienteQuoteHTTP:
             timeout = min(TIMEOUT_POR_TENTATIVA_SEGUNDOS, tempo_restante)
             quote_attempt_id = uuid.uuid4().hex
             inicio_tentativa = self._relogio()
-            resposta = self._transporte(payload, timeout)
+            resposta = self._chamar_com_prazo_de_parede(payload, timeout)
             fim_tentativa = self._relogio()
             if on_tentativa:
                 on_tentativa(TentativaObservada(
@@ -259,6 +299,13 @@ def _traduzir(resposta: RespostaBruta, quote_attempt_id: str, conversation_id: s
     if resposta.excedeu_o_tempo:
         return ResultadoDaCotacao.timeout(
             f"a /quote não respondeu dentro do orçamento de {ORCAMENTO_TOTAL_SEGUNDOS:.0f}s de retry"
+        )
+    if resposta.falha_de_transporte:
+        # issue #67: motivo distinto de "upstream respondeu None" (mensagem genérica abaixo, que
+        # faria pouco sentido para quem não teve resposta HTTP nenhuma) — nunca vai ao lead
+        # (_texto_da_decisao usa o `case _` genérico para QUOTE_INDISPONIVEL), só à trilha/painel.
+        return ResultadoDaCotacao.indisponivel(
+            f"falha de conexão com a /quote após esgotar as {MAX_TENTATIVAS} tentativas"
         )
     corpo = resposta.corpo or {}
     if resposta.status_code == 200:

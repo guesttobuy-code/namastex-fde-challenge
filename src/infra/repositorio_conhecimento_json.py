@@ -60,6 +60,11 @@ class RepositorioDeConhecimentoMemoria:
         return [dict(ficha) for ficha in self._fichas.values()]
 
     def obter_objecao(self, id: str) -> dict | None:
+        # issue #69, achado ao escrever o teste do servidor: este dublê não validava o id em
+        # leitura, diferente de `RepositorioDeConhecimentoJSON.obter_objecao` (linha 37) — as duas
+        # implementações do mesmo `RepositorioDeConhecimento` divergiam sobre o que é um id
+        # aceitável (LEI 11), e o teste com o dublê não pegava o defeito real do servidor.
+        _validar_id(id)
         ficha = self._fichas.get(id)
         return dict(ficha) if ficha is not None else None
 

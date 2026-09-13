@@ -51,6 +51,7 @@ from dominio.ficha_objecao import MarcadorInvalido
 from dominio.intencao import Intencao
 from dominio.nomes_cobertura import nome_legivel
 from dominio.preco_cotado import PrecoCotado
+from dominio.validacao import normalizar_cep
 from infra.adaptador_de_linguagem import criar_adaptador_de_linguagem
 from infra.adaptador_de_linguagem import criar_adaptador_de_resposta_orientada
 from infra.cliente_quote import MAX_TENTATIVAS, ClienteQuoteHTTP
@@ -93,9 +94,7 @@ def _conversation_id_ou_400(dados: dict) -> tuple[str, None] | tuple[None, tuple
 # ADR-0005, decisão 1 (ver docstring do módulo): estado da conversa entre turnos, chave
 # `conversation_id`, em memória do PROCESSO — não é um singleton escondido, é este dict, explícito.
 _ESTADOS_EM_MEMORIA: dict[str, EstadoDaConversa] = {}
-# Issue #58 (frente `ia-responde`): último `PrecoCotado` de sucesso por conversa — a resposta a
-# uma objeção de preço precisa de uma cotação real para preencher marcador; mesmo padrão de
-# `_ESTADOS_EM_MEMORIA` (dict a nível de módulo, perdido ao reiniciar, ADR-0005 decisão 1).
+# Issue #58: último `PrecoCotado` de sucesso por conversa (mesmo padrão de `_ESTADOS_EM_MEMORIA`).
 _PRECOS_EM_MEMORIA: dict[str, PrecoCotado] = {}
 
 
@@ -168,7 +167,12 @@ def _responder_lista(servico: ServicoDeConhecimento, metodo: str):
 
 
 def _responder_ler_ficha(servico: ServicoDeConhecimento, id_da_ficha: str):
-    ficha = servico.obter_objecao(id_da_ficha)
+    # issue #69: `_validar_id` levanta ValueError p/ id fora do formato (path traversal já
+    # BLOQUEADO antes de ler arquivo) — sem este `try` virava 500; o PUT abaixo já tratava.
+    try:
+        ficha = servico.obter_objecao(id_da_ficha)
+    except ValueError as erro:
+        return _json("400 Bad Request", {"erro": str(erro)})
     if ficha is None:
         return _json("404 Not Found", {"erro": "ficha não encontrada"})
     return _json("200 OK", ficha)
@@ -213,9 +217,14 @@ def _responder_salvar_configuracao(servico_configuracao: ServicoDeConfiguracaoCo
     dados = _ler_corpo_json(environ)
     if dados is None or "encaminhar_lead_fora_do_padrao" not in dados:
         return _json("400 Bad Request", {"erro": "envie {\"encaminhar_lead_fora_do_padrao\": true|false}"})
-    configuracao = servico_configuracao.salvar(
-        encaminhar_lead_fora_do_padrao=bool(dados["encaminhar_lead_fora_do_padrao"])
-    )
+    valor = dados["encaminhar_lead_fora_do_padrao"]
+    # issue #69: bool("nao") é True — mandar "nao" LIGAVA a config em silêncio (o oposto do pedido).
+    if not isinstance(valor, bool):
+        return _json(
+            "400 Bad Request",
+            {"erro": "encaminhar_lead_fora_do_padrao precisa ser true ou false (JSON bool), não uma string"},
+        )
+    configuracao = servico_configuracao.salvar(encaminhar_lead_fora_do_padrao=valor)
     return _json("200 OK", {"encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao})
 
 
@@ -374,6 +383,11 @@ def _responder_chat_cotar(
     conversation_id, resposta_erro = _conversation_id_ou_400(dados)
     if resposta_erro is not None:
         return resposta_erro
+    # issue #68: CEP fora do formato cotava sem o agravo regional; normalizar_cep é o dono único
+    # do formato aceito (mesma função de montar_estado). Ausente/vazio não é erro (ainda não coletado).
+    cep_bruto = dados.get("cep")
+    if cep_bruto not in (None, "") and normalizar_cep(cep_bruto) is None:
+        return _json("400 Bad Request", {"erro": "cep fora do formato válido (00000-000)"})
 
     estado = montar_estado(conversation_id, _dados_mesclados(conversation_id, dados))
 
@@ -436,8 +450,7 @@ def _responder_chat_contratar(
     })
 
 
-# `_responder_chat_responder` (issue #58) mora em `interfaces.rotas_resposta_orientada` — extraído
-# daqui para não estourar o teto de linhas (`file-loc-ceiling`); `_rotear_chat`, abaixo, só chama.
+# `_responder_chat_responder` (issue #58) mora em `interfaces.rotas_resposta_orientada` (file-loc-ceiling).
 
 
 def _rotear_chat(
@@ -478,9 +491,8 @@ def _rotear_chat(
 
 
 def _rotear(
-    servico, servico_configuracao, painel_dir, buscar_planos, servico_contato,
-    trilha_dir, repositorio_contato, portal_de_cotacao, environ,
-    *, portal_de_linguagem=None, portal_de_resposta_orientada=None,
+    servico, servico_configuracao, painel_dir, buscar_planos, servico_contato, trilha_dir,
+    repositorio_contato, portal_de_cotacao, environ, *, portal_de_linguagem=None, portal_de_resposta_orientada=None,
 ):
     metodo = environ["REQUEST_METHOD"]
     caminho = environ["PATH_INFO"] or "/"
@@ -502,8 +514,7 @@ def _rotear(
             servico=servico, servico_configuracao=servico_configuracao, buscar_planos=buscar_planos,
             portal_de_linguagem=portal_de_linguagem, portal_de_resposta_orientada=portal_de_resposta_orientada,
             trilha_dir=trilha_dir, estados_em_memoria=_ESTADOS_EM_MEMORIA, precos_em_memoria=_PRECOS_EM_MEMORIA,
-            environ=environ, metodo=metodo,
-        )
+            environ=environ, metodo=metodo)
 
     resposta_chat = _rotear_chat(
         caminho, metodo, environ,
@@ -518,29 +529,18 @@ def _rotear(
 
 
 def criar_app(
-    *,
-    servico: ServicoDeConhecimento,
-    painel_dir: Path,
-    servico_configuracao: ServicoDeConfiguracaoComercial,
-    buscar_planos=buscar_planos_real,
-    servico_contato: ServicoDeContato | None = None,
-    trilha_dir: Path | None = None,
-    repositorio_contato: RepositorioDeContato | None = None,
-    portal_de_cotacao=None,
-    portal_de_linguagem=None,
-    portal_de_resposta_orientada=None,
+    *, servico: ServicoDeConhecimento, painel_dir: Path, servico_configuracao: ServicoDeConfiguracaoComercial,
+    buscar_planos=buscar_planos_real, servico_contato: ServicoDeContato | None = None,
+    trilha_dir: Path | None = None, repositorio_contato: RepositorioDeContato | None = None,
+    portal_de_cotacao=None, portal_de_linguagem=None, portal_de_resposta_orientada=None,
 ):
-    """Fábrica do app WSGI — injeção do caso de uso, do diretório do painel e de como buscar os
-    planos (achado B2 da auditoria: teste nunca bate na rede de verdade) para o teste rodar sem
-    tocar o disco real nem depender de variável de ambiente.
-
-    Parâmetros do chat (issue #46, PR 2 de 2) são ADITIVOS, com default seguro para não tocar
-    disco/rede em teste que não usa as rotas `/api/chat/*`: `servico_contato` default é um
-    `RepositorioDeContatoMemoria` (não grava em `contato/`); `trilha_dir` default `Path("examples")`;
-    `portal_de_cotacao` default é `ClienteQuoteHTTP(infra.config.url_quote_service())` (fala com a
-    `/quote` de verdade só quando de fato chamado — nenhum teste que não exercita `/api/chat/cotar`
-    é afetado). `portal_de_linguagem`/`portal_de_resposta_orientada` (issue #58) default para os
-    adaptadores por `LLM_PROVEDOR` (padrão `deterministico`, nunca lê a chave)."""
+    """Fábrica do app WSGI — injeção do caso de uso, do diretório do painel e de como buscar os planos
+    (achado B2 da auditoria: teste nunca bate na rede de verdade) para o teste rodar sem tocar o disco
+    real nem depender de variável de ambiente. Parâmetros do chat (issue #46) são ADITIVOS, com default
+    seguro para não tocar disco/rede em teste que não usa as rotas `/api/chat/*`: `servico_contato`
+    default é `RepositorioDeContatoMemoria`; `trilha_dir` default `Path("examples")`; `portal_de_cotacao`
+    default é `ClienteQuoteHTTP` de verdade só quando de fato chamado. `portal_de_linguagem`/
+    `portal_de_resposta_orientada` (issue #58) default por `LLM_PROVEDOR`."""
     if servico_contato is None:
         servico_contato = ServicoDeContato(RepositorioDeContatoMemoria())
     if trilha_dir is None:

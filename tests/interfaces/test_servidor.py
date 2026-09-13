@@ -201,6 +201,15 @@ def test_obter_objecao_inexistente_e_404(app):
     assert status == "404 Not Found"
 
 
+@pytest.mark.parametrize("id_invalido", ["../../etc/cron.d/x", "..%2F..%2Fx", "id com espaco"])
+def test_obter_objecao_com_id_invalido_e_400_nunca_500(app, id_invalido):
+    """issue #69: `_validar_id` já BLOQUEAVA o path traversal (nenhum arquivo fora da pasta era
+    lido), mas o `ValueError` subia sem tratamento no GET e virava 500 genérico — só o PUT tratava."""
+    status, _, corpo = _chamar(app, "GET", f"/api/objecoes/{id_invalido}")
+    assert status == "400 Bad Request"
+    assert "erro" in json.loads(corpo)
+
+
 def test_metodo_nao_suportado_na_rota_da_api_e_405(app):
     status, _, _ = _chamar(app, "DELETE", "/api/objecoes/preco-alto")
     assert status == "405 Method Not Allowed"
@@ -307,6 +316,23 @@ def test_configuracao_comercial_salva_e_le_de_volta(app):
 def test_configuracao_comercial_sem_o_campo_e_400(app):
     status, _, _ = _chamar(app, "PUT", "/api/configuracao-comercial", {})
     assert status == "400 Bad Request"
+
+
+@pytest.mark.parametrize("valor", ["nao", "sim", "false", "0", 1, 0])
+def test_configuracao_comercial_valor_nao_booleano_e_400_nunca_vira_true_por_bool(app, valor):
+    """issue #69: `bool("nao")` é `True` — mandar `"nao"` LIGAVA a config em silêncio (o oposto do
+    pedido). Regra comercial binária só aceita o `bool` de verdade que o JSON já representa."""
+    status, _, corpo = _chamar(app, "PUT", "/api/configuracao-comercial", {"encaminhar_lead_fora_do_padrao": valor})
+    assert status == "400 Bad Request"
+    assert "erro" in json.loads(corpo)
+
+
+def test_configuracao_comercial_true_false_json_de_verdade_continuam_aceitos(app):
+    """Contraprova: o caso que a tela de Regras manda de verdade (bool JSON) não regride."""
+    for valor in (True, False):
+        status, _, corpo = _chamar(app, "PUT", "/api/configuracao-comercial", {"encaminhar_lead_fora_do_padrao": valor})
+        assert status == "200 OK"
+        assert json.loads(corpo) == {"encaminhar_lead_fora_do_padrao": valor}
 
 
 def test_configuracao_comercial_metodo_nao_suportado_e_405(app):
@@ -460,6 +486,17 @@ def test_chat_cotar_com_portal_indisponivel_nao_devolve_preco(tmp_path):
 def test_chat_cotar_sem_conversation_id_e_400(app):
     status, _, _ = _chamar(app, "POST", "/api/chat/cotar", {"idade": 30})
     assert status == "400 Bad Request"
+
+
+@pytest.mark.parametrize("cep_invalido", ["abc", "1234567", "123456789"])
+def test_chat_cotar_com_cep_invalido_e_400_nunca_cota_sem_agravo(app, cep_invalido):
+    """issue #68: pela rota do chat, `cep: "abc"`/7/9 dígitos eram aceitos sem validação e
+    seguiam para a `/quote` sem o agravo regional (que usa só os 2 primeiros caracteres do CEP)."""
+    status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
+        "conversation_id": "conv-cep-invalido", "idade": 30, "veiculo_ano": 2020, "cep": cep_invalido,
+    })
+    assert status == "400 Bad Request"
+    assert "cep" in json.loads(corpo)["erro"]
 
 
 def test_chat_cotar_com_conversation_id_de_path_traversal_e_recusado_sem_escrever_fora_da_trilha(tmp_path):

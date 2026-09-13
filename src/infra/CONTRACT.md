@@ -269,3 +269,62 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - 2026-09-13 — ADR-0005: JSON legível (não JSONL), um arquivo por lead — mesma razão de
   `RepositorioDeConhecimentoJSON` (cada contato é uma unidade que o corretor lê isolada, não um
   log append-only de eventos).
+
+---
+
+## Seção da issue #67 (frente `robustez-quote-entrada`) — falha de transporte e prazo de parede real (append)
+
+**Dono:** `src/infra/cliente_quote.py`, `src/infra/planos_http.py` (acréscimo — nenhum arquivo
+novo). `src/infra/repositorio_conhecimento_json.py` (acréscimo, achado ao escrever o teste do
+servidor para a #69).
+
+### O que esta frente acrescenta
+
+- `cliente_quote.RespostaBruta.falha_de_transporte: bool` — conexão recusada/DNS/reset
+  (`URLError` que não é timeout) e corpo que não é JSON válido (em sucesso ou em erro) nunca mais
+  sobem sem tratamento: viram este marcador, RETENTÁVEL como timeout, sem inventar um HTTP status
+  que a rede não devolveu. Antes desta frente, `_post_via_urllib` deixava `URLError` genérico
+  (`raise`) escapar até o `wsgiref`, virando 500 sem retry, sem `ResultadoDaCotacao`, sem handoff.
+- `cliente_quote.ClienteQuoteHTTP._chamar_com_prazo_de_parede` — cada tentativa roda num worker
+  (`concurrent.futures.ThreadPoolExecutor`, uma thread por chamada); o cliente espera com
+  `future.result(timeout=...)`, o MESMO timeout já calculado pela política de retry (ADR-0002,
+  nunca redecidida). Achado de medição ao vivo (`docker compose stop quote-api`, stack isolada):
+  `getaddrinfo` (DNS) não respeita o `timeout` do `urlopen`/`socket` neste ambiente — uma tentativa
+  chegou a ~4s contra os 3s configurados, e o orçamento total de ~10s estourava para ~13-19s. Se o
+  prazo de parede estourar, a tentativa conta como TIMEOUT (mesma regra de sempre) e a thread fica
+  abandonada, terminando sozinha sem efeito colateral (a `/quote` não muda nada do lado cliente).
+  Nunca `socket.setdefaulttimeout` (não cobre `getaddrinfo` e mudaria o processo inteiro) nem cache
+  de IP (esconderia troca de endereço real) — decisão da coordenação.
+- `planos_http.buscar_planos` ganha o MESMO prazo de parede (worker + `future.result(timeout=
+  TIMEOUT_SEGUNDOS)`) — achado ao medir a prova ao vivo do item acima: `gerar_paineis` chama esta
+  função em TODO turno do chat (sucesso ou falha da cotação), e o mesmo travamento de DNS somava
+  ~4,4s ao tempo total do handoff, por cima do orçamento já corrigido do cliente da `/quote`.
+  Estourado o prazo, o resultado continua sendo o MESMO `None` de sempre (buraco visível) — nenhum
+  comportamento novo, só o tempo de parede sob controle de verdade.
+- `repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria.obter_objecao` passa a chamar
+  `_validar_id` — achado ao escrever o teste do servidor para a #69: esta classe (dublê de teste)
+  divergia de `RepositorioDeConhecimentoJSON.obter_objecao` (que já validava), e um teste que usa o
+  dublê não pegava o defeito real do servidor (`GET /api/objecoes/<id inválido>` sem tratamento).
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-19 | `ClienteQuoteHTTP` nunca deixa uma tentativa ultrapassar o timeout configurado em tempo de PAREDE real, seja qual for a causa do travamento (DNS, connect, read) | `tests/infra/test_cliente_quote.py::test_transporte_que_trava_alem_do_prazo_conta_como_timeout_nunca_prende_o_cliente` |
+| I-20 | `buscar_planos` nunca ultrapassa `TIMEOUT_SEGUNDOS` em tempo de parede real, pela mesma técnica | `tests/infra/test_planos_http.py::test_travamento_alem_do_prazo_devolve_none_nunca_pendura` |
+| I-21 | `RepositorioDeConhecimentoJSON.obter_objecao` e `RepositorioDeConhecimentoMemoria.obter_objecao` concordam sobre o que é um id válido — as duas implementações do mesmo `RepositorioDeConhecimento` nunca divergem (LEI 11) | `tests/infra/test_repositorio_conhecimento_json.py` |
+
+### O que NÃO é responsabilidade desta seção
+
+- Mudar a política de retry (ADR-0002) — os números (3s/tentativa, 3 tentativas, 0,4s/0,8s de
+  espera, ~10s de orçamento) continuam os mesmos; só o ÁRBITRO do prazo por tentativa passou a ser
+  o relógio de parede real, não só o parâmetro `timeout` de `urlopen`.
+- `gerar_paineis`/`tela_regras` não tiveram o MOMENTO em que rodam alterado (isso pertenceria a
+  outra frente) — só a chamada de rede que já existia dentro deles ganhou o mesmo prazo de parede.
+
+### Decisões registradas
+
+- 2026-09-13 — decisão da coordenação: worker + `future.result(timeout=...)` em vez de
+  `socket.setdefaulttimeout` (efeito colateral processo inteiro, não cobre `getaddrinfo`) ou cache
+  de IP (esconderia troca de endereço real). Meta da prova ao vivo declarada: handoff em ≤ ~13s de
+  parede (10s do orçamento do cliente da `/quote` + 2s do prazo de `buscar_planos`, somados).

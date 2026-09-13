@@ -13,8 +13,15 @@ cortada no timeout — a suíte inteira roda em milissegundos.
 """
 from __future__ import annotations
 
+import io
+import json
+import time
+import urllib.error
+from unittest.mock import MagicMock, patch
+
 import pytest
 
+import infra.cliente_quote as cliente_quote_mod
 from dominio.resultado_cotacao import StatusCotacao
 from infra.cliente_quote import (
     ClienteQuoteHTTP,
@@ -84,6 +91,19 @@ def test_5xx_repete_dentro_do_orcamento_e_desiste_no_fim_dele():
     assert transporte.numero_de_chamadas == 3
     # 3 tentativas -> 2 esperas entre elas (0,4s e 0,8s); nenhuma tentativa aqui é lenta.
     assert relogio.agora == pytest.approx(1.2)
+
+
+@pytest.mark.parametrize("status_code", [500, 502, 503])
+def test_5xx_qualquer_um_dos_tres_repete_dentro_do_orcamento(status_code):
+    """issue #67, achado de mutação M15: só 502 tinha teste — tirar 500 de `_STATUS_QUE_REPETE`
+    ficava verde. Os três (500/502/503) precisam repetir, não só o que já tinha prova."""
+    relogio = RelogioFake()
+    resposta = RespostaBruta(status_code=status_code, corpo={"error": "upstream_unavailable"})
+    transporte = FakeTransporteQuote(roteiro=[resposta], relogio=relogio)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+
+    assert resultado.status_code == status_code
+    assert transporte.numero_de_chamadas == 3
 
 
 def test_5xx_uma_vez_depois_recupera_com_200():
@@ -228,6 +248,153 @@ def test_cotar_timeout_esgotado_vira_status_timeout():
 
 
 # ---------------------------------------------------------------------------
+# issue #67: falha de transporte (conexão recusada, DNS, corpo não-JSON) — antes subia sem
+# tratamento até virar 500 do wsgiref; agora é mais um caso retentável dentro do MESMO orçamento
+# (ADR-0002 intacto: só ganha um terceiro gatilho de retry, ao lado de 5xx e timeout).
+# ---------------------------------------------------------------------------
+
+_RESPOSTA_FALHA_DE_TRANSPORTE = RespostaBruta(status_code=None, corpo=None, falha_de_transporte=True)
+
+
+def test_falha_de_transporte_repete_dentro_do_orcamento_e_desiste_no_fim_dele():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_FALHA_DE_TRANSPORTE], relogio=relogio)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+
+    assert resultado.falha_de_transporte is True
+    assert transporte.numero_de_chamadas == 3
+
+
+def test_falha_de_transporte_uma_vez_depois_recupera_com_200():
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_FALHA_DE_TRANSPORTE, _RESPOSTA_200], relogio=relogio)
+    _quote_attempt_id, resultado = _cliente(transporte, relogio).executar_com_orcamento(PAYLOAD)
+
+    assert resultado.status_code == 200
+    assert transporte.numero_de_chamadas == 2
+
+
+def test_cotar_falha_de_transporte_esgotada_vira_status_indisponivel_com_motivo_proprio():
+    """issue #67, condição da coordenação: motivo distinto de "upstream respondeu None" — não faz
+    sentido citar um status HTTP que nunca existiu."""
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_FALHA_DE_TRANSPORTE], relogio=relogio)
+    resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
+
+    assert resultado.status == StatusCotacao.INDISPONIVEL
+    assert "conexão" in resultado.motivo
+    assert "None" not in resultado.motivo
+
+
+def test_on_tentativa_de_falha_de_transporte_grava_classificacao_indisponivel_sem_http_status():
+    """issue #67, condição da coordenação: a tentativa que falha por transporte vira
+    `TentativaDeCotacao` na trilha com status de falha e SEM código HTTP — aqui, na fronteira que
+    `aplicacao._registrar_tentativa` consome (`observada.resposta.status_code or 0`,
+    `observada.classificacao`), sem precisar tocar `aplicacao`/`conduzir_conversa` (fora do escopo
+    desta frente)."""
+    relogio = RelogioFake()
+    transporte = FakeTransporteQuote(roteiro=[_RESPOSTA_FALHA_DE_TRANSPORTE, _RESPOSTA_200], relogio=relogio)
+    observadas = []
+
+    _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID, on_tentativa=observadas.append)
+
+    primeira = observadas[0]
+    assert primeira.classificacao == "indisponivel"
+    assert primeira.resposta.status_code is None  # "sem código HTTP" — nunca inventa um
+
+
+def _http_error(codigo: int, corpo_bytes: bytes) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        url="http://quote-service.invalido/quote", code=codigo, msg="erro", hdrs=None, fp=io.BytesIO(corpo_bytes)
+    )
+
+
+def _cliente_com_transporte_real(relogio: RelogioFake) -> ClienteQuoteHTTP:
+    """Mesmo `ClienteQuoteHTTP`, mas sem injetar `transporte=` — usa `_post_via_urllib` de
+    verdade (só `relogio`/`dormir` são fakes, para o teste não esperar tempo de parede)."""
+    return ClienteQuoteHTTP("http://quote-service.invalido", relogio=relogio, dormir=relogio.avancar)
+
+
+class TestPostViaUrllibReal:
+    """issue #67, achado de mutação M19: o transporte real nunca era executado por nenhum teste —
+    todos injetavam `FakeTransporteQuote`. Aqui `urllib.request.urlopen` é mockado (mesmo padrão de
+    `tests/infra/test_planos_http.py`) e o cliente é exercitado pela API PÚBLICA
+    (`executar_com_orcamento`, nunca `_post_via_urllib` direto — SLF001), então o motor de
+    retry/orçamento real também participa da prova."""
+
+    def test_conexao_recusada_vira_falha_de_transporte_nunca_sobe_a_excecao(self):
+        relogio = RelogioFake()
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("recusado")):
+            _id, resposta = _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+        assert resposta.falha_de_transporte is True
+        assert resposta.status_code is None
+
+    def test_corpo_nao_json_em_200_vira_falha_de_transporte_nunca_preco_zero(self):
+        """Fecha o M19 citado na issue: "fazer um JSON inválido em 200 virar sucesso com preço 0
+        ficava verde" — aqui o teste reprova exatamente esse desfecho."""
+        resposta_falsa = MagicMock()
+        resposta_falsa.status = 200
+        resposta_falsa.read.return_value = b"<html>nao e json</html>"
+        resposta_falsa.__enter__.return_value = resposta_falsa
+
+        relogio = RelogioFake()
+        with patch("urllib.request.urlopen", return_value=resposta_falsa):
+            _id, resposta = _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+        assert resposta.falha_de_transporte is True
+        assert resposta.corpo is None
+
+    def test_corpo_nao_json_em_erro_vira_falha_de_transporte(self):
+        # side_effect com instâncias FRESCAS por chamada (502 é retentável — até 3 tentativas):
+        # um `HTTPError` reusado teria o `fp` (BytesIO) esgotado na 2ª leitura, mascarando o que
+        # este teste prova.
+        relogio = RelogioFake()
+        chamadas = [_http_error(502, b"Bad Gateway (texto puro)") for _ in range(3)]
+        with patch("urllib.request.urlopen", side_effect=chamadas):
+            _id, resposta = _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+        assert resposta.falha_de_transporte is True
+
+    def test_erro_json_valido_continua_traduzido_normalmente(self):
+        """Contraprova: o caminho feliz do HTTPError (corpo JSON de verdade) não regride com a
+        proteção nova. Instâncias frescas por chamada — mesmo motivo do teste anterior."""
+        corpo = json.dumps({"error": "upstream_unavailable", "message": "..."}).encode("utf-8")
+        relogio = RelogioFake()
+        chamadas = [_http_error(502, corpo) for _ in range(3)]
+        with patch("urllib.request.urlopen", side_effect=chamadas):
+            _id, resposta = _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+        assert resposta.falha_de_transporte is False
+        assert resposta.status_code == 502
+        assert resposta.corpo == {"error": "upstream_unavailable", "message": "..."}
+
+    def test_sucesso_com_json_valido_continua_traduzido_normalmente(self):
+        resposta_falsa = MagicMock()
+        resposta_falsa.status = 200
+        resposta_falsa.read.return_value = json.dumps({"plano_id": "completo"}).encode("utf-8")
+        resposta_falsa.__enter__.return_value = resposta_falsa
+
+        relogio = RelogioFake()
+        with patch("urllib.request.urlopen", return_value=resposta_falsa):
+            _id, resposta = _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+        assert resposta.falha_de_transporte is False
+        assert resposta.status_code == 200
+        assert resposta.corpo == {"plano_id": "completo"}
+
+    def test_erro_nosso_de_programacao_nao_vira_indisponivel_sobe_normalmente(self):
+        """Condição explícita da coordenação: um `TypeError` NOSSO (bug de verdade, não falha de
+        rede) não pode ser engolido como "quote indisponível" — só `URLError`/`JSONDecodeError`/
+        `UnicodeDecodeError` são tratados; qualquer outra exceção sobe, para o teste (e o CI)
+        acusarem o bug em vez de escondê-lo atrás de um handoff silencioso."""
+        relogio = RelogioFake()
+        with patch("urllib.request.urlopen", side_effect=TypeError("bug nosso, nao da rede")):
+            with pytest.raises(TypeError):
+                _cliente_com_transporte_real(relogio).executar_com_orcamento(PAYLOAD)
+
+
+# ---------------------------------------------------------------------------
 # FakePortalDeCotacao — dublê da PORTA (para quem consome `cotar()`, não o transporte).
 # ---------------------------------------------------------------------------
 
@@ -285,3 +452,36 @@ def test_on_tentativa_nao_e_chamado_quando_omitido():
     resultado = _cliente(transporte, relogio).cotar(PAYLOAD, CONVERSATION_ID)
 
     assert resultado.status == StatusCotacao.SUCESSO
+
+
+# ---------------------------------------------------------------------------
+# issue #67, achado de medição ao vivo (docker compose stop quote-api, stack isolada): o timeout
+# do urlopen/socket não cobre `getaddrinfo` (DNS) em todo ambiente — uma tentativa mediu ~4s
+# contra os 3s configurados, e o orçamento total de ~10s (ADR-0002) estourou para ~13-19s.
+# `_chamar_com_prazo_de_parede` usa um worker + relógio de PAREDE real como árbitro final,
+# independente da causa do travamento. Constantes reduzidas via monkeypatch (não o `.venv`/tempo
+# de parede real do ADR-0002) para o teste rodar em milissegundos, com um `time.sleep` REAL.
+# ---------------------------------------------------------------------------
+
+
+def test_transporte_que_trava_alem_do_prazo_conta_como_timeout_nunca_prende_o_cliente(monkeypatch):
+    monkeypatch.setattr(cliente_quote_mod, "TIMEOUT_POR_TENTATIVA_SEGUNDOS", 0.05)
+    monkeypatch.setattr(cliente_quote_mod, "ORCAMENTO_TOTAL_SEGUNDOS", 0.05)
+    monkeypatch.setattr(cliente_quote_mod, "ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS", (0.0, 0.0))
+
+    def transporte_que_trava(payload, timeout_segundos):
+        # bem mais que o orçamento reduzido acima — nunca deveria voltar a tempo de valer.
+        time.sleep(0.5)
+        return RespostaBruta(status_code=200, corpo={"nao deveria chegar aqui": True})
+
+    cliente = ClienteQuoteHTTP("http://quote-service.invalido", transporte=transporte_que_trava)
+
+    inicio = time.monotonic()
+    resultado = cliente.cotar(PAYLOAD, CONVERSATION_ID)
+    duracao = time.monotonic() - inicio
+
+    assert duracao < 0.4, f"o cliente esperou a thread travada em vez de cortar no prazo de parede: {duracao:.3f}s"
+    assert resultado.status == StatusCotacao.TIMEOUT
+    # Prova de que este teste MORDE (equivalente à mutação "tira o worker" pedida pela
+    # coordenação): comentar a linha do `ThreadPoolExecutor` em `_chamar_com_prazo_de_parede` e
+    # chamar `self._transporte` direto faz `duracao` chegar a ~0,5s — este `assert` reprova.

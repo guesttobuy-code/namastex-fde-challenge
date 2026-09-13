@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
-_CEP_RE = re.compile(r"^\d{5}-?\d{3}$")
+_CEP_RE = re.compile(r"^(\d{5})-?(\d{3})$")
 _CAMPOS_OBRIGATORIOS = ("idade", "veiculo_ano", "cep")
 
 
@@ -15,6 +15,20 @@ def cep_valido(cep: str | None) -> bool:
     if not isinstance(cep, str) or not cep:
         return False
     return bool(_CEP_RE.match(cep.strip()))
+
+
+def normalizar_cep(cep: str | None) -> str | None:
+    """CEP no formato `#####-###` quando `cep` bate com o mesmo formato que `cep_valido` aceita
+    (com ou sem hífen); `None` caso contrário — dono único de "o que é CEP válido" e "qual o
+    formato normalizado" (LEI 11, issue #68): antes disso, `dominio.validacao.cep_valido` aceitava
+    CEP sem hífen, mas nada normalizava esse valor para o formato que `dominio.redator_pii` sabe
+    mascarar, e ele seguia em claro até a trilha."""
+    if not isinstance(cep, str):
+        return None
+    m = _CEP_RE.match(cep.strip())
+    if not m:
+        return None
+    return f"{m.group(1)}-{m.group(2)}"
 
 
 def data_iso_valida(data: str | None) -> bool:

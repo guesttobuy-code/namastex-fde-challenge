@@ -460,9 +460,9 @@
     mensagemLead("Cotar agora");
     esconderDoca();
     const status = mensagemBot("Consultando a tabela de preços…");
-    let resposta;
+    let turno;
     try {
-      resposta = await fetch("/api/chat/cotar", {
+      const resposta = await fetch("/api/chat/cotar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -475,12 +475,16 @@
           data_inicio: dados.data_inicio,
         }),
       });
+      // issue #67: `resposta.json()` ficava FORA deste `try` — uma resposta 500 com corpo em
+      // texto (não-JSON) travava o card em "Consultando…" para sempre, sem cair no tratamento de
+      // erro. Agora qualquer falha de rede OU de parse cai no mesmo catch, com o mesmo botão
+      // "Tentar de novo".
+      turno = await resposta.json();
     } catch (e) {
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora. Um corretor pode continuar daqui.';
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: cotar }] });
       return;
     }
-    const turno = await resposta.json();
     const notaTentativas = turno.tentativas ? `<div class="rastro-tentativas">tentativa ${turno.tentativas.realizada} de ${turno.tentativas.max}</div>` : "";
 
     if (turno.preco) {
@@ -577,19 +581,21 @@
     mensagemLead(textoDoLead);
     esconderDoca();
     const status = mensagemBot("Um momento…", { cls: "sistema" });
-    let resposta;
+    let corpo;
     try {
-      resposta = await fetch("/api/chat/contratar", {
+      const resposta = await fetch("/api/chat/contratar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversation_id: conversationId }),
       });
+      // issue #67: mesmo achado de cotar() — `resposta.json()` fora do try travava o card numa
+      // resposta 500 com corpo não-JSON.
+      corpo = await resposta.json();
     } catch (e) {
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui confirmar agora — tente de novo.';
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead) }] });
       return;
     }
-    const corpo = await resposta.json();
     status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}<br><span style="font-size:11px;color:var(--alerta)">entra na Fila humana</span>`;
     mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer outra cotação", acao: reiniciar }] });
   }

@@ -46,14 +46,22 @@ def montar_estado(conversation_id: str, dados: dict) -> EstadoDaConversa:
     nome/whatsapp/email/veiculo_modelo — issue #46, PR 2 de 2). Só valida FORMATO
     (`dominio.validacao`) — elegibilidade é decidida pela `/quote`, nunca aqui. `nome`/`whatsapp`/
     `email` ficam só em `EstadoDaConversa` (para o chat lembrar entre turnos) — nunca vão para
-    `_contexto_coletado`/a trilha, isso é feito só por `ServicoDeContato` (ADR-0005)."""
-    faltantes = validacao.campos_obrigatorios_faltantes(dados)
+    `_contexto_coletado`/a trilha, isso é feito só por `ServicoDeContato` (ADR-0005).
+
+    CEP passa por `validacao.normalizar_cep` (issue #68, decisão da coordenação) ANTES de entrar
+    no estado — nunca o valor cru. Um CEP sem hífen (`"01310100"`) vira `"01310-100"` (o único
+    formato que `dominio.redator_pii` sabe mascarar); um CEP inválido vira `None`, que
+    `campos_obrigatorios_faltantes` (chamada abaixo, já com o valor normalizado) volta a pedir ao
+    lead — dono único do formato aceito e do normalizado (LEI 11), nunca uma segunda regra aqui."""
+    cep_normalizado = validacao.normalizar_cep(dados.get("cep"))
+    dados_com_cep_normalizado = {**dados, "cep": cep_normalizado}
+    faltantes = validacao.campos_obrigatorios_faltantes(dados_com_cep_normalizado)
     return EstadoDaConversa(
         conversation_id=conversation_id,
         idade=dados.get("idade"),
         veiculo_ano=dados.get("veiculo_ano"),
         plano_id=dados.get("plano_id"),
-        cep=dados.get("cep"),
+        cep=cep_normalizado,
         data_inicio=dados.get("data_inicio"),
         campos_faltantes=faltantes,
         nome=dados.get("nome"),
