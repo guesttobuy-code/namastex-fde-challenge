@@ -139,11 +139,33 @@ def test_rota_desconhecida_e_404(app):
     assert status == "404 Not Found"
 
 
-def test_tela_de_edicao_na_raiz(app):
+def test_raiz_e_o_placeholder_honesto_do_chat_nao_o_editor(app):
+    """Issue #46, PR 1 de 2: `/` deixa de servir a base de conhecimento (que ganhou rota própria,
+    `/conhecimento`) e passa a ser um placeholder honesto do chat — sem formulário nem botão que
+    finja funcionar, dentro da mesma casca (`layout.pagina`)."""
     status, headers, corpo = _chamar(app, "GET", "/")
     assert status == "200 OK"
     assert headers["Content-Type"].startswith("text/html")
-    assert b"conhecimento" in corpo.lower() or b"obje" in corpo.lower()
+    texto = corpo.decode("utf-8")
+    assert "Conversas" in texto
+    assert 'aria-current="page"' in texto  # servida pela casca compartilhada, não HTML cru
+    assert "campo-id" not in texto  # nenhum campo do formulário de edição de ficha
+    assert "<form" not in texto.lower()
+
+
+def test_tela_de_edicao_em_conhecimento(app):
+    status, headers, corpo = _chamar(app, "GET", "/conhecimento")
+    assert status == "200 OK"
+    assert headers["Content-Type"].startswith("text/html")
+    texto = corpo.decode("utf-8")
+    assert "/api/objecoes" in texto
+    assert "Base de conhecimento" in texto
+    assert 'aria-current="page"' in texto
+
+
+def test_conhecimento_metodo_nao_suportado_e_405(app):
+    status, _, _ = _chamar(app, "DELETE", "/conhecimento")
+    assert status == "405 Method Not Allowed"
 
 
 def test_painel_estatico_ainda_nao_gerado_e_404(app):

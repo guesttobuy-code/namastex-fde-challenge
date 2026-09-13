@@ -31,7 +31,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Nenhum número aqui é estimado — cada um vem de
   agregação simples sobre os eventos `tentativa_de_cotacao` gravados.</p>
 """
-    return pagina(titulo="Cotações", pagina_ativa="cotacoes.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
+    return pagina(titulo="Cotações", pagina_ativa="/painel/cotacoes.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("cotacoes.html"))
 
 

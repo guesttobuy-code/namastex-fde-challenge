@@ -50,7 +50,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Botões de ação exigem servidor, fora do escopo desta
   frente — aparecem desabilitados, com o motivo ao lado, em vez de prometer o que não existe (ESPECIFICACAO.md §3).</p>
 """
-    return pagina(titulo="Fila humana", pagina_ativa="handoffs.html", corpo=corpo,
+    return pagina(titulo="Fila humana", pagina_ativa="/painel/handoffs.html", corpo=corpo,
                   contagens={"fila": len(handoffs)}, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("handoffs.html"))
 
@@ -58,7 +58,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 def _cartao(conversation_id: str, evento: dict) -> str:
     contexto = evento.get("contexto_coletado")
     contexto_html = (
-        ", ".join(f"{esc(k)}: {esc(v)}" for k, v in contexto.items())
+        ", ".join(f"{esc(k)}: {campo(contexto, k)}" for k in contexto)
         if isinstance(contexto, dict) and contexto
         else buraco("contexto_coletado")
     )
