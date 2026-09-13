@@ -78,3 +78,22 @@ em `pyproject.toml` e `.importlinter` na raiz do projeto.
 - **Um único contrato "layers" no import-linter em vez de dois "forbidden":** descartado por inventar
   mais restrição do que o texto da issue #4 pede (LEI DO NÃO-CHUTE) — a issue não diz, por exemplo,
   que `aplicacao` não pode importar `interfaces`.
+
+## Emenda — 2026-09-13 (issue #50, achado da auditoria de arquitetura #49)
+
+**O que mudou:** um 3º contrato `forbidden` entrou no `.importlinter` — `aplicacao` não importa
+`infra` nem `interfaces`.
+
+**Por que isto não contradiz "Alternativas descartadas" acima:** a decisão original (12/09) recusou
+esta mesma restrição por LEI DO NÃO-CHUTE, porque o texto da issue #4/âncora #3 não a pedia. Isso
+mudou de mão em 12/09, DEPOIS desta ADR: a F4 (#7) escreveu `src/aplicacao/CONTRACT.md` I-2
+afirmando *"`aplicacao` nunca importa `infra` nem `interfaces`... coberto por
+`tests/arquitetura/test_fronteiras.py`"* — uma decisão de módulo, publicada, nunca refletida de
+volta no `.importlinter`. A auditoria de arquitetura #49 mediu por mutação (`import infra.config`
+em `src/aplicacao/servico_conhecimento.py`) que `lint-imports`/`test_fronteiras.py` ficavam VERDES
+mesmo com a violação — o contrato citado no `CONTRACT.md` não existia na máquina. Não é uma
+restrição nova inventada agora: é a máquina alcançando uma decisão que já estava publicada e não
+cobrada. Prova colada na issue #50 e no PR desta emenda.
+
+**Consequência adicional:** `governance/IMPACT_MATRIX.md` e `src/aplicacao/CONTRACT.md` não mudam
+de texto — só passam a ser verdade.

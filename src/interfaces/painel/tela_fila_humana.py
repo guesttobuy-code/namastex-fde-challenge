@@ -15,6 +15,8 @@ _DESCRICAO_MOTIVO = {
     MotivoHandoff.QUOTE_INDISPONIVEL.value: "Cotação indisponível: o serviço de cotação falhou de forma persistente.",
     MotivoHandoff.QUOTE_TIMEOUT.value: "Cotação expirou: orçamento de tempo esgotado sem resposta.",
     MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD.value: "Erro de payload nosso (400) — não repete, registra e passa adiante.",
+    MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO.value: "A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.",
+    MotivoHandoff.LEAD_QUER_CONTRATAR.value: "O lead pediu para contratar: o fechamento é feito por um corretor.",
 }
 
 
@@ -48,7 +50,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Botões de ação exigem servidor, fora do escopo desta
   frente — aparecem desabilitados, com o motivo ao lado, em vez de prometer o que não existe (ESPECIFICACAO.md §3).</p>
 """
-    return pagina(titulo="Fila humana", pagina_ativa="handoffs.html", corpo=corpo,
+    return pagina(titulo="Fila humana", pagina_ativa="/painel/handoffs.html", corpo=corpo,
                   contagens={"fila": len(handoffs)}, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("handoffs.html"))
 
@@ -56,7 +58,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 def _cartao(conversation_id: str, evento: dict) -> str:
     contexto = evento.get("contexto_coletado")
     contexto_html = (
-        ", ".join(f"{esc(k)}: {esc(v)}" for k, v in contexto.items())
+        ", ".join(f"{esc(k)}: {campo(contexto, k)}" for k in contexto)
         if isinstance(contexto, dict) and contexto
         else buraco("contexto_coletado")
     )

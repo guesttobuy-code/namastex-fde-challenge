@@ -1,6 +1,11 @@
 """Mascaramento de PII na fronteira (issue #7). Nada é escrito em trilha ou log sem passar por
 `redigir_texto` primeiro — ver `aplicacao/servico_trilha.py`, que é a porta que garante isso.
 
+`extrair_cep` (issue #9, F6) é a exceção deliberada: o CEP é PII e nunca vai ao LLM, mas a `/quote`
+precisa dele para cotar. Por isso ele é extraído do texto BRUTO, com os MESMOS padrões que
+`redigir_texto` usa para reconhecer o formato (nunca duplicados — LEI 11), ANTES do mascaramento —
+e só o valor extraído localmente atravessa para o estado da conversa e para a `/quote`.
+
 O `.capitalize()` de `scripts/generate_dataset.py:113` baixa `CPF`/`CEP` para minúsculo sempre que
 não são a primeira palavra do bloco (medido ao vivo, PLANO da #7). Por isso a extração NUNCA usa a
 palavra "CPF"/"CEP" como âncora — cada padrão casa pelo FORMATO do valor (dígitos e separadores),
@@ -23,6 +28,9 @@ import re
 
 MASCARA = "[REDIGIDO]"
 
+_PADRAO_CEP_HIFEN = re.compile(r"(?i)\b\d{5}-\d{3}\b")  # CEP com hífen
+_PADRAO_CEP_ESPACO = re.compile(r"(?i)\b\d{5}\s\d{3}\b")  # CEP com espaço (fixture manual)
+
 _PADROES = (
     re.compile(r"(?i)\b[\w.+-]+@[\w-]+\.[a-z.]{2,}\b"),  # e-mail
     re.compile(r"(?i)\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"),  # CPF com pontuação
@@ -30,8 +38,8 @@ _PADROES = (
     re.compile(r"(?i)\b\d{2}\s?9\d{4}-\d{4}\b"),  # telefone sem DDI (fixture manual)
     re.compile(r"(?i)\b[a-z]{3}\d[a-z]\d{2}\b"),  # placa Mercosul
     re.compile(r"(?i)\b[a-z]{3}-?\d{4}\b"),  # placa padrão antigo (fixture manual)
-    re.compile(r"(?i)\b\d{5}-\d{3}\b"),  # CEP com hífen
-    re.compile(r"(?i)\b\d{5}\s\d{3}\b"),  # CEP com espaço (fixture manual)
+    _PADRAO_CEP_HIFEN,
+    _PADRAO_CEP_ESPACO,
     re.compile(r"(?i)\b\d{11}\b"),  # CPF sem pontuação (fixture manual) — por último: mais genérico
 )
 
@@ -43,3 +51,16 @@ def redigir_texto(texto: str, nomes_conhecidos: list[str] | None = None) -> str:
     for nome in nomes_conhecidos or []:
         saida = re.sub(re.escape(nome), MASCARA, saida, flags=re.IGNORECASE)
     return saida
+
+
+def extrair_cep(texto: str) -> str | None:
+    """Acha o primeiro CEP no texto BRUTO (mesmos padrões de `_PADROES`, nunca duplicados),
+    normalizado para o formato `00000-000` — o mesmo que `dominio.validacao.cep_valido` aceita e
+    que a CLI já pede. Devolve `None` se nenhum CEP reconhecível aparecer."""
+    encontrado = _PADRAO_CEP_HIFEN.search(texto)
+    if encontrado:
+        return encontrado.group(0)
+    encontrado = _PADRAO_CEP_ESPACO.search(texto)
+    if encontrado:
+        return encontrado.group(0).replace(" ", "-")
+    return None

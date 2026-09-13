@@ -73,6 +73,47 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 ---
 
+## Seção F6/#9 — `AdaptadorDeLinguagemDeterministico`/`AdaptadorDeLinguagemOpenRouter` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemDeterministico` — adaptador padrão da porta
+  `PortalDeLinguagem`: regex sobre o texto mascarado, sem rede, sem chave; é o usado nos testes.
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemOpenRouter` — adaptador real: HTTP cru via
+  `urllib.request` (stdlib, mesmo padrão de `infra.cliente_quote`) contra a API de chat completions
+  do OpenRouter, com timeout explícito e saída validada por esquema.
+- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem` — escolhe o adaptador por
+  `LLM_PROVEDOR`; falha alto (`RuntimeError`) se pedir `openrouter` sem `OPENROUTER_API_KEY`.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-7 | `AdaptadorDeLinguagemOpenRouter` nunca deixa um campo fora do esquema esperado (`idade`, `veiculo_ano`, `plano_id`, `data_inicio`, `intent`, `ambiguidades`) chegar a `SaidaDeLinguagem` — campos extras no JSON do modelo são ignorados por construção | `tests/infra/test_adaptador_de_linguagem.py::test_modelo_enganado_com_campos_extras_nao_atravessam_por_construcao` |
+| I-8 | Timeout, erro HTTP, corpo não-JSON (com ou sem cerca Markdown) ou JSON fora do esquema nunca viram exceção — sempre um `SaidaDeLinguagem(pedido_de_esclarecimento=...)` | `tests/infra/test_adaptador_de_linguagem.py` |
+| I-9 | `criar_adaptador_de_linguagem` nunca lê `OPENROUTER_API_KEY` quando o provedor é (ou o padrão é) `deterministico` | `tests/infra/test_adaptador_de_linguagem.py::test_provedor_padrao_e_deterministico_e_nunca_le_a_chave` |
+| I-10 | Nenhum teste da suíte padrão chama a API do OpenRouter de verdade — só via `pytest -m llm_real`, explícito | `pyproject.toml::[tool.pytest.ini_options].markers` |
+| I-11 | Toda chamada ao OpenRouter carrega `strict: true` (em `json_schema`) e `provider.require_parameters: true` | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_payload_pede_strict_e_require_parameters` |
+| I-12 | Uma saída sem TODAS as chaves do esquema (o modelo ignorou o esquema, mesmo com JSON válido) dispara UMA retentativa, nunca mapeamento de sinônimo de campo — e nunca uma terceira chamada | `tests/infra/test_adaptador_de_linguagem.py::test_openrouter_esquema_nao_seguido_*` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemDeterministico().extrair(texto_mascarado, estado_atual) -> SaidaDeLinguagem`.
+- `infra.adaptador_de_linguagem.AdaptadorDeLinguagemOpenRouter(chave, modelo=MODELO_PADRAO, transporte=None, timeout_segundos=10.0)`.
+- `infra.adaptador_de_linguagem.criar_adaptador_de_linguagem(provedor=None, env=None, raiz=<raiz do repo>) -> PortalDeLinguagem`
+  — carregar o `.env` para `os.environ` é responsabilidade de `interfaces.dotenv_loader`, chamado pelo processo de entrada (CLI), nunca por esta função.
+- `infra.adaptador_de_linguagem.MODELO_PADRAO` = `"deepseek/deepseek-chat-v3.1"` (ADR-0003).
+
+### Decisões registradas
+
+- 2026-09-12 — Modelo padrão `deepseek/deepseek-chat-v3.1`, medido pela coordenação contra a API
+  real (NVIDIA gratuitos descartados por timeout) — ADR-0003.
+- 2026-09-12 — Resposta do modelo pode vir embrulhada em cerca Markdown (` ```json ... ``` `) mesmo
+  pedindo `response_format=json_schema` — medido ao vivo; `_sem_cercas_markdown` trata antes do
+  `json.loads`.
+
+---
+
 ## Seção F10/#13 — `RepositorioDeTrilhaJSONL.todos_os_eventos` (append, R2/#16)
 
 ### Entradas e saídas públicas acrescentadas
@@ -93,3 +134,97 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - `infra.planos_http.buscar_planos(base_url=None) -> dict | None` (F10/#13): cliente só-leitura do
   `GET /planos`, timeout explícito de 2s (`TIMEOUT_SEGUNDOS`), `None` se o serviço não responder —
   quem chama mostra o buraco visível, nunca um valor de memória.
+
+---
+
+## Seção F13/#43 — `RepositorioDeConhecimentoJSON` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON` — adaptador real da porta
+  `RepositorioDeConhecimento`: um arquivo JSON por ficha em `conhecimento/objecoes/<id>.json`
+  (ADR-0004).
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria` — dublê determinístico,
+  mesma interface, sem tocar disco.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-15 | `id` que não bate com o formato de slug seguro (`_ID_VALIDO`) é recusado nas duas classes antes de tocar o dicionário/disco — nenhum `id` escapa de `conhecimento/objecoes/` | `tests/infra/test_repositorio_conhecimento_json.py::test_id_fora_do_formato_seguro_e_recusado_no_disco` |
+| I-16 | `RepositorioDeConhecimentoMemoria` nunca devolve a referência interna — leitura é sempre cópia | `tests/infra/test_repositorio_conhecimento_json.py::test_duble_em_memoria_devolve_copia_nao_a_referencia_interna` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON(diretorio: Path)` — implementa
+  `RepositorioDeConhecimento`.
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria()` — dublê determinístico.
+
+### O que NÃO é responsabilidade deste módulo
+
+- Validar o marcador da resposta orientada (`dominio.ficha_objecao`) — este módulo só persiste e
+  lê o `dict` que recebe.
+
+### Decisões registradas
+
+- 2026-09-13 — Formato JSON legível (não JSONL), um arquivo por ficha: cada ficha é uma unidade
+  editável e revisável isoladamente no `git diff` — diferente da trilha (append-only, uma linha por
+  evento), aqui cada publicação SUBSTITUI o arquivo (ADR-0004).
+- 2026-09-13 — `I-13`/`I-14` já estavam em uso pela seção seguinte (issue #42, mergeada primeiro em
+  `main`) quando esta branch atualizou — renumerado para `I-15`/`I-16` para não colidir (LEI 11: a
+  numeração corrida deste CONTRACT é o mesmo tipo de recurso compartilhado que um ADR).
+
+---
+
+## Seção da issue #42 — `intent` vira `enum` no esquema do OpenRouter (fronteira ampliada pela coordenação)
+
+### O que esta issue acrescenta (append, R2/#16)
+
+- `infra.adaptador_de_linguagem._ESQUEMA_EXTRACAO["properties"]["intent"]` ganha `enum`, derivado de
+  `dominio.intencao.Intencao` (`_VALORES_DE_INTENT = [m.value for m in Intencao] + [None]`) — nunca
+  uma segunda lista escrita à mão (LEI 11). Achado da auditoria do PR #44: com `intent` como string
+  livre, o modelo real inventava grafias ("contratar seguro", "fechar") que a conversão de
+  `aplicacao.servico_conversa` para `Intencao` descartava em silêncio — 0 de 5 frases explícitas de
+  "quero contratar" chegavam à política.
+- `_PROMPT_SISTEMA` ganha uma frase dizendo quando usar `informar_dados` e `quer_contratar`.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-13 | O `enum` de `intent` no esquema é exatamente `{m.value for m in Intencao} ∪ {None}` — um valor novo no Enum aparece aqui sem editar esta linha, e nenhuma segunda lista diverge dele | `tests/infra/test_adaptador_de_linguagem.py::test_enum_de_intent_no_esquema_bate_com_intencao` |
+
+### Decisões registradas
+
+- 2026-09-13 — a fronteira desta issue (#42) foi ampliada pela coordenação para cobrir este arquivo
+  (F6/#9 está mergeada e sem frente ativa) — ver comentário de auditoria no PR #44, bloqueante B1.
+
+---
+
+## Seção F13/#43 — bloqueantes B2/B4 da auditoria do PR #45 (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]` (B2): extrai os ids de
+  `buscar_planos()` — `None` (serviço fora do ar) devolve tupla vazia, nunca um id inventado. Não
+  duplica o parsing da forma da `/planos`: `tela_regras.py` já lia `planos.get("planos", [])`
+  direto (LEI 11 — este é o segundo lugar que precisava do mesmo shape, então vira função).
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON`/
+  `RepositorioDeConfiguracaoComercialMemoria` (B4): adaptador real e dublê da porta
+  `RepositorioDeConfiguracaoComercial`, mesmo molde de `RepositorioDeConhecimentoJSON`. Arquivo
+  ausente = `ConfiguracaoComercial()` (padrão do dono), nunca falha.
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON(caminho: Path)`
+  — implementa `RepositorioDeConfiguracaoComercial`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialMemoria(configuracao=None)`
+  — dublê determinístico.
+
+### Decisões registradas
+
+- 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`), corrigidos no mesmo push:
+  vocabulário de marcadores agora deriva de `PrecoCotado` + ids reais da `/planos`, e a
+  configuração comercial passa a ter adaptador real em vez de ficar fora do escopo com premissa
+  vencida (a #42 já tinha mergeado antes da análise original desta frente).

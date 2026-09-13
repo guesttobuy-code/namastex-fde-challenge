@@ -1,0 +1,11 @@
+=== Agente de cotação — conversa conv-4aa7be91 ===
+iniciado em 2026-09-12T22:31:29.527855+00:00
+
+Me conte sobre você: sua idade, o carro (modelo e ano) e seu CEP.
+> oi, tenho 30 anos, meu carro e um sandero 2022 e meu cep e [REDIGIDO]
+Perfeito, já tenho o que preciso para cotar.
+
+Consultando a /quote...
+
+decisão: explicar_cotacao
+agente: Plano Essencial: R$ 119.90/mês, franquia R$ 4500.00. Coberturas: colisao, roubo, furto. Carência de 30 dias para: roubo, furto.

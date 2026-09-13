@@ -29,16 +29,20 @@ _CSS_BOTAO_DESABILITADO = "button[disabled]{opacity:.45;cursor:not-allowed}"
 
 _ITENS_MENU = (
     ("Atendimento", (
-        ("index.html", "💬", "Conversas", "conversas"),
-        ("handoffs.html", "🙋", "Fila humana", "fila"),
+        ("/", "💬", "Conversas", None),
+        ("/painel/handoffs.html", "🙋", "Fila humana", "fila"),
     )),
     ("Observabilidade", (
-        ("rastreio.html", "🧭", "Rastreio", None),
-        ("cotacoes.html", "📈", "Cotações", None),
-        ("avaliacao.html", "🎯", "Avaliação", None),
+        ("/painel/rastreio.html", "🧭", "Rastreio", None),
+        ("/painel/cotacoes.html", "📈", "Cotações", None),
+        ("/painel/avaliacao.html", "🎯", "Avaliação", None),
+        ("/painel/index.html", "📚", "Histórico de atendimentos", "conversas"),
     )),
     ("Configuração", (
-        ("regras.html", "⚖️", "Regras e política", None),
+        ("/painel/regras.html", "⚖️", "Regras e política", None),
+    )),
+    ("Insumos", (
+        ("/conhecimento", "🧠", "Base de conhecimento", None),
     )),
 )
 

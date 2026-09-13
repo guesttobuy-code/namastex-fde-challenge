@@ -37,7 +37,7 @@ def render(*, base_url_quote_service: str | None = None, caminho_ui_css=None) ->
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Esta tela não guarda número em memória —
   cada valor é lido do código ou do serviço no momento da geração.</p>
 """
-    return pagina(titulo="Regras e política", pagina_ativa="regras.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
+    return pagina(titulo="Regras e política", pagina_ativa="/painel/regras.html", corpo=corpo, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("regras.html"))
 
 

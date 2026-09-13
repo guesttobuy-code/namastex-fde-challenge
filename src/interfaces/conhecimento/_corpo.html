@@ -1,0 +1,168 @@
+  <div class="cabecalho">
+    <div>
+      <h1>Base de conhecimento</h1>
+      <p>Fichas de objeção que orientam a resposta do agente depois da cotação — números nunca
+         digitados aqui, só marcadores preenchidos pela ficha (<code>{{...}}</code>).</p>
+    </div>
+  </div>
+  <div class="editor">
+  <aside>
+    <button class="nova" id="btn-nova">+ nova ficha</button>
+    <ul id="lista"></ul>
+    <div class="config-comercial">
+      <h2>Configuração comercial</h2>
+      <label>
+        <input type="checkbox" id="config-encaminhar">
+        Lead fora do padrão de aceitação: encaminhar para um corretor?
+      </label>
+      <div id="config-status"></div>
+    </div>
+  </aside>
+  <section>
+    <label>Id (usado no arquivo, minúsculas e hífen)</label>
+    <input id="campo-id" placeholder="ex.: preco-alto">
+
+    <label>Nome da ficha</label>
+    <input id="campo-nome" placeholder="Nome curto para identificar a objeção">
+
+    <label>Frases do lead (uma por linha)</label>
+    <textarea id="campo-frases" placeholder="Uma frase por linha"></textarea>
+
+    <label>Resposta orientada</label>
+    <textarea id="campo-resposta" placeholder="Escreva como a IA deve responder. Números só como marcador, ex.: {{franquia}}."></textarea>
+    <p class="ajuda">Números só como marcador <code>{{...}}</code> — nunca digitados soltos. A publicação recusa dígito fora de marcador ou marcador desconhecido.</p>
+
+    <label>Argumentos permitidos</label>
+    <div class="argumentos">
+      <label><input type="checkbox" value="coberturas"> Coberturas do plano</label>
+      <label><input type="checkbox" value="franquia_por_plano"> Franquia de cada plano</label>
+      <label><input type="checkbox" value="carencia"> Carência</label>
+      <label><input type="checkbox" value="comparacao_entre_planos"> Comparação entre planos</label>
+    </div>
+
+    <label>Tentativas antes do corretor (1 a 5)</label>
+    <input id="campo-tentativas" type="number" min="1" max="5" placeholder="">
+
+    <div class="acoes">
+      <button id="btn-rascunho">Salvar rascunho</button>
+      <button id="btn-publicar" class="primario">Publicar</button>
+    </div>
+    <div id="mensagem"></div>
+  </section>
+  </div>
+<script>
+const lista = document.getElementById('lista');
+const mensagem = document.getElementById('mensagem');
+const campoArgumentos = document.querySelectorAll('.argumentos input[type=checkbox]');
+const campos = {
+  id: document.getElementById('campo-id'),
+  nome: document.getElementById('campo-nome'),
+  frases: document.getElementById('campo-frases'),
+  resposta: document.getElementById('campo-resposta'),
+  tentativas: document.getElementById('campo-tentativas'),
+};
+
+function mostrar(texto, tipo) {
+  mensagem.textContent = texto;
+  mensagem.className = tipo;
+}
+
+function limparFormulario() {
+  campos.id.value = '';
+  campos.id.disabled = false;
+  campos.nome.value = '';
+  campos.frases.value = '';
+  campos.resposta.value = '';
+  campoArgumentos.forEach(cb => { cb.checked = false; });
+  campos.tentativas.value = '';
+  mensagem.className = '';
+}
+
+function preencherFormulario(ficha) {
+  // Não mexe em `mensagem` aqui: `salvar()` chama esta função logo depois de mostrar o
+  // resultado, e limpar a classe agora escondia "Publicado."/"Rascunho salvo." na hora que
+  // deveria aparecer. Quem troca de ficha na lista limpa a mensagem explicitamente.
+  campos.id.value = ficha.id;
+  campos.id.disabled = true;
+  campos.nome.value = ficha.nome || '';
+  campos.frases.value = (ficha.frases_do_lead || []).join('\n');
+  campos.resposta.value = ficha.resposta_orientada || '';
+  const marcados = new Set(ficha.argumentos_permitidos || []);
+  campoArgumentos.forEach(cb => { cb.checked = marcados.has(cb.value); });
+  // tentativas_antes_do_corretor ausente/null fica vazio -- nunca um número fabricado (LEI 2).
+  campos.tentativas.value = ficha.tentativas_antes_do_corretor ?? '';
+}
+
+async function carregarLista() {
+  const resposta = await fetch('/api/objecoes');
+  const fichas = await resposta.json();
+  lista.innerHTML = '';
+  for (const ficha of fichas) {
+    const item = document.createElement('li');
+    item.textContent = ficha.nome || ficha.id;
+    const selo = document.createElement('span');
+    selo.className = 'badge ' + ficha.status;
+    selo.textContent = ficha.status;
+    item.appendChild(selo);
+    item.addEventListener('click', () => {
+      mensagem.className = '';
+      preencherFormulario(ficha);
+    });
+    lista.appendChild(item);
+  }
+}
+
+async function salvar(status) {
+  const dados = {
+    id: campos.id.value.trim(),
+    nome: campos.nome.value,
+    frases_do_lead: campos.frases.value.split('\n').map(l => l.trim()).filter(Boolean),
+    resposta_orientada: campos.resposta.value,
+    argumentos_permitidos: Array.from(campoArgumentos).filter(cb => cb.checked).map(cb => cb.value),
+    tentativas_antes_do_corretor: campos.tentativas.value === '' ? null : Number(campos.tentativas.value),
+    status: status,
+  };
+  if (!dados.id) {
+    mostrar('Preencha o id da ficha.', 'erro');
+    return;
+  }
+  const resposta = await fetch('/api/objecoes/' + encodeURIComponent(dados.id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados),
+  });
+  const corpo = await resposta.json();
+  if (!resposta.ok) {
+    mostrar(corpo.erro || 'não foi possível salvar', 'erro');
+    return;
+  }
+  mostrar(status === 'publicado' ? 'Publicado.' : 'Rascunho salvo.', 'sucesso');
+  preencherFormulario(corpo);
+  await carregarLista();
+}
+
+async function carregarConfiguracaoComercial() {
+  const resposta = await fetch('/api/configuracao-comercial');
+  const corpo = await resposta.json();
+  document.getElementById('config-encaminhar').checked = Boolean(corpo.encaminhar_lead_fora_do_padrao);
+}
+
+async function salvarConfiguracaoComercial() {
+  const status = document.getElementById('config-status');
+  const marcado = document.getElementById('config-encaminhar').checked;
+  const resposta = await fetch('/api/configuracao-comercial', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ encaminhar_lead_fora_do_padrao: marcado }),
+  });
+  status.textContent = resposta.ok ? 'Salvo.' : 'Não foi possível salvar.';
+}
+
+document.getElementById('btn-nova').addEventListener('click', limparFormulario);
+document.getElementById('btn-rascunho').addEventListener('click', () => salvar('rascunho'));
+document.getElementById('btn-publicar').addEventListener('click', () => salvar('publicado'));
+document.getElementById('config-encaminhar').addEventListener('change', salvarConfiguracaoComercial);
+
+carregarLista();
+carregarConfiguracaoComercial();
+</script>

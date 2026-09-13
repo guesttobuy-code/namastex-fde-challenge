@@ -3,6 +3,7 @@ import re
 from dominio.decisao import MotivoHandoff
 
 from interfaces.painel import tela_fila_humana
+from interfaces.painel.tela_fila_humana import _DESCRICAO_MOTIVO
 
 
 def test_handoff_da_fixture_aparece_com_motivo_e_contexto(trilha_fixture):
@@ -31,7 +32,35 @@ def test_regra_de_regras_a_lista_exibida_e_exatamente_a_do_enum():
     assert exibidos == {m.value for m in MotivoHandoff}
 
 
+def test_todo_motivohandoff_tem_descricao_registrada():
+    """Pedido da coordenação (issue #42): sem este teste, um `MotivoHandoff` novo sem entrada em
+    `_DESCRICAO_MOTIVO` cai em silêncio no fallback "sem descrição registrada" — nenhum outro
+    teste pegava esse silêncio antes desta issue."""
+    sem_descricao = {m.value for m in MotivoHandoff} - set(_DESCRICAO_MOTIVO.keys())
+    assert not sem_descricao, f"MotivoHandoff sem entrada em _DESCRICAO_MOTIVO: {sem_descricao}"
+
+
 def test_sem_handoff_mostra_buraco():
     eventos = [{"evento": "mensagem_recebida", "conversation_id": "conv_x", "id": "msg_01"}]
     html = tela_fila_humana.render(eventos)
     assert "ausente na trilha" in html
+
+
+def test_campo_ausente_no_contexto_coletado_vira_buraco_nao_branco():
+    """Bug confirmado na Análise de impacto da #46: `_cartao` usa `esc(v)` para cada valor do
+    `contexto_coletado`, e `esc(None)` devolve string vazia — um campo ausente (ex.: `idade`
+    nunca coletada) aparecia como `idade: ,` (branco), escondendo o buraco em vez de mostrá-lo
+    (ESPECIFICACAO.md §3, regra 2 de `campos.py`). Nasce vermelho antes do fix `esc(v)` ->
+    `campo(contexto, k)`."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_y", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+        "contexto_coletado": {"idade": None, "veiculo_ano": 2021},
+    }]
+
+    html = tela_fila_humana.render(eventos)
+
+    assert "idade: ," not in html
+    assert "ausente na trilha" in html
+    assert "veiculo_ano: 2021" in html

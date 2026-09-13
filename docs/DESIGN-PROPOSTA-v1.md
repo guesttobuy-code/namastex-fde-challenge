@@ -150,6 +150,15 @@ Direção de dependência: `interfaces → application → domain`; `infrastruct
 Portas: `PortalDeCotacao`, `PortalDeLinguagem`, `Relogio`, `RepositorioDeConversa`, `FilaDeHandoff`,
 `CanalDeMensagem`. Cada uma com adaptador real e dublê determinístico para teste.
 
+> **Nota (2026-09-13, issue #56):** esta seção foi superada pelo roadmap #3 §4 — a arquitetura
+> vigente é 4 camadas planas por tipo (`interfaces/aplicacao/dominio/infra`), não módulos por
+> domínio (`conversa`, `cotacao`, `handoff`, `privacidade`, `rastreio`, `dados`). Das portas
+> listadas acima, só `PortalDeCotacao` e `PortalDeLinguagem` foram criadas
+> (`src/aplicacao/portas/`); `Relogio`, `RepositorioDeConversa`, `FilaDeHandoff` e `CanalDeMensagem`
+> ficam como simplificação declarada — não são pendência escondida. Ver `dominio/CONTRACT.md`,
+> seção F13/#43, para a alternativa mínima adotada no lugar de `Relogio` (parâmetro `instante` +
+> relógio injetável na aplicação, sem porta formal).
+
 ### 5.3 Política de resiliência (derivada das medições da §4.1/4.2)
 
 | Decisão | Valor | Por que exatamente isso |
@@ -165,11 +174,24 @@ Portas: `PortalDeCotacao`, `PortalDeLinguagem`, `Relogio`, `RepositorioDeConvers
 
 ### 5.4 Política de handoff (explícita e testada)
 
-Cada regra tem id, gatilho observável, evidência registrada e teste próprio:
-pedido explícito de humano · recusa da seguradora (422 de negócio) · falha persistente da cotação
-(3 tentativas ou disjuntor aberto) · mídia sem transcrição · pedido de desconto/negociação ·
-menção a sinistro ou urgência · fechamento e emissão de apólice · dado impossível ou inconsistente ·
-assunto fora de escopo · frustração ou repetição do lead.
+Cada regra tem id, gatilho observável, evidência registrada e teste próprio. **Implementado** (issue
+#42, decisão do dono):
+- **falha persistente da cotação** (`quote_indisponivel`/`quote_timeout`/`quote_erro_de_payload`) —
+  desde a F2/#5;
+- **recusa da seguradora (422 de negócio)** — configurável por `ConfiguracaoComercial.encaminhar_lead_fora_do_padrao`
+  (padrão ligado): encaminha para um corretor explicando o motivo, ou encerra com educação. Medido
+  contra os 4 motivos reais da `/quote` (testes de `aplicacao/servico_conversa`).
+- **"quero contratar"** — vira `MotivoHandoff.LEAD_QUER_CONTRATAR`, encaminhado para a Fila humana
+  (o fechamento é feito por um corretor). Testado no domínio e na aplicação; o esquema do adaptador
+  OpenRouter restringe `intent` a `dominio.intencao.Intencao` (achado da auditoria do PR #44: string
+  livre fazia o modelo inventar grafias que nunca chegavam à política). **Prova ao vivo contra o
+  modelo real (`OPENROUTER_API_KEY`) ainda não foi rodada nesta worktree** — pendente.
+
+**Ainda pendente de decisão do dono, em fatias** (não implementado, para não prometer o que o
+código não faz): pedido explícito de humano · mídia sem transcrição (57% do histórico) · pedido de
+desconto/negociação (depende do campo "tentativas antes do corretor", F13/#43) · menção a sinistro
+ou urgência · dado impossível ou inconsistente · assunto fora de escopo · frustração ou repetição
+do lead.
 
 O agente **não promete** boleto nem apólice — no histórico, o vendedor humano promete; aqui isso é handoff.
 
