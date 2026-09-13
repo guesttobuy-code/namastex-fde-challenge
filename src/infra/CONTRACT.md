@@ -134,3 +134,28 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - `infra.planos_http.buscar_planos(base_url=None) -> dict | None` (F10/#13): cliente só-leitura do
   `GET /planos`, timeout explícito de 2s (`TIMEOUT_SEGUNDOS`), `None` se o serviço não responder —
   quem chama mostra o buraco visível, nunca um valor de memória.
+
+---
+
+## Seção da issue #42 — `intent` vira `enum` no esquema do OpenRouter (fronteira ampliada pela coordenação)
+
+### O que esta issue acrescenta (append, R2/#16)
+
+- `infra.adaptador_de_linguagem._ESQUEMA_EXTRACAO["properties"]["intent"]` ganha `enum`, derivado de
+  `dominio.intencao.Intencao` (`_VALORES_DE_INTENT = [m.value for m in Intencao] + [None]`) — nunca
+  uma segunda lista escrita à mão (LEI 11). Achado da auditoria do PR #44: com `intent` como string
+  livre, o modelo real inventava grafias ("contratar seguro", "fechar") que a conversão de
+  `aplicacao.servico_conversa` para `Intencao` descartava em silêncio — 0 de 5 frases explícitas de
+  "quero contratar" chegavam à política.
+- `_PROMPT_SISTEMA` ganha uma frase dizendo quando usar `informar_dados` e `quer_contratar`.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-13 | O `enum` de `intent` no esquema é exatamente `{m.value for m in Intencao} ∪ {None}` — um valor novo no Enum aparece aqui sem editar esta linha, e nenhuma segunda lista diverge dele | `tests/infra/test_adaptador_de_linguagem.py::test_enum_de_intent_no_esquema_bate_com_intencao` |
+
+### Decisões registradas
+
+- 2026-09-13 — a fronteira desta issue (#42) foi ampliada pela coordenação para cobrir este arquivo
+  (F6/#9 está mergeada e sem frente ativa) — ver comentário de auditoria no PR #44, bloqueante B1.

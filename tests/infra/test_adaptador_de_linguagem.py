@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from dominio.estado_conversa import EstadoDaConversa
+from dominio.intencao import Intencao
 from infra.adaptador_de_linguagem import (
     AdaptadorDeLinguagemDeterministico,
     AdaptadorDeLinguagemOpenRouter,
@@ -182,6 +183,28 @@ def test_openrouter_payload_pede_strict_e_require_parameters():
     (payload,) = payloads
     assert payload["response_format"]["json_schema"]["strict"] is True
     assert payload["provider"]["require_parameters"] is True
+
+
+def test_enum_de_intent_no_esquema_bate_com_intencao():
+    """issue #42, veredito da auditoria do PR #44 (B1): antes desta issue, `intent` era string
+    livre e o modelo real inventava grafias ("contratar seguro", "fechar") que a conversão para
+    `Intencao` descartava em silêncio — 0 de 5 frases explícitas de "quero contratar" chegavam à
+    política. O `enum` do esquema tem que ser DERIVADO de `Intencao` (LEI 11) — nunca uma segunda
+    lista escrita à mão que pode divergir dele."""
+    payloads = []
+
+    def transporte(payload, chave, timeout):
+        payloads.append(payload)
+        return RespostaBrutaLLM(status_code=200, corpo=_corpo_sucesso({
+            "idade": None, "veiculo_ano": None, "plano_id": None, "data_inicio": None,
+            "intent": None, "ambiguidades": [],
+        }))
+
+    AdaptadorDeLinguagemOpenRouter(chave="x", transporte=transporte).extrair("oi", ESTADO_VAZIO)
+
+    (payload,) = payloads
+    enum_do_esquema = set(payload["response_format"]["json_schema"]["schema"]["properties"]["intent"]["enum"])
+    assert enum_do_esquema == {membro.value for membro in Intencao} | {None}
 
 
 def test_openrouter_esquema_nao_seguido_na_primeira_chamada_tenta_de_novo_e_acerta():

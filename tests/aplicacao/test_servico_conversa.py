@@ -133,9 +133,9 @@ def test_recusa_de_negocio_com_config_ligada_encaminha_com_texto_aprovado(motivo
 
 
 def test_quer_contratar_encaminha_para_fila_humana_sem_mencionar_pagamento():
-    """issue #42, texto literal do dono (#41): "logo um corretor vai entrar em contato para te
-    dar todo o suporte" — nenhuma menção a pagamento, boleto ou apólice (o repositório não tem
-    checkout nem emissão de apólice)."""
+    """issue #42, texto do dono (#41), ajustado na auditoria do PR #44 (R1): "Logo um corretor vai
+    entrar em contato para te dar todo o suporte." — nenhuma menção a pagamento, boleto ou apólice
+    (o repositório não tem checkout nem emissão de apólice)."""
     portal = FakePortalDeCotacao(roteiro=[])
     estado = EstadoDaConversa(
         conversation_id="conv-1",
@@ -150,7 +150,7 @@ def test_quer_contratar_encaminha_para_fila_humana_sem_mencionar_pagamento():
 
     assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
     assert turno.decisao.reason_code == MotivoHandoff.LEAD_QUER_CONTRATAR
-    assert turno.texto == "logo um corretor vai entrar em contato para te dar todo o suporte"
+    assert turno.texto == "Logo um corretor vai entrar em contato para te dar todo o suporte."
     assert len(portal.chamadas) == 0  # não tenta cotar de novo — o lead já quer fechar
     for palavra in ("pagamento", "boleto", "apólice", "apolice"):
         assert palavra not in turno.texto.lower()

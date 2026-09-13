@@ -150,8 +150,8 @@ def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) ->
             # em `decisao.reason_code` (evento `handoff`) e em `_regra_aplicada` — só não aqui.
             match decisao.reason_code:
                 case MotivoHandoff.LEAD_QUER_CONTRATAR:
-                    # Texto literal do dono (#41): nenhuma menção a pagamento/boleto/apólice.
-                    return "logo um corretor vai entrar em contato para te dar todo o suporte"
+                    # Texto do dono (#41), ajustado na auditoria do PR #44 (R1: maiúscula e ponto).
+                    return "Logo um corretor vai entrar em contato para te dar todo o suporte."
                 case MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO:
                     motivo = _motivo_da_recusa_traduzido(resultado.motivo)
                     return (

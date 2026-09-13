@@ -170,10 +170,13 @@ Cada regra tem id, gatilho observável, evidência registrada e teste próprio. 
 - **falha persistente da cotação** (`quote_indisponivel`/`quote_timeout`/`quote_erro_de_payload`) —
   desde a F2/#5;
 - **recusa da seguradora (422 de negócio)** — configurável por `ConfiguracaoComercial.encaminhar_lead_fora_do_padrao`
-  (padrão ligado): encaminha para um corretor explicando o motivo, ou encerra com educação;
-- **fechamento e emissão de apólice** (o lead diz "quero contratar") — vira `MotivoHandoff.LEAD_QUER_CONTRATAR`,
-  encaminhado para a Fila humana, sem nenhuma menção a pagamento (o repositório não tem checkout,
-  contrato nem emissão de apólice — o fechamento é humano).
+  (padrão ligado): encaminha para um corretor explicando o motivo, ou encerra com educação. Medido
+  contra os 4 motivos reais da `/quote` (testes de `aplicacao/servico_conversa`).
+- **"quero contratar"** — vira `MotivoHandoff.LEAD_QUER_CONTRATAR`, encaminhado para a Fila humana
+  (o fechamento é feito por um corretor). Testado no domínio e na aplicação; o esquema do adaptador
+  OpenRouter restringe `intent` a `dominio.intencao.Intencao` (achado da auditoria do PR #44: string
+  livre fazia o modelo inventar grafias que nunca chegavam à política). **Prova ao vivo contra o
+  modelo real (`OPENROUTER_API_KEY`) ainda não foi rodada nesta worktree** — pendente.
 
 **Ainda pendente de decisão do dono, em fatias** (não implementado, para não prometer o que o
 código não faz): pedido explícito de humano · mídia sem transcrição (57% do histórico) · pedido de
