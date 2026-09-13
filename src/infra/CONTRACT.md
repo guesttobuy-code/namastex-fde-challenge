@@ -198,3 +198,33 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 - 2026-09-13 — a fronteira desta issue (#42) foi ampliada pela coordenação para cobrir este arquivo
   (F6/#9 está mergeada e sem frente ativa) — ver comentário de auditoria no PR #44, bloqueante B1.
+
+---
+
+## Seção F13/#43 — bloqueantes B2/B4 da auditoria do PR #45 (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]` (B2): extrai os ids de
+  `buscar_planos()` — `None` (serviço fora do ar) devolve tupla vazia, nunca um id inventado. Não
+  duplica o parsing da forma da `/planos`: `tela_regras.py` já lia `planos.get("planos", [])`
+  direto (LEI 11 — este é o segundo lugar que precisava do mesmo shape, então vira função).
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON`/
+  `RepositorioDeConfiguracaoComercialMemoria` (B4): adaptador real e dublê da porta
+  `RepositorioDeConfiguracaoComercial`, mesmo molde de `RepositorioDeConhecimentoJSON`. Arquivo
+  ausente = `ConfiguracaoComercial()` (padrão do dono), nunca falha.
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON(caminho: Path)`
+  — implementa `RepositorioDeConfiguracaoComercial`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialMemoria(configuracao=None)`
+  — dublê determinístico.
+
+### Decisões registradas
+
+- 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`), corrigidos no mesmo push:
+  vocabulário de marcadores agora deriva de `PrecoCotado` + ids reais da `/planos`, e a
+  configuração comercial passa a ter adaptador real em vez de ficar fora do escopo com premissa
+  vencida (a #42 já tinha mergeado antes da análise original desta frente).

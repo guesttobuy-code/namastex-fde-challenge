@@ -11,6 +11,8 @@ repositório, com `src/` no `PYTHONPATH` (mesma solução de `interfaces.cli`):
 
 Variáveis de ambiente:
     CONHECIMENTO_DIR   pasta das fichas em JSON (padrão "conhecimento/objecoes")
+    CONFIGURACAO_COMERCIAL_ARQUIVO  arquivo da configuração comercial (padrão
+                       "conhecimento/configuracao_comercial.json")
     PAINEL_DIR         pasta do painel já gerado por `interfaces.painel.gerar` (padrão "painel-saida")
     SERVIDOR_PORT      porta HTTP (padrão 8080)
 """
@@ -24,7 +26,11 @@ from pathlib import Path
 from wsgiref.simple_server import make_server
 
 from aplicacao.servico_conhecimento import ServicoDeConhecimento
+from aplicacao.servico_configuracao_comercial import ServicoDeConfiguracaoComercial
 from dominio.ficha_objecao import MarcadorInvalido
+from infra.planos_http import buscar_planos as buscar_planos_real
+from infra.planos_http import ids_dos_planos
+from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON
 
 _TELA_EDICAO = Path(__file__).resolve().parent / "conhecimento" / "tela_edicao.html"
@@ -99,23 +105,27 @@ def _responder_ler_ficha(servico: ServicoDeConhecimento, id_da_ficha: str):
     return _json("200 OK", ficha)
 
 
-def _responder_salvar_ficha(servico: ServicoDeConhecimento, environ, id_da_ficha: str):
+def _responder_salvar_ficha(servico: ServicoDeConhecimento, buscar_planos, environ, id_da_ficha: str):
     dados = _ler_corpo_json(environ)
     if dados is None:
         return _json("400 Bad Request", {"erro": "corpo não é JSON válido"})
     dados["id"] = id_da_ficha  # a rota é dona do id, nunca o corpo (LEI 11)
+    # ids dos planos (achado B2 da auditoria do PR #45): lidos aqui, na borda HTTP, e passados
+    # para baixo — o domínio nunca fala com a rede. `/quote` fora do ar = tupla vazia (buraco
+    # visível: só os marcadores base publicam, nunca um id de plano inventado).
+    ids = ids_dos_planos(buscar_planos())
     try:
-        persistido = servico.salvar_objecao(dados)
+        persistido = servico.salvar_objecao(dados, ids_dos_planos=ids)
     except (MarcadorInvalido, ValueError) as erro:
         return _json("422 Unprocessable Entity", {"erro": str(erro)})
     return _json("200 OK", persistido)
 
 
-def _responder_ficha(servico: ServicoDeConhecimento, metodo: str, environ, id_da_ficha: str):
+def _responder_ficha(servico: ServicoDeConhecimento, buscar_planos, metodo: str, environ, id_da_ficha: str):
     if metodo == "GET":
         return _responder_ler_ficha(servico, id_da_ficha)
     if metodo == "PUT":
-        return _responder_salvar_ficha(servico, environ, id_da_ficha)
+        return _responder_salvar_ficha(servico, buscar_planos, environ, id_da_ficha)
     return _json(*_METODO_NAO_SUPORTADO)
 
 
@@ -125,7 +135,30 @@ def _responder_painel(painel_dir: Path, metodo: str, subcaminho: str):
     return _servir_painel(painel_dir, subcaminho)
 
 
-def _rotear(servico: ServicoDeConhecimento, painel_dir: Path, environ):
+def _responder_ler_configuracao(servico_configuracao: ServicoDeConfiguracaoComercial):
+    configuracao = servico_configuracao.obter()
+    return _json("200 OK", {"encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao})
+
+
+def _responder_salvar_configuracao(servico_configuracao: ServicoDeConfiguracaoComercial, environ):
+    dados = _ler_corpo_json(environ)
+    if dados is None or "encaminhar_lead_fora_do_padrao" not in dados:
+        return _json("400 Bad Request", {"erro": "envie {\"encaminhar_lead_fora_do_padrao\": true|false}"})
+    configuracao = servico_configuracao.salvar(
+        encaminhar_lead_fora_do_padrao=bool(dados["encaminhar_lead_fora_do_padrao"])
+    )
+    return _json("200 OK", {"encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao})
+
+
+def _responder_configuracao_comercial(servico_configuracao: ServicoDeConfiguracaoComercial, metodo: str, environ):
+    if metodo == "GET":
+        return _responder_ler_configuracao(servico_configuracao)
+    if metodo == "PUT":
+        return _responder_salvar_configuracao(servico_configuracao, environ)
+    return _json(*_METODO_NAO_SUPORTADO)
+
+
+def _rotear(servico, servico_configuracao, painel_dir, buscar_planos, environ):
     metodo = environ["REQUEST_METHOD"]
     caminho = environ["PATH_INFO"] or "/"
 
@@ -134,18 +167,27 @@ def _rotear(servico: ServicoDeConhecimento, painel_dir: Path, environ):
     if caminho == "/api/objecoes":
         return _responder_lista(servico, metodo)
     if caminho.startswith("/api/objecoes/"):
-        return _responder_ficha(servico, metodo, environ, caminho[len("/api/objecoes/") :])
+        return _responder_ficha(servico, buscar_planos, metodo, environ, caminho[len("/api/objecoes/") :])
+    if caminho == "/api/configuracao-comercial":
+        return _responder_configuracao_comercial(servico_configuracao, metodo, environ)
     if caminho == "/painel" or caminho.startswith("/painel/"):
         return _responder_painel(painel_dir, metodo, caminho[len("/painel/") :])
     return _json("404 Not Found", {"erro": "rota desconhecida"})
 
 
-def criar_app(*, servico: ServicoDeConhecimento, painel_dir: Path):
-    """Fábrica do app WSGI — injeção do caso de uso e do diretório do painel para o teste rodar
-    sem tocar o disco real nem depender de variável de ambiente."""
+def criar_app(
+    *,
+    servico: ServicoDeConhecimento,
+    painel_dir: Path,
+    servico_configuracao: ServicoDeConfiguracaoComercial,
+    buscar_planos=buscar_planos_real,
+):
+    """Fábrica do app WSGI — injeção do caso de uso, do diretório do painel e de como buscar os
+    planos (achado B2 da auditoria: teste nunca bate na rede de verdade) para o teste rodar sem
+    tocar o disco real nem depender de variável de ambiente."""
 
     def app(environ, start_response):
-        status, cabecalhos, corpo = _rotear(servico, painel_dir, environ)
+        status, cabecalhos, corpo = _rotear(servico, servico_configuracao, painel_dir, buscar_planos, environ)
         start_response(status, cabecalhos)
         return corpo
 
@@ -154,11 +196,17 @@ def criar_app(*, servico: ServicoDeConhecimento, painel_dir: Path):
 
 def main() -> int:
     conhecimento_dir = Path(os.environ.get("CONHECIMENTO_DIR", "conhecimento/objecoes"))
+    caminho_configuracao = Path(
+        os.environ.get("CONFIGURACAO_COMERCIAL_ARQUIVO", "conhecimento/configuracao_comercial.json")
+    )
     painel_dir = Path(os.environ.get("PAINEL_DIR", "painel-saida"))
     porta = int(os.environ.get("SERVIDOR_PORT", "8080"))
 
     servico = ServicoDeConhecimento(RepositorioDeConhecimentoJSON(conhecimento_dir))
-    app = criar_app(servico=servico, painel_dir=painel_dir)
+    servico_configuracao = ServicoDeConfiguracaoComercial(
+        RepositorioDeConfiguracaoComercialJSON(caminho_configuracao)
+    )
+    app = criar_app(servico=servico, painel_dir=painel_dir, servico_configuracao=servico_configuracao)
 
     with make_server("0.0.0.0", porta, app) as servidor:
         print(f"servidor local em http://0.0.0.0:{porta} — conhecimento em {conhecimento_dir}")

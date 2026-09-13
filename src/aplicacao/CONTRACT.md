@@ -188,3 +188,31 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 - 2026-09-13 — issue #42 (decisão do dono, #41): ver `dominio/CONTRACT.md`, seção "Decisões
   registradas", para o texto completo da decisão de recusa configurável e "quero contratar".
+
+---
+
+## Seção F13/#43 — bloqueantes B2/B4 da auditoria do PR #45 (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `ServicoDeConhecimento.salvar_objecao` ganha o parâmetro `ids_dos_planos: Iterable[str] = ()`
+  (B2): a borda HTTP lê a `/planos` e repassa os ids aqui; o serviço só encaminha para
+  `dominio.ficha_objecao.FichaDeObjecao.publicar`, nunca fala com rede.
+- `aplicacao.servico_configuracao_comercial.ServicoDeConfiguracaoComercial` (B4): caso de uso que
+  lê/grava `dominio.configuracao_comercial.ConfiguracaoComercial` via
+  `aplicacao.portas.repositorio_configuracao_comercial.RepositorioDeConfiguracaoComercial` — a
+  ligação com o agente (CLI carregando e passando a `conduzir_conversa`) é de `interfaces.cli`,
+  documentada no CONTRACT de `interfaces`.
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.repositorio_configuracao_comercial.RepositorioDeConfiguracaoComercial` —
+  `Protocol` com `carregar() -> ConfiguracaoComercial`, `salvar(configuracao) -> None`.
+- `aplicacao.servico_configuracao_comercial.ServicoDeConfiguracaoComercial(repositorio).obter() -> ConfiguracaoComercial`,
+  `.salvar(*, encaminhar_lead_fora_do_padrao: bool) -> ConfiguracaoComercial`.
+
+### Decisões registradas
+
+- 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`): a premissa "a #42 está
+  OPEN" estava vencida (já mergeada em `fabddf1`) e o vocabulário de marcadores era curto demais e
+  escrito à mão. Consertado no mesmo push que resolve B1/B3/R1-R5.

@@ -25,20 +25,35 @@ linha alheia (R2, #16).
 - `interfaces.cli.main()` — CLI de terminal (F5/#8).
 - `interfaces.painel.gerar.gerar_paineis(caminho_trilha, dir_saida) -> list[Path]` — geração
   estática offline (F10/#13), continua funcionando sem o servidor de pé.
-- `interfaces.servidor.criar_app(*, servico, painel_dir)` — fábrica do app WSGI (stdlib
-  `wsgiref`), testável sem abrir socket (chamada direta com `environ`/`start_response`).
+- `interfaces.servidor.criar_app(*, servico, painel_dir, servico_configuracao, buscar_planos=infra.planos_http.buscar_planos)`
+  — fábrica do app WSGI (stdlib `wsgiref`), testável sem abrir socket (chamada direta com
+  `environ`/`start_response`) e sem bater na rede de verdade (`buscar_planos` injetável).
 - `interfaces.servidor.main()` — sobe o servidor real via `wsgiref.simple_server.make_server`,
-  lendo `CONHECIMENTO_DIR`/`PAINEL_DIR`/`SERVIDOR_PORT` do ambiente.
+  lendo `CONHECIMENTO_DIR`/`CONFIGURACAO_COMERCIAL_ARQUIVO`/`PAINEL_DIR`/`SERVIDOR_PORT` do
+  ambiente.
+- Rotas: `GET/PUT /api/objecoes[/<id>]` (fichas), `GET/PUT /api/configuracao-comercial`, `GET /`
+  (tela de edição), `GET /painel/...` (estático já gerado).
 
 ## O que NÃO é responsabilidade deste módulo
 
 - Decidir a regra de negócio (`dominio`), orquestrar caso de uso (`aplicacao`) ou persistir de
   verdade (`infra`) — `interfaces` só traduz o mundo externo para uma chamada de `aplicacao`.
-- Gerar o painel a partir do servidor — `servidor.py` só SERVE o que `painel/gerar.py` já
-  escreveu em disco; nunca chama a geração dentro de uma requisição HTTP (mantém o painel estático
-  independente do servidor, cuidado da coordenação na #43).
+- Gerar o painel a partir de uma REQUISIÇÃO do servidor — `servidor.py` só SERVE o que já está em
+  disco; nunca chama `painel/gerar.py` dentro do `app(environ, start_response)`. A geração em
+  BUILD-TIME do `Dockerfile` (achado B1 da auditoria do PR #45: sem ela, `/painel/` dava 404 num
+  clone limpo) é etapa de imagem, não do servidor — a mesma disciplina de "painel independente do
+  servidor" continua valendo em runtime.
 
 ## Decisões registradas
 
 - 2026-09-13 — `servidor.py` usa `wsgiref` (stdlib), zero dependência nova — ADR-0004, mesma linha
   de `infra.cliente_quote`/`infra.adaptador_de_linguagem` (stdlib em vez de SDK/framework).
+- 2026-09-13 — Achados da auditoria do PR #45 (HEAD `9ee1135`), corrigidos no mesmo push:
+  `Dockerfile` gera o painel de `examples/*.jsonl` em build-time (B1); vocabulário de marcadores
+  passa a incluir `coberturas` e `franquia_<id do plano>` por plano, lido da `/planos` na borda
+  HTTP (B2); a tela nunca mais sugere um texto de resposta nem um número de tentativas (B3/R1); os
+  argumentos permitidos viram checkbox de lista fechada (R2); a primeira publicação sai como
+  versão 1 (R3); as mensagens de erro do domínio são frase para o dono (R4); e a configuração
+  comercial ganhou rota + tela + ligação real com `interfaces.cli` (B4) — `rodar_conversa` carrega
+  `dominio.configuracao_comercial.ConfiguracaoComercial` de `conhecimento/configuracao_comercial.json`
+  por padrão e passa para `aplicacao.servico_conversa.conduzir_conversa`.

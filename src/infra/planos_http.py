@@ -26,3 +26,13 @@ def buscar_planos(base_url: str | None = None) -> dict | None:
             return json.loads(resposta.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
         return None
+
+
+def ids_dos_planos(dados: dict | None) -> tuple[str, ...]:
+    """Extrai os ids de `buscar_planos()` (achado B2 da auditoria do PR #45, F13/#43): a base de
+    conhecimento usa isto para saber quais marcadores `franquia_<id>` existem, sem duplicar o
+    parsing da forma da `/planos` (LEI 11 — `tela_regras.py` já lê `planos.get("planos", [])`).
+    `dados=None` (serviço fora do ar) devolve tupla vazia — buraco visível, nunca id inventado."""
+    if not dados:
+        return ()
+    return tuple(plano["id"] for plano in dados.get("planos", []) if plano.get("id"))

@@ -4,10 +4,12 @@ colada no corpo do PR, não faz parte da suíte automática)."""
 from __future__ import annotations
 
 from aplicacao.servico_trilha import ServicoDeTrilha
+from dominio.configuracao_comercial import ConfiguracaoComercial
 from dominio.preco_cotado import PrecoCotado
 from dominio.resultado_cotacao import ResultadoDaCotacao
 from infra.adaptador_de_linguagem import AdaptadorDeLinguagemDeterministico
 from infra.cliente_quote import FakePortalDeCotacao
+from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
 from infra.trilha_jsonl import RepositorioDeTrilhaMemoria
 from interfaces.cli import _Transcricao, coletar_dados, coletar_dados_por_texto_livre, rodar_conversa
 
@@ -106,6 +108,63 @@ def test_rodar_conversa_encaminha_quando_a_quote_esta_indisponivel(tmp_path, mon
     conteudo = caminho.read_text(encoding="utf-8")
     assert "encaminhar" in conteudo
     assert "quote_indisponivel" in conteudo
+
+
+def test_rodar_conversa_com_configuracao_desligada_encerra_na_recusa_de_negocio(tmp_path, monkeypatch):
+    # bloqueante B4 da auditoria do PR #45: prova de ponta a ponta que a CLI passa `configuracao`
+    # adiante para `conduzir_conversa`/`politica.decidir` — não é só um parâmetro que existe, ele
+    # muda o desfecho real de "tenho 80 anos..." (a `/quote` recusaria por regra de aceitação).
+    import interfaces.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "RAIZ", tmp_path)
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.recusa_de_negocio("Idade fora das faixas aceitas.")])
+    configuracao = ConfiguracaoComercial(encaminhar_lead_fora_do_padrao=False)
+
+    caminho = rodar_conversa(
+        entrada=_respostas("80", "2020", "01310-100", "", ""), portal=portal, configuracao=configuracao
+    )
+
+    conteudo = caminho.read_text(encoding="utf-8")
+    assert "encerrar" in conteudo
+    assert "encaminhar" not in conteudo
+
+
+def test_rodar_conversa_com_configuracao_ligada_encaminha_na_recusa_de_negocio(tmp_path, monkeypatch):
+    import interfaces.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "RAIZ", tmp_path)
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.recusa_de_negocio("Idade fora das faixas aceitas.")])
+    configuracao = ConfiguracaoComercial(encaminhar_lead_fora_do_padrao=True)
+
+    caminho = rodar_conversa(
+        entrada=_respostas("80", "2020", "01310-100", "", ""), portal=portal, configuracao=configuracao
+    )
+
+    conteudo = caminho.read_text(encoding="utf-8")
+    assert "encaminhar" in conteudo
+    assert "recusa_regra_de_aceitacao" in conteudo
+
+
+def test_rodar_conversa_sem_configuracao_injetada_carrega_do_arquivo_real(tmp_path, monkeypatch):
+    # sem `configuracao` explícita, a CLI carrega de `conhecimento/configuracao_comercial.json`
+    # (a mesma que a tela de edição grava) — não fica presa ao padrão em memória.
+    import interfaces.cli as cli_mod
+
+    monkeypatch.setattr(cli_mod, "RAIZ", tmp_path)
+    caminho_config = tmp_path / "configuracao_comercial.json"
+    RepositorioDeConfiguracaoComercialJSON(caminho_config).salvar(
+        ConfiguracaoComercial(encaminhar_lead_fora_do_padrao=False)
+    )
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.recusa_de_negocio("Idade fora das faixas aceitas.")])
+
+    caminho = rodar_conversa(
+        entrada=_respostas("80", "2020", "01310-100", "", ""),
+        portal=portal,
+        caminho_configuracao_comercial=caminho_config,
+    )
+
+    conteudo = caminho.read_text(encoding="utf-8")
+    assert "encerrar" in conteudo
 
 
 def test_coletar_dados_por_texto_livre_aceita_tudo_de_primeira():

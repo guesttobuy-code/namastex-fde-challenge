@@ -1,6 +1,7 @@
 """Vermelho-antes do caso de uso da #43: `ServicoDeConhecimento` orquestra domínio (invariante do
 marcador) + porta (persistência), nunca reimplementa a regra (mesma disciplina de
-`ServicoDeTrilha`)."""
+`ServicoDeTrilha`). `ids_dos_planos` (achado B2 da auditoria do PR #45): a borda HTTP lê a
+`/planos` e repassa aqui — este serviço só encaminha para o domínio, nunca fala com rede."""
 from __future__ import annotations
 
 import pytest
@@ -32,12 +33,19 @@ def test_salvar_rascunho_nunca_valida_marcador():
     assert servico.obter_objecao("preco-alto")["resposta_orientada"] == "O plano custa R$ 199,90."
 
 
-def test_publicar_com_marcador_valido_persiste_com_versao_incrementada():
+def test_primeira_publicacao_com_marcador_valido_persiste_com_versao_1():
     servico = _servico()
-    persistido = servico.salvar_objecao({**_DADOS, "status": "publicado", "versao": 1})
+    persistido = servico.salvar_objecao({**_DADOS, "status": "publicado"})
     assert persistido["status"] == "publicado"
-    assert persistido["versao"] == 2
+    assert persistido["versao"] == 1
     assert persistido["atualizado_em"] != ""
+
+
+def test_republicar_incrementa_a_partir_da_versao_ja_publicada():
+    servico = _servico()
+    servico.salvar_objecao({**_DADOS, "status": "publicado"})
+    persistido = servico.salvar_objecao({**_DADOS, "status": "publicado", "versao": 1})
+    assert persistido["versao"] == 2
 
 
 def test_publicar_com_digito_fora_de_marcador_e_recusado_e_nada_e_persistido():
@@ -46,6 +54,15 @@ def test_publicar_com_digito_fora_de_marcador_e_recusado_e_nada_e_persistido():
     with pytest.raises(MarcadorInvalido):
         servico.salvar_objecao(dados_invalidos)
     assert servico.obter_objecao("preco-alto") is None
+
+
+def test_marcador_por_plano_so_publica_quando_o_id_do_plano_e_passado():
+    servico = _servico()
+    dados = {**_DADOS, "resposta_orientada": "Franquia do Premium: {{franquia_premium}}.", "status": "publicado"}
+    with pytest.raises(MarcadorInvalido):
+        servico.salvar_objecao(dados)
+    persistido = servico.salvar_objecao(dados, ids_dos_planos=["premium"])
+    assert persistido["status"] == "publicado"
 
 
 def test_listar_objecoes_delega_para_o_repositorio():
