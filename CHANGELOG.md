@@ -6,6 +6,9 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Adicionado
+- **Pedido explícito de humano encaminha para um corretor (issue #57, P9, decisão do dono):** nova intenção `dominio.intencao.Intencao.QUER_FALAR_COM_HUMANO` e novo motivo `dominio.decisao.MotivoHandoff.LEAD_PEDIU_HUMANO` — `dominio.politica.decidir` encaminha incondicionalmente, mesmo grau de `QUER_CONTRATAR` (issue #42), sem reaproveitar o motivo de "quero contratar" (são pedidos diferentes do lead). Texto ao lead reusa a mesma frase já aprovada para `LEAD_QUER_CONTRATAR` (decisão da coordenação: texto novo exigiria aprovação do dono, indisponível no momento desta frente) — os dois `case` de `aplicacao.servico_conversa._texto_da_decisao` apontam para uma única constante (LEI 11). `interfaces.painel.tela_fila_humana._DESCRICAO_MOTIVO` ganha a entrada correspondente (consequência mecânica do Enum, cobrada por `test_todo_motivohandoff_tem_descricao_registrada`). Nova invariante I-12 em `dominio/CONTRACT.md`. PR 1 de 2 da frente `status-conversa`; o PR 2 troca o botão "Falar com um corretor" do chat (issue #46/#62) para usar o motivo novo (#57)
+
 ### Corrigido
 - **README atualizado com o chat real do PR #62 (issue #15):** a rota `/` deixa de ser citada como
   placeholder — vira "chat guiado e determinístico" com as 5 rotas novas (`/api/planos`,
