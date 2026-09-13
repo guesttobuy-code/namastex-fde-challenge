@@ -7,7 +7,7 @@ arquivo antes de aceitar qualquer verde.
 
 | camada | onde roda | o que faz |
 |---|---|---|
-| **pre-commit** (máquina do autor) | `npm run full-check` via hook local | self-tests dos guards + `companion-red-green` + testes do projeto. **Pode ser pulado** com `--no-verify` — por isso existe a camada de cima |
+| **pre-commit** (máquina do autor) | `npm run precommit-check` via hook local | guards de produto (`secret-leak`, `import-boundaries`, `companion-red-green`, etc.) + testes do projeto. Self-tests dos guards e meta-guards (`guards:selftest*`, `guard-wiring`, `guards-catalog`, `guard-change-ritual`) rodam só no CI (issue #72) — `full-check` continua existindo com a lista completa, para rodar à mão. **Pode ser pulado** com `--no-verify` — por isso existe a camada de cima |
 | **GitHub Actions** (servidor) | `esteira.yml`, `auditoria-vigente.yml` | os portões do PR; o que é `required` está na branch protection, **lida da API** (`gh api repos/<repo>/branches/<base>/protection --jq '.required_status_checks.contexts[]'`), nunca de lista à mão |
 | **hooks do Claude** (máquina do dono) | `~/.claude/settings.json` → kit | contexto e disciplina de sessão (frente, memória, notebook) — **não são portão** |
 

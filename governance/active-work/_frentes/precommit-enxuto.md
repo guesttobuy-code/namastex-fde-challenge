@@ -10,7 +10,7 @@ session_title: "Pre-commit enxuto - chat 17"
 status: aberta
 opened_at: 2026-09-13T20:15:10.4693362-03:00
 last_seen: 2026-09-13T20:15:10.4693362-03:00
-pr: ""
+pr: "73"
 github_frente: "frente:precommit-enxuto"
 closed_at: ""
 ---
