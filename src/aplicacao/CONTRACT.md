@@ -221,3 +221,24 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 - 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`): a premissa "a #42 está
   OPEN" estava vencida (já mergeada em `fabddf1`) e o vocabulário de marcadores era curto demais e
   escrito à mão. Consertado no mesmo push que resolve B1/B3/R1-R5.
+
+---
+
+## Seção da issue #52 — `_texto_da_decisao` traduz o motivo também no ramo ENCERRAR (append)
+
+### O que esta frente acrescenta
+
+- Achado da auditoria de arquitetura (13/09/2026): com `encaminhar_lead_fora_do_padrao=False`, o
+  ramo `TipoDecisao.ENCERRAR` de `_texto_da_decisao` devolvia `resultado.motivo` **cru** da
+  `/quote`, sem passar pela tabela `_motivo_da_recusa_traduzido` (dono único, já usada no ramo
+  `ENCAMINHAR`/`RECUSA_REGRA_DE_ACEITACAO`). Decisão do dono (#41: "explica o motivo e encerra com
+  educação") pedia texto traduzido; o ramo simplesmente não usava a tradução que já existia.
+- Conserto: `ENCERRAR` passa a chamar a mesma `_motivo_da_recusa_traduzido`, com a frase aceita
+  pela coordenação (sem a parte do corretor — config desligada não tem encaminhamento):
+  `"Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: {motivo}."`
+- Nenhuma segunda tabela de tradução criada (LEI 11) — mesma função, segundo lugar de uso.
+
+### Decisões registradas
+
+- 2026-09-13 — issue #52, frase aceita pela coordenação sobre a Análise de impacto: deriva da
+  frase já aprovada pelo dono para `ENCAMINHAR` (#42), sem o trecho de encaminhamento a corretor.
