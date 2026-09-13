@@ -151,6 +151,13 @@ def _motivo_da_recusa_traduzido(motivo: str) -> str:
     return motivo[:-1] if motivo.endswith(".") else motivo
 
 
+# issue #57 (P9), decisão da coordenação (13/09/2026): "quero contratar" e "quero falar com um
+# atendente" mostram o MESMO texto ao lead — texto novo exigiria aprovação do dono, que não estava
+# disponível. Uma única constante para os dois `case` abaixo (LEI 11 — nunca duas strings iguais
+# copiadas à mão, que divergiriam no primeiro ajuste feito só numa delas).
+_TEXTO_ENCAMINHAMENTO_PARA_CORRETOR = "Logo um corretor vai entrar em contato para te dar todo o suporte."
+
+
 def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) -> str:
     match decisao.tipo:
         case TipoDecisao.COLETAR_INFORMACAO:
@@ -173,7 +180,11 @@ def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) ->
             match decisao.reason_code:
                 case MotivoHandoff.LEAD_QUER_CONTRATAR:
                     # Texto do dono (#41), ajustado na auditoria do PR #44 (R1: maiúscula e ponto).
-                    return "Logo um corretor vai entrar em contato para te dar todo o suporte."
+                    return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR
+                case MotivoHandoff.LEAD_PEDIU_HUMANO:
+                    # issue #57 (P9): mesmo texto de LEAD_QUER_CONTRATAR, decisão da coordenação —
+                    # texto ao lead exige aprovação do dono, indisponível no momento desta frente.
+                    return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR
                 case MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO:
                     motivo = _motivo_da_recusa_traduzido(resultado.motivo)
                     return (
@@ -230,6 +241,44 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
             multiplicadores=corpo.get("multiplicadores") if e_sucesso else None,
             carencia=_resumo_carencia(corpo) if e_sucesso else None,
             pro_rata=_valor_pro_rata(corpo) if e_sucesso else None,
+        )
+    )
+
+
+def registrar_pergunta_de_coleta(
+    trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str, *,
+    origem_do_texto: str, regra_aplicada: str = "coleta:pergunta",
+) -> None:
+    """Grava a pergunta que o agente fez durante a coleta (campo a campo ou texto livre) — pela
+    aplicacao, nunca da interface direto (issue #51/#55: dono único da escrita da trilha).
+
+    `regra_aplicada` tem default para o caminho campo a campo (pergunta fixa, sem regra por trás);
+    o caminho texto livre passa a sua própria (`portal_de_linguagem:extrair`, preservando o valor
+    que a trilha já gravava antes desta função existir)."""
+    trilha.registrar_evento(
+        MensagemEnviada(
+            evento="mensagem_enviada",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_enviada",
+            instante=_agora_iso(),
+            texto=texto,
+            decisao_id=f"dec_coleta_{indice}",
+            regra_aplicada=regra_aplicada,
+            origem_do_texto=origem_do_texto,
+        )
+    )
+
+
+def registrar_resposta_de_coleta(trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str) -> None:
+    """Grava a resposta que o lead deu durante a coleta — o texto REAL que ele escreveu, nunca um
+    resumo sintético (issue #51: hoje só o caminho texto-livre grava isto; campo a campo não grava nada)."""
+    trilha.registrar_evento(
+        MensagemRecebida(
+            evento="mensagem_recebida",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_recebida",
+            instante=_agora_iso(),
+            texto=texto,
         )
     )
 
@@ -302,6 +351,7 @@ def conduzir_conversa(
                     f"idade={estado.idade}; veiculo_ano={estado.veiculo_ano}; cep={estado.cep}; "
                     f"plano_id={estado.plano_id}; data_inicio={estado.data_inicio}"
                 ),
+                sender_role="sistema",
             )
         )
 

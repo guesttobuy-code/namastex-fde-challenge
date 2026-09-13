@@ -167,6 +167,45 @@ genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha del
 
 ---
 
+## Seção da issue #57 (P9, PR 1 de 2) — pedido explícito de humano (append)
+
+**Dono:** `src/dominio/intencao.py`, `src/dominio/decisao.py`, `src/dominio/politica.py` (mesmos
+arquivos da #42, acréscimo — nunca uma segunda lista escrita à mão).
+
+- `dominio.intencao.Intencao` ganha `QUER_FALAR_COM_HUMANO = "quer_falar_com_humano"`.
+- `dominio.decisao.MotivoHandoff` ganha `LEAD_PEDIU_HUMANO = "lead_pediu_humano"` — motivo PRÓPRIO,
+  nunca reaproveita `LEAD_QUER_CONTRATAR` (são pedidos diferentes do lead).
+- `dominio.politica.decidir` trata `QUER_FALAR_COM_HUMANO` como sinal explícito, mesmo grau de
+  `QUER_CONTRATAR`: incondicional, antes de `campos_faltantes`. Os dois sinais viraram
+  `_MOTIVO_POR_INTENT_EXPLICITO` (dict) + `_decisao_por_intent_explicito` — extraído do corpo de
+  `decidir` para manter a complexidade ciclomática sob o teto do `ruff` (C901), não por acréscimo
+  de regra. Ordem de inserção do dict = precedência, `QUER_CONTRATAR` primeiro (decisão da
+  coordenação, 13/09/2026) — mas `EstadoDaConversa.ultimo_intent` guarda um valor só, então os dois
+  nunca coexistem no mesmo turno hoje; a ordem documenta a precedência para o dia em que o dado
+  deixar de ser de valor único, não resolve um empate que hoje não existe.
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-14 | `politica.decidir` encaminha com `LEAD_PEDIU_HUMANO` sempre que `ultimo_intent == QUER_FALAR_COM_HUMANO`, mesmo sem cotação e mesmo com `campos_faltantes` não vazio | `tests/dominio/test_politica.py::test_quer_falar_com_humano_encaminha_mesmo_sem_resultado_de_cotacao` e `test_quer_falar_com_humano_tem_prioridade_sobre_campos_faltantes` |
+
+**Limite declarado:** "os dois sinais vindo juntos" (mencionado na decisão do dono) não é
+alcançável hoje por `EstadoDaConversa.ultimo_intent` (campo de valor único) — nenhum teste de
+"empate" foi escrito, porque seria sempre verde e não provaria nada real. Se um dia o lead puder
+carregar mais de um sinal explícito no mesmo turno (ex.: extração multi-intent do LLM), a
+precedência declarada aqui (`QUER_CONTRATAR` antes de `QUER_FALAR_COM_HUMANO`) já está no código,
+mas sem teste que a exercite de verdade.
+
+### Decisões registradas
+
+- 2026-09-13 — issue #57 (P9), decisão do dono: pedido explícito de humano ("quero falar com um
+  atendente") encaminha para "Aguardando corretor" (status), com motivo próprio no domínio.
+  Coordenação (13/09/2026): ordem do `if` e o limite declarado acima.
+- 2026-09-13 — renumerado I-12 → I-14 ao integrar `origin/main` (PR #62), que já tinha publicado
+  I-12/I-13 para `ContatoLead`/telefone internacional — mesma colisão de numeração por append
+  concorrente já documentada acima, resolvida do mesmo jeito (nunca duas seções com o mesmo número).
+
+---
+
 ## Seção da issue #68 (frente `robustez-quote-entrada`) — CEP sem hífen: normalização e rede de segurança no redator (append)
 
 **Dono:** `src/dominio/validacao.py` (função nova), `src/dominio/redator_pii.py` (padrão novo,
