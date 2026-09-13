@@ -123,6 +123,45 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 ---
 
+## Seção F13/#43 — `ServicoDeConhecimento` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `aplicacao.portas.repositorio_conhecimento.RepositorioDeConhecimento` — a porta de persistência
+  das fichas de objeção de preço.
+- `aplicacao.servico_conhecimento.ServicoDeConhecimento` — caso de uso que lista, lê e salva
+  fichas; delega a invariante do marcador para `dominio.ficha_objecao.FichaDeObjecao.publicar`,
+  nunca a reimplementa.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-9 | `ServicoDeConhecimento.salvar_objecao` só chama `FichaDeObjecao.publicar()` (e portanto só valida o marcador) quando `dados["status"] == "publicado"` — salvar rascunho nunca valida | `tests/aplicacao/test_servico_conhecimento.py::test_salvar_rascunho_nunca_valida_marcador` |
+| I-10 | Publicação recusada não persiste nada (a porta não é chamada) | `tests/aplicacao/test_servico_conhecimento.py::test_publicar_com_digito_fora_de_marcador_e_recusado_e_nada_e_persistido` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.repositorio_conhecimento.RepositorioDeConhecimento` — `Protocol` com
+  `listar_objecoes() -> list[dict]`, `obter_objecao(id: str) -> dict | None`,
+  `salvar_objecao(id: str, ficha: dict) -> None`.
+- `aplicacao.servico_conhecimento.ServicoDeConhecimento(repositorio).listar_objecoes() -> list[dict]`,
+  `.obter_objecao(id: str) -> dict | None`, `.salvar_objecao(dados: dict) -> dict`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Validar a forma do marcador (`dominio.ficha_objecao`) e persistir de verdade em disco
+  (`infra.repositorio_conhecimento_json`) — `aplicacao` só orquestra os dois.
+- A "Configuração comercial" (`ConfiguracaoComercial`, `encaminhar_lead_fora_do_padrao`) — fica
+  para PR seguinte, depois do merge da #42 (dono do tipo, LEI 11).
+
+### Decisões registradas
+
+- 2026-09-13 — Armazenamento e servidor decididos em ADR-0004 (JSON versionado + `wsgiref` da
+  stdlib, sem dependência nova).
+
+---
+
 ## Seção da issue #42 — `ConfiguracaoComercial` em `conduzir_conversa` (append, R2/#16)
 
 ### O que esta frente acrescenta
@@ -149,3 +188,31 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 - 2026-09-13 — issue #42 (decisão do dono, #41): ver `dominio/CONTRACT.md`, seção "Decisões
   registradas", para o texto completo da decisão de recusa configurável e "quero contratar".
+
+---
+
+## Seção F13/#43 — bloqueantes B2/B4 da auditoria do PR #45 (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `ServicoDeConhecimento.salvar_objecao` ganha o parâmetro `ids_dos_planos: Iterable[str] = ()`
+  (B2): a borda HTTP lê a `/planos` e repassa os ids aqui; o serviço só encaminha para
+  `dominio.ficha_objecao.FichaDeObjecao.publicar`, nunca fala com rede.
+- `aplicacao.servico_configuracao_comercial.ServicoDeConfiguracaoComercial` (B4): caso de uso que
+  lê/grava `dominio.configuracao_comercial.ConfiguracaoComercial` via
+  `aplicacao.portas.repositorio_configuracao_comercial.RepositorioDeConfiguracaoComercial` — a
+  ligação com o agente (CLI carregando e passando a `conduzir_conversa`) é de `interfaces.cli`,
+  documentada no CONTRACT de `interfaces`.
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.repositorio_configuracao_comercial.RepositorioDeConfiguracaoComercial` —
+  `Protocol` com `carregar() -> ConfiguracaoComercial`, `salvar(configuracao) -> None`.
+- `aplicacao.servico_configuracao_comercial.ServicoDeConfiguracaoComercial(repositorio).obter() -> ConfiguracaoComercial`,
+  `.salvar(*, encaminhar_lead_fora_do_padrao: bool) -> ConfiguracaoComercial`.
+
+### Decisões registradas
+
+- 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`): a premissa "a #42 está
+  OPEN" estava vencida (já mergeada em `fabddf1`) e o vocabulário de marcadores era curto demais e
+  escrito à mão. Consertado no mesmo push que resolve B1/B3/R1-R5.

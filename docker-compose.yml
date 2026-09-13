@@ -10,3 +10,24 @@ services:
       QUOTE_SLOW_SECONDS: "8"
       # QUOTE_SEED: "42"   # descomente p/ falhas reproduziveis
     restart: unless-stopped
+
+  app:
+    # Servidor local (issue #43, F13, ADR-0004): tela de edicao da base de conhecimento + painel
+    # estatico ja gerado. Sobe na mesma rede do compose que quote-api (nome do servico = hostname).
+    # QUOTE_SERVICE_URL (dono unico: infra/config.py) e' lida por infra.planos_http.buscar_planos
+    # para o vocabulario de marcadores por plano (achado B2 da auditoria do PR #45) -- sem isto o
+    # container tentava falar com localhost:8000 (ele mesmo) em vez de quote-api.
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      QUOTE_SERVICE_URL: "http://quote-api:8000"
+      CONHECIMENTO_DIR: "/app/conhecimento/objecoes"
+      CONFIGURACAO_COMERCIAL_ARQUIVO: "/app/conhecimento/configuracao_comercial.json"
+      PAINEL_DIR: "/app/painel-saida"
+    volumes:
+      # a edicao feita na tela vira alteracao visivel no git da maquina de quem testa
+      - ./conhecimento:/app/conhecimento
+    depends_on:
+      - quote-api
+    restart: unless-stopped

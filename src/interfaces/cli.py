@@ -26,10 +26,12 @@ from pathlib import Path
 from aplicacao.servico_conversa import conduzir_conversa, extrair_dados_da_mensagem, montar_estado
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import validacao
+from dominio.configuracao_comercial import ConfiguracaoComercial
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.eventos_trilha import MensagemEnviada, MensagemRecebida
 from dominio.redator_pii import redigir_texto
 from infra.adaptador_de_linguagem import criar_adaptador_de_linguagem
+from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
 from infra.cliente_quote import ClienteQuoteHTTP
 from infra.config import url_quote_service
 from infra.exportador_trilha import exportar_execucao
@@ -172,6 +174,8 @@ def rodar_conversa(
     portal=None,
     trilha: ServicoDeTrilha | None = None,
     portal_de_linguagem=None,
+    configuracao: ConfiguracaoComercial | None = None,
+    caminho_configuracao_comercial: Path | None = None,
 ) -> Path:
     """Ponto de entrada único da CLI: coleta, cota, decide, responde ou encaminha, e grava dois
     logs — a transcrição da conversa e o log estruturado da trilha (`infra.exportador_trilha`).
@@ -181,7 +185,13 @@ def rodar_conversa(
     `/quote` de verdade via `ClienteQuoteHTTP`. `trilha`, mesma ideia, para injetar um repositório
     em memória no teste — por padrão grava de verdade em `examples/trilha_<conversation_id>.jsonl`.
     `portal_de_linguagem` (issue #9, F6), se passado, troca `coletar_dados` (campo a campo) por
-    `coletar_dados_por_texto_livre`; por padrão é `None` e o comportamento de hoje não muda."""
+    `coletar_dados_por_texto_livre`; por padrão é `None` e o comportamento de hoje não muda.
+
+    `configuracao` (issue #43, F13, bloqueante B4 da auditoria do PR #45): decisão comercial da
+    seguradora sobre o que fazer com a recusa da `/quote` (`dominio.politica.decidir`). Por padrão
+    `None` — carrega de verdade de `conhecimento/configuracao_comercial.json` (a mesma que a tela
+    de edição grava); `caminho_configuracao_comercial` é o ponto de injeção do teste para essa
+    carga, sem precisar injetar `configuracao` direto."""
     transcricao = _Transcricao()
     conversation_id = f"conv-{uuid.uuid4().hex[:8]}"
     transcricao.emitir(f"=== Agente de cotação — conversa {conversation_id} ===")
@@ -204,9 +214,13 @@ def rodar_conversa(
     if portal is None:
         portal = ClienteQuoteHTTP(base_url or url_quote_service())
 
+    if configuracao is None:
+        caminho_config = caminho_configuracao_comercial or (RAIZ / "conhecimento" / "configuracao_comercial.json")
+        configuracao = RepositorioDeConfiguracaoComercialJSON(caminho_config).carregar()
+
     transcricao.emitir()
     transcricao.emitir("Consultando a /quote...")
-    turno = conduzir_conversa(portal, estado, trilha=trilha)
+    turno = conduzir_conversa(portal, estado, trilha=trilha, configuracao=configuracao)
 
     transcricao.emitir()
     transcricao.emitir(f"decisão: {turno.decisao.tipo.value}"

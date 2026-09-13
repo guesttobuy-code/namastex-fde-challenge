@@ -137,6 +137,45 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 ---
 
+## Seção F13/#43 — `RepositorioDeConhecimentoJSON` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON` — adaptador real da porta
+  `RepositorioDeConhecimento`: um arquivo JSON por ficha em `conhecimento/objecoes/<id>.json`
+  (ADR-0004).
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria` — dublê determinístico,
+  mesma interface, sem tocar disco.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-15 | `id` que não bate com o formato de slug seguro (`_ID_VALIDO`) é recusado nas duas classes antes de tocar o dicionário/disco — nenhum `id` escapa de `conhecimento/objecoes/` | `tests/infra/test_repositorio_conhecimento_json.py::test_id_fora_do_formato_seguro_e_recusado_no_disco` |
+| I-16 | `RepositorioDeConhecimentoMemoria` nunca devolve a referência interna — leitura é sempre cópia | `tests/infra/test_repositorio_conhecimento_json.py::test_duble_em_memoria_devolve_copia_nao_a_referencia_interna` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON(diretorio: Path)` — implementa
+  `RepositorioDeConhecimento`.
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria()` — dublê determinístico.
+
+### O que NÃO é responsabilidade deste módulo
+
+- Validar o marcador da resposta orientada (`dominio.ficha_objecao`) — este módulo só persiste e
+  lê o `dict` que recebe.
+
+### Decisões registradas
+
+- 2026-09-13 — Formato JSON legível (não JSONL), um arquivo por ficha: cada ficha é uma unidade
+  editável e revisável isoladamente no `git diff` — diferente da trilha (append-only, uma linha por
+  evento), aqui cada publicação SUBSTITUI o arquivo (ADR-0004).
+- 2026-09-13 — `I-13`/`I-14` já estavam em uso pela seção seguinte (issue #42, mergeada primeiro em
+  `main`) quando esta branch atualizou — renumerado para `I-15`/`I-16` para não colidir (LEI 11: a
+  numeração corrida deste CONTRACT é o mesmo tipo de recurso compartilhado que um ADR).
+
+---
+
 ## Seção da issue #42 — `intent` vira `enum` no esquema do OpenRouter (fronteira ampliada pela coordenação)
 
 ### O que esta issue acrescenta (append, R2/#16)
@@ -159,3 +198,33 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 - 2026-09-13 — a fronteira desta issue (#42) foi ampliada pela coordenação para cobrir este arquivo
   (F6/#9 está mergeada e sem frente ativa) — ver comentário de auditoria no PR #44, bloqueante B1.
+
+---
+
+## Seção F13/#43 — bloqueantes B2/B4 da auditoria do PR #45 (append, R2/#16)
+
+### O que esta frente acrescenta
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]` (B2): extrai os ids de
+  `buscar_planos()` — `None` (serviço fora do ar) devolve tupla vazia, nunca um id inventado. Não
+  duplica o parsing da forma da `/planos`: `tela_regras.py` já lia `planos.get("planos", [])`
+  direto (LEI 11 — este é o segundo lugar que precisava do mesmo shape, então vira função).
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON`/
+  `RepositorioDeConfiguracaoComercialMemoria` (B4): adaptador real e dublê da porta
+  `RepositorioDeConfiguracaoComercial`, mesmo molde de `RepositorioDeConhecimentoJSON`. Arquivo
+  ausente = `ConfiguracaoComercial()` (padrão do dono), nunca falha.
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.planos_http.ids_dos_planos(dados: dict | None) -> tuple[str, ...]`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialJSON(caminho: Path)`
+  — implementa `RepositorioDeConfiguracaoComercial`.
+- `infra.repositorio_configuracao_comercial_json.RepositorioDeConfiguracaoComercialMemoria(configuracao=None)`
+  — dublê determinístico.
+
+### Decisões registradas
+
+- 2026-09-13 — Achados B2 e B4 da auditoria do PR #45 (HEAD `9ee1135`), corrigidos no mesmo push:
+  vocabulário de marcadores agora deriva de `PrecoCotado` + ids reais da `/planos`, e a
+  configuração comercial passa a ter adaptador real em vez de ficar fora do escopo com premissa
+  vencida (a #42 já tinha mergeado antes da análise original desta frente).
