@@ -151,8 +151,8 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 
 | # | invariante | teste que a cobre |
 |---|---|---|
-| I-13 | `id` que não bate com o formato de slug seguro (`_ID_VALIDO`) é recusado nas duas classes antes de tocar o dicionário/disco — nenhum `id` escapa de `conhecimento/objecoes/` | `tests/infra/test_repositorio_conhecimento_json.py::test_id_fora_do_formato_seguro_e_recusado_no_disco` |
-| I-14 | `RepositorioDeConhecimentoMemoria` nunca devolve a referência interna — leitura é sempre cópia | `tests/infra/test_repositorio_conhecimento_json.py::test_duble_em_memoria_devolve_copia_nao_a_referencia_interna` |
+| I-15 | `id` que não bate com o formato de slug seguro (`_ID_VALIDO`) é recusado nas duas classes antes de tocar o dicionário/disco — nenhum `id` escapa de `conhecimento/objecoes/` | `tests/infra/test_repositorio_conhecimento_json.py::test_id_fora_do_formato_seguro_e_recusado_no_disco` |
+| I-16 | `RepositorioDeConhecimentoMemoria` nunca devolve a referência interna — leitura é sempre cópia | `tests/infra/test_repositorio_conhecimento_json.py::test_duble_em_memoria_devolve_copia_nao_a_referencia_interna` |
 
 ### Entradas e saídas públicas acrescentadas
 
@@ -170,3 +170,31 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - 2026-09-13 — Formato JSON legível (não JSONL), um arquivo por ficha: cada ficha é uma unidade
   editável e revisável isoladamente no `git diff` — diferente da trilha (append-only, uma linha por
   evento), aqui cada publicação SUBSTITUI o arquivo (ADR-0004).
+- 2026-09-13 — `I-13`/`I-14` já estavam em uso pela seção seguinte (issue #42, mergeada primeiro em
+  `main`) quando esta branch atualizou — renumerado para `I-15`/`I-16` para não colidir (LEI 11: a
+  numeração corrida deste CONTRACT é o mesmo tipo de recurso compartilhado que um ADR).
+
+---
+
+## Seção da issue #42 — `intent` vira `enum` no esquema do OpenRouter (fronteira ampliada pela coordenação)
+
+### O que esta issue acrescenta (append, R2/#16)
+
+- `infra.adaptador_de_linguagem._ESQUEMA_EXTRACAO["properties"]["intent"]` ganha `enum`, derivado de
+  `dominio.intencao.Intencao` (`_VALORES_DE_INTENT = [m.value for m in Intencao] + [None]`) — nunca
+  uma segunda lista escrita à mão (LEI 11). Achado da auditoria do PR #44: com `intent` como string
+  livre, o modelo real inventava grafias ("contratar seguro", "fechar") que a conversão de
+  `aplicacao.servico_conversa` para `Intencao` descartava em silêncio — 0 de 5 frases explícitas de
+  "quero contratar" chegavam à política.
+- `_PROMPT_SISTEMA` ganha uma frase dizendo quando usar `informar_dados` e `quer_contratar`.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-13 | O `enum` de `intent` no esquema é exatamente `{m.value for m in Intencao} ∪ {None}` — um valor novo no Enum aparece aqui sem editar esta linha, e nenhuma segunda lista diverge dele | `tests/infra/test_adaptador_de_linguagem.py::test_enum_de_intent_no_esquema_bate_com_intencao` |
+
+### Decisões registradas
+
+- 2026-09-13 — a fronteira desta issue (#42) foi ampliada pela coordenação para cobrir este arquivo
+  (F6/#9 está mergeada e sem frente ativa) — ver comentário de auditoria no PR #44, bloqueante B1.

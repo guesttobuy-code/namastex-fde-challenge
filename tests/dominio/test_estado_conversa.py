@@ -3,6 +3,7 @@ import dataclasses
 import pytest
 
 from dominio.estado_conversa import EstadoDaConversa
+from dominio.intencao import Intencao
 
 
 def test_estado_guarda_os_fatos_coletados():
@@ -15,7 +16,7 @@ def test_estado_guarda_os_fatos_coletados():
         data_inicio="2026-10-01",
         campos_faltantes=frozenset(),
         ambiguidades=(),
-        ultimo_intent="cotar",
+        ultimo_intent=Intencao.INFORMAR_DADOS,
         status="coletando",
     )
     assert estado.conversation_id == "c1"

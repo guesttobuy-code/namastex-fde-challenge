@@ -22,6 +22,8 @@ class MotivoHandoff(str, Enum):
     QUOTE_INDISPONIVEL = "quote_indisponivel"
     QUOTE_TIMEOUT = "quote_timeout"
     QUOTE_ERRO_DE_PAYLOAD = "quote_erro_de_payload"
+    RECUSA_REGRA_DE_ACEITACAO = "recusa_regra_de_aceitacao"
+    LEAD_QUER_CONTRATAR = "lead_quer_contratar"
 
 
 @dataclass(frozen=True)
