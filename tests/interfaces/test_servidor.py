@@ -401,6 +401,39 @@ def test_chat_cotar_sem_conversation_id_e_400(app):
     assert status == "400 Bad Request"
 
 
+def test_chat_cotar_com_conversation_id_de_path_traversal_e_recusado_sem_escrever_fora_da_trilha(tmp_path):
+    """Achado de segurança (revisão automática, 13/09/2026): `conversation_id` vira nome de arquivo
+    (`trilha_<conversation_id>.jsonl`) sem validação — um id tipo `../../segredo` escrevia fora de
+    `trilha_dir`. Prova pelas DUAS pontas: a resposta é 400 (nunca chega a montar o repositório) E
+    nenhum arquivo aparece fora de `trilha_dir` de verdade."""
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    trilha_dir.mkdir()
+    alvo_fora = tmp_path / "segredo.jsonl"
+    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+
+    status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
+        "conversation_id": "../segredo", "idade": 30, "veiculo_ano": 2020, "cep": "01310-100",
+    })
+
+    assert status == "400 Bad Request"
+    assert "conversation_id" in json.loads(corpo)["erro"]
+    assert not alvo_fora.exists()
+    assert list(trilha_dir.iterdir()) == []
+
+
+def test_chat_contratar_com_conversation_id_de_path_traversal_e_recusado(tmp_path):
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    trilha_dir.mkdir()
+    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+
+    status, _, _ = _chamar(app, "POST", "/api/chat/contratar", {"conversation_id": "..\\..\\segredo"})
+
+    assert status == "400 Bad Request"
+    assert list(trilha_dir.iterdir()) == []
+
+
 def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     painel_dir = tmp_path / "painel-saida"
     trilha_dir = tmp_path / "trilha"

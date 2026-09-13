@@ -36,6 +36,7 @@ import dataclasses
 import json
 import mimetypes
 import os
+import re
 from pathlib import Path
 from wsgiref.simple_server import make_server
 
@@ -62,6 +63,27 @@ from interfaces.painel.gerar import gerar_paineis
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _PAISES_JSON = _RAIZ / "docs" / "design" / "paises.json"
+
+# Achado de segurança (revisão automática, 13/09/2026): `conversation_id` chega pelo corpo do POST
+# — HTTP, não confiável — e vira nome de arquivo da trilha em `_responder_chat_cotar`/`_contratar`
+# (`trilha_dir / f"trilha_{conversation_id}.jsonl"`). Sem validar o formato, um `conversation_id`
+# tipo "../../etc/cron.d/x" escreve/lê fora de `trilha_dir` (path traversal). Mesmo regex de
+# `infra.repositorio_contato_json._CONVERSATION_ID_VALIDO` (LEI 11: mesma técnica de validação de
+# nome de arquivo, dono duplicado de propósito nas 3 bordas que recebem o id — mesmo raciocínio já
+# registrado ali, não uma regra de negócio nova).
+_CONVERSATION_ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def _conversation_id_ou_400(dados: dict) -> tuple[str, None] | tuple[None, tuple]:
+    """`(conversation_id, None)` se válido; `(None, resposta_400)` se ausente ou fora do formato
+    seguro — quem chama devolve a resposta direto (`return resposta` quando o segundo item não é
+    `None`)."""
+    conversation_id = dados.get("conversation_id")
+    if not conversation_id or not isinstance(conversation_id, str):
+        return None, _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
+    if not _CONVERSATION_ID_VALIDO.match(conversation_id):
+        return None, _json("400 Bad Request", {"erro": "conversation_id fora do formato seguro"})
+    return conversation_id, None
 
 # ADR-0005, decisão 1 (ver docstring do módulo): estado da conversa entre turnos, chave
 # `conversation_id`, em memória do PROCESSO — não é um singleton escondido, é este dict, explícito.
@@ -227,9 +249,9 @@ def _responder_chat_contato(servico_contato: ServicoDeContato, environ, metodo: 
     dados = _ler_corpo_json(environ)
     if dados is None:
         return _json("400 Bad Request", {"erro": "corpo não é JSON válido"})
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
+    conversation_id, resposta_erro = _conversation_id_ou_400(dados)
+    if resposta_erro is not None:
+        return resposta_erro
     try:
         contato = servico_contato.salvar(
             conversation_id, nome=dados.get("nome"), whatsapp=dados.get("whatsapp"), email=dados.get("email")
@@ -327,9 +349,9 @@ def _responder_chat_cotar(
     dados = _ler_corpo_json(environ)
     if dados is None:
         return _json("400 Bad Request", {"erro": "corpo não é JSON válido"})
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
+    conversation_id, resposta_erro = _conversation_id_ou_400(dados)
+    if resposta_erro is not None:
+        return resposta_erro
 
     estado = montar_estado(conversation_id, _dados_mesclados(conversation_id, dados))
 
@@ -365,9 +387,9 @@ def _responder_chat_contratar(
     dados = _ler_corpo_json(environ)
     if dados is None:
         return _json("400 Bad Request", {"erro": "corpo não é JSON válido"})
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
+    conversation_id, resposta_erro = _conversation_id_ou_400(dados)
+    if resposta_erro is not None:
+        return resposta_erro
 
     estado = _ESTADOS_EM_MEMORIA.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
     estado = dataclasses.replace(estado, ultimo_intent=Intencao.QUER_CONTRATAR)
