@@ -16,7 +16,7 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 | # | invariante | teste que a cobre |
 |---|---|---|
 | I-1 | `ServicoDeTrilha.registrar_evento` nunca deixa um campo textual não redigido chegar ao `RepositorioDeTrilha` | `tests/aplicacao/test_servico_trilha.py` |
-| I-2 | `aplicacao` nunca importa `infra` nem `interfaces` (só declara a porta; quem implementa é `infra`) | `tests/arquitetura/test_fronteiras.py` |
+| I-2 | `aplicacao` nunca importa `infra` nem `interfaces` (só declara a porta; quem implementa é `infra`) | `tests/arquitetura/test_fronteiras.py`, contrato `aplicacao-nao-importa-infra-nem-interfaces` no `.importlinter` (achado #50, emenda ao ADR-0001: antes desta linha o contrato citado aqui não existia na máquina) |
 
 ## Entradas e saídas públicas
 
@@ -145,8 +145,9 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 - `aplicacao.portas.repositorio_conhecimento.RepositorioDeConhecimento` — `Protocol` com
   `listar_objecoes() -> list[dict]`, `obter_objecao(id: str) -> dict | None`,
   `salvar_objecao(id: str, ficha: dict) -> None`.
-- `aplicacao.servico_conhecimento.ServicoDeConhecimento(repositorio).listar_objecoes() -> list[dict]`,
-  `.obter_objecao(id: str) -> dict | None`, `.salvar_objecao(dados: dict) -> dict`.
+- `aplicacao.servico_conhecimento.ServicoDeConhecimento(repositorio, agora: Callable[[], str] = <relógio real>).listar_objecoes() -> list[dict]`,
+  `.obter_objecao(id: str) -> dict | None`, `.salvar_objecao(dados: dict) -> dict` (`agora` acrescentado na
+  #53 — aditivo, com default de produção; todo chamador existente continua funcionando sem passar o valor).
 
 ### O que NÃO é responsabilidade desta seção
 
@@ -159,6 +160,10 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 - 2026-09-13 — Armazenamento e servidor decididos em ADR-0004 (JSON versionado + `wsgiref` da
   stdlib, sem dependência nova).
+- 2026-09-13 — issue #53 (achado #49, decisão da coordenação): `dominio.ficha_objecao.FichaDeObjecao.publicar`
+  para de ler `datetime.now` e passa a exigir `instante` como parâmetro; `ServicoDeConhecimento` ganha
+  o relógio injetável `agora` e o fornece na chamada. Porta `Relogio` formal (`Protocol` + adaptador)
+  fica fora de escopo — ver `dominio/CONTRACT.md`, seção F13/#43.
 
 ---
 

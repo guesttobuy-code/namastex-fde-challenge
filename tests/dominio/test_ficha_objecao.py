@@ -17,6 +17,9 @@ from dominio.ficha_objecao import (
 )
 
 
+_INSTANTE = "2026-09-13T12:00:00+00:00"
+
+
 def _ficha(resposta_orientada: str, **kw) -> FichaDeObjecao:
     base = dict(
         id="preco-alto",
@@ -109,7 +112,7 @@ def test_argumentos_dentro_da_lista_aprovada_validam():
 
 def test_publicar_ficha_valida_muda_status_e_primeira_versao_e_1():
     rascunho = _ficha("Posso ajustar a franquia para {{franquia}}.", status="rascunho", versao=0)
-    publicada = rascunho.publicar()
+    publicada = rascunho.publicar(_INSTANTE)
     assert publicada.status == "publicado"
     assert publicada.versao == 1  # achado R3 — a primeira publicação nunca é 2
     assert publicada.atualizado_em != ""
@@ -119,14 +122,14 @@ def test_publicar_ficha_valida_muda_status_e_primeira_versao_e_1():
 
 def test_publicar_de_novo_incrementa_a_partir_da_versao_ja_publicada():
     ja_publicada = _ficha("Posso ajustar a franquia para {{franquia}}.", status="publicado", versao=1)
-    republicada = ja_publicada.publicar()
+    republicada = ja_publicada.publicar(_INSTANTE)
     assert republicada.versao == 2
 
 
 def test_publicar_ficha_com_digito_fora_de_marcador_e_recusado_e_nao_gera_nova_versao():
     rascunho = _ficha("O plano custa R$ 199,90.", versao=0)
     with pytest.raises(MarcadorInvalido):
-        rascunho.publicar()
+        rascunho.publicar(_INSTANTE)
     assert rascunho.status == "rascunho"
     assert rascunho.versao == 0
 
@@ -134,15 +137,15 @@ def test_publicar_ficha_com_digito_fora_de_marcador_e_recusado_e_nao_gera_nova_v
 def test_publicar_com_marcador_de_plano_exige_o_id_do_plano_na_chamada():
     rascunho = _ficha("Franquia do Premium: {{franquia_premium}}.")
     with pytest.raises(MarcadorInvalido):
-        rascunho.publicar()  # sem ids_dos_planos, o marcador por plano não existe
-    rascunho.publicar(["premium"])  # não levanta
+        rascunho.publicar(_INSTANTE)  # sem ids_dos_planos, o marcador por plano não existe
+    rascunho.publicar(_INSTANTE, ["premium"])  # não levanta
 
 
 @pytest.mark.parametrize("tentativas", [None, 0, 6, -1])
 def test_tentativas_vazia_ou_fora_da_faixa_e_recusada_ao_publicar(tentativas):
     rascunho = _ficha("Sem números aqui.", tentativas_antes_do_corretor=tentativas)
     with pytest.raises(ValueError, match="tentativas antes do corretor"):
-        rascunho.publicar()
+        rascunho.publicar(_INSTANTE)
 
 
 def test_tentativas_ausente_no_de_dict_vira_none_nunca_um_numero_fabricado():
@@ -154,4 +157,19 @@ def test_tentativas_ausente_no_de_dict_vira_none_nunca_um_numero_fabricado():
 def test_publicar_sem_argumento_selecionado_e_recusado():
     rascunho = _ficha("Sem números aqui.", argumentos_permitidos=())
     with pytest.raises(ValueError, match="Selecione ao menos um argumento"):
-        rascunho.publicar()
+        rascunho.publicar(_INSTANTE)
+
+
+# ── #53: dominio não lê o relógio do sistema ────────────────────────────────
+
+
+def test_publicar_recebe_instante_como_parametro_nunca_le_o_relogio():
+    rascunho = _ficha("Posso ajustar a franquia para {{franquia}}.", status="rascunho", versao=0)
+    publicada = rascunho.publicar(_INSTANTE)
+    assert publicada.atualizado_em == _INSTANTE
+
+
+def test_publicar_exige_instante_explicito_sem_default():
+    rascunho = _ficha("Posso ajustar a franquia para {{franquia}}.", status="rascunho", versao=0)
+    with pytest.raises(TypeError):
+        rascunho.publicar()  # type: ignore[call-arg]
