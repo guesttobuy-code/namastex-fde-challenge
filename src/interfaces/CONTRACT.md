@@ -133,3 +133,32 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   devolveu, nunca calcula nem reformata valor monetário.
 - Responder com o LLM/base de conhecimento — fora de escopo (declarado na issue #46), o chat é
   guiado e determinístico de propósito.
+
+---
+
+## Seção das issues #67/#68/#69 (frente `robustez-quote-entrada`) — validação de fronteira e resposta não-JSON (append)
+
+### O que esta frente acrescenta
+
+- `servidor._responder_chat_cotar` (#68): CEP fora do formato (`abc`, 7 ou 9 dígitos) é recusado
+  com 400 ANTES de chegar a `montar_estado` — usa `dominio.validacao.normalizar_cep`, a mesma
+  função que o `aplicacao.servico_conversa.montar_estado` já usa (dono único, nunca uma segunda
+  regex na borda HTTP).
+- `servidor._responder_salvar_configuracao` (#69): `PUT /api/configuracao-comercial` recusa com
+  400 qualquer valor de `encaminhar_lead_fora_do_padrao` que não seja `bool` JSON de verdade —
+  `bool("nao")` é `True`, então mandar `"nao"` LIGAVA a configuração em silêncio (o oposto do
+  pedido). `true`/`false` JSON continuam aceitos sem mudança.
+- `servidor._responder_ler_ficha` (#69): `GET /api/objecoes/<id>` com id fora do formato seguro
+  (inclusive tentativa de path traversal, já BLOQUEADA antes de qualquer leitura de arquivo) passa
+  a devolver 400 em vez de 500 — o `ValueError` de `_validar_id` (dono: `infra.repositorio_
+  conhecimento_json`) já era tratado no `PUT`, faltava no `GET`.
+- `interfaces/chat/_corpo.html` (#67): `cotar()` e `contratar()` tinham `await resposta.json()`
+  FORA do `try` de rede — uma resposta com corpo não-JSON (o cenário que motivou o #67, antes do
+  conserto do backend) travava o card em "Consultando…"/"Um momento…" para sempre. Agora o parse
+  do corpo está dentro do mesmo `try`, com o mesmo tratamento visível de falha e o botão "Tentar de
+  novo" que o erro de rede já usava.
+
+### Decisões registradas
+
+- 2026-09-13 — decisão da coordenação: os 3 achados de validação (#67 JS, #68 CEP na rota, #69
+  configuração/ficha) entram juntos nesta frente, mesmo módulo de fronteira HTTP, mesmo PR.

@@ -164,3 +164,32 @@ genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha del
 - 2026-09-13 — renumerado I-11/I-12 → I-12/I-13 ao integrar `origin/main` (PR #61), que já tinha
   publicado I-11 para `FichaDeObjecao.publicar`/relógio — colisão de numeração por append
   concorrente em duas frentes, resolvida no merge (nunca duas seções com o mesmo número).
+
+---
+
+## Seção da issue #68 (frente `robustez-quote-entrada`) — CEP sem hífen: normalização e rede de segurança no redator (append)
+
+**Dono:** `src/dominio/validacao.py` (função nova), `src/dominio/redator_pii.py` (padrão novo,
+acréscimo à seção da F4, sem editar nenhuma linha dela).
+
+- `dominio.validacao.normalizar_cep(cep: str | None) -> str | None` — devolve o CEP em
+  `#####-###` quando `cep` bate com o mesmo formato que `cep_valido` já aceita (com ou sem hífen);
+  `None` caso contrário. Dono único de "o que é CEP válido" e "qual o formato normalizado" (LEI
+  11): antes desta função, `cep_valido` aceitava CEP sem hífen mas nada normalizava esse valor
+  para o único formato que `redator_pii` sabe mascarar, e ele seguia em claro na trilha.
+- `redator_pii._PADRAO_CEP_SEM_SEPARADOR_ROTULADO` — rede de segurança para CEP de 8 dígitos sem
+  separador em texto LIVRE (`"meu cep e 01310100"`): exige o RÓTULO "cep" a até 15 caracteres
+  não-dígito de distância dos 8 dígitos — nunca 8 dígitos soltos, que mascarariam telefone/id sem
+  relação com CEP. Limite declarado: `"CEP01310100"` (zero separador) não bate, porque `\b` entre
+  "cep" e um dígito colado não é fronteira de palavra — não medido em nenhuma fixture/dataset real.
+
+| # | invariante | teste que a cobre | exceção |
+|---|---|---|---|
+| I-15 | `normalizar_cep` devolve `#####-###` para qualquer CEP que `cep_valido` aceite (com ou sem hífen), e `None` para qualquer CEP que `cep_valido` recuse — as duas funções nunca divergem sobre o mesmo valor | `tests/dominio/test_validacao.py::test_normalizar_cep` | — |
+
+### Decisões registradas
+
+- 2026-09-13 — decisão da coordenação sobre o ponto em aberto da Análise de impacto: "as duas
+  coisas" — normalizar na fronteira (`aplicacao.servico_conversa.montar_estado`, ver
+  `aplicacao/CONTRACT.md`) E manter a rede de segurança rotulada no redator, para cobrir texto
+  livre do lead que a normalização de campo estruturado não alcança.

@@ -283,3 +283,22 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 - 2026-09-13 — ADR-0005: contato fora do git, um arquivo por lead — decisão de arquitetura das 3
   tratadas no ADR (estado entre turnos, painel regenerado por evento, contato fora do git).
+
+---
+
+## Seção da issue #68 (frente `robustez-quote-entrada`) — CEP normalizado em `montar_estado` (append)
+
+### O que esta frente acrescenta
+
+- `aplicacao.servico_conversa.montar_estado` passa o CEP recebido por `dominio.validacao.
+  normalizar_cep` ANTES de gravar em `EstadoDaConversa` e antes de calcular
+  `campos_obrigatorios_faltantes` — um CEP sem hífen vira `#####-###` (o único formato que
+  `dominio.redator_pii` sabe mascarar); um CEP inválido vira `None`, e `campos_obrigatorios_
+  faltantes` volta a pedir o campo ao lead (em vez de deixar um valor sem forma seguir para a
+  `/quote` sem o agravo regional). Dono único do formato (LEI 11): nenhuma segunda regex aqui.
+
+### Decisões registradas
+
+- 2026-09-13 — decisão da coordenação sobre o ponto em aberto da Análise de impacto (#68): "as
+  duas coisas" — normalizar na fronteira (aqui) E manter a rede de segurança rotulada no redator
+  (`dominio/CONTRACT.md`), para cobrir texto livre do lead que este ponto não alcança.
