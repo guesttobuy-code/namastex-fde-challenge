@@ -92,3 +92,17 @@ def test_quer_contratar_tem_prioridade_sobre_campos_faltantes():
     """Confirmado pelo dono (#42): a intenção não espera dado completo."""
     estado = _estado(campos_faltantes=frozenset({"cep"}), ultimo_intent=Intencao.QUER_CONTRATAR)
     assert decidir(estado, None) == Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.LEAD_QUER_CONTRATAR)
+
+
+def test_quer_falar_com_humano_encaminha_mesmo_sem_resultado_de_cotacao():
+    """issue #57 (P9), decisão do dono: pedido explícito de humano é sinal explícito do lead,
+    mesmo grau de QUER_CONTRATAR — incondicional."""
+    estado = _estado(ultimo_intent=Intencao.QUER_FALAR_COM_HUMANO)
+    assert decidir(estado, None) == Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.LEAD_PEDIU_HUMANO)
+
+
+def test_quer_falar_com_humano_tem_prioridade_sobre_campos_faltantes():
+    """Espelha test_quer_contratar_tem_prioridade_sobre_campos_faltantes (#57, P9): a intenção não
+    espera dado completo."""
+    estado = _estado(campos_faltantes=frozenset({"cep"}), ultimo_intent=Intencao.QUER_FALAR_COM_HUMANO)
+    assert decidir(estado, None) == Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.LEAD_PEDIU_HUMANO)

@@ -4,6 +4,11 @@ rotas da API de fichas, da configuração comercial (B4), a tela de edição, o 
 desde a issue #46 (PR 2 de 2), o chat guiado ligado ao agente real; nunca decide (só chama
 `aplicacao.servico_conhecimento`/`servico_configuracao_comercial`/`servico_conversa`/
 `servico_contato`)."""
+# catraca-reduz-de-proposito: issue #58 (frente `ia-responde`) moveu os 5 testes de
+# `/api/chat/responder` para `tests/interfaces/test_rotas_resposta_orientada.py` — o handler
+# correspondente (`responder_chat_responder`) foi extraído de `interfaces.servidor` para
+# `interfaces.rotas_resposta_orientada` (mesmo motivo: `file-loc-ceiling`). Nenhum caso de teste
+# foi apagado, só mudou de arquivo.
 from __future__ import annotations
 
 import json

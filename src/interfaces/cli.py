@@ -23,12 +23,17 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aplicacao.servico_conversa import conduzir_conversa, extrair_dados_da_mensagem, montar_estado
+from aplicacao.servico_conversa import (
+    conduzir_conversa,
+    extrair_dados_da_mensagem,
+    montar_estado,
+    registrar_pergunta_de_coleta,
+    registrar_resposta_de_coleta,
+)
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import validacao
 from dominio.configuracao_comercial import ConfiguracaoComercial
 from dominio.estado_conversa import EstadoDaConversa
-from dominio.eventos_trilha import MensagemEnviada, MensagemRecebida
 from dominio.redator_pii import redigir_texto
 from infra.adaptador_de_linguagem import criar_adaptador_de_linguagem
 from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
@@ -48,21 +53,23 @@ class _Transcricao:
     sintético tratado como sensível, `docs/PRIVACIDADE.md`), porque este log também é commitado."""
 
     def __init__(self) -> None:
-        self._linhas: list[str] = []
+        self._linhas: list[tuple[str, bool]] = []
 
-    def emitir(self, linha: str = "") -> None:
+    def emitir(self, linha: str = "", *, redigir: bool = True) -> None:
         print(linha)
-        self._linhas.append(linha)
+        self._linhas.append((linha, redigir))
 
     def salvar(self, caminho: Path) -> None:
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        redigido = "\n".join(redigir_texto(linha) for linha in self._linhas)
+        redigido = "\n".join(
+            redigir_texto(linha) if deve_redigir else linha for linha, deve_redigir in self._linhas
+        )
         caminho.write_text(redigido + "\n", encoding="utf-8")
 
 
 def _perguntar(transcricao: _Transcricao, prompt: str, *, obrigatorio: bool, valido=None, entrada=input) -> str | None:
     while True:
-        transcricao.emitir(prompt)
+        transcricao.emitir(prompt, redigir=False)
         resposta = entrada().strip()
         transcricao.emitir(f"> {resposta}" if resposta else "> (em branco)")
         if not resposta:
@@ -76,22 +83,46 @@ def _perguntar(transcricao: _Transcricao, prompt: str, *, obrigatorio: bool, val
         return resposta
 
 
-def coletar_dados(transcricao: _Transcricao, entrada=input) -> dict:
+def _perguntar_e_registrar(
+    transcricao: _Transcricao, conversation_id: str, indice: int, prompt: str, trilha: ServicoDeTrilha | None, *,
+    obrigatorio: bool, valido=None, entrada=input,
+) -> str | None:
+    """Envolve `_perguntar` com o registro na trilha (issue #51/#55): a pergunta ANTES de
+    perguntar, a resposta REAL do lead DEPOIS — pela `aplicacao`, nunca `trilha.registrar_evento`
+    direto daqui."""
+    if trilha is not None:
+        registrar_pergunta_de_coleta(trilha, conversation_id, indice, prompt, origem_do_texto="coleta_deterministica")
+    resposta = _perguntar(transcricao, prompt, obrigatorio=obrigatorio, valido=valido, entrada=entrada)
+    if trilha is not None:
+        registrar_resposta_de_coleta(trilha, conversation_id, indice, resposta if resposta is not None else "")
+    return resposta
+
+
+def coletar_dados(
+    transcricao: _Transcricao, conversation_id: str, entrada=input, trilha: ServicoDeTrilha | None = None
+) -> dict:
     """Pergunta os campos um a um, em ordem fixa (sem LLM — política determinística). idade,
     veiculo_ano e cep são obrigatórios (`dominio.validacao.campos_obrigatorios_faltantes`);
-    plano_id e data_inicio são opcionais."""
-    idade = _perguntar(transcricao, "Qual a sua idade?", obrigatorio=True, entrada=entrada)
-    veiculo_ano = _perguntar(transcricao, "Ano do veículo?", obrigatorio=True, entrada=entrada)
-    cep = _perguntar(
-        transcricao, "Qual o seu CEP? (formato 00000-000)", obrigatorio=True,
-        valido=validacao.cep_valido, entrada=entrada,
+    plano_id e data_inicio são opcionais.
+
+    `trilha`, se passado, grava cada pergunta e resposta pela `aplicacao` (issue #51/#55: dono
+    único da escrita da trilha) — a pergunta ANTES de perguntar, a resposta REAL do lead DEPOIS."""
+    idade = _perguntar_e_registrar(
+        transcricao, conversation_id, 0, "Qual a sua idade?", trilha, obrigatorio=True, entrada=entrada
     )
-    plano_id = _perguntar(
-        transcricao, "Qual plano? (essencial/completo/premium — Enter para essencial)",
+    veiculo_ano = _perguntar_e_registrar(
+        transcricao, conversation_id, 1, "Ano do veículo?", trilha, obrigatorio=True, entrada=entrada
+    )
+    cep = _perguntar_e_registrar(
+        transcricao, conversation_id, 2, "Qual o seu CEP? (formato 00000-000)", trilha,
+        obrigatorio=True, valido=validacao.cep_valido, entrada=entrada,
+    )
+    plano_id = _perguntar_e_registrar(
+        transcricao, conversation_id, 3, "Qual plano? (essencial/completo/premium — Enter para essencial)", trilha,
         obrigatorio=False, entrada=entrada,
     )
-    data_inicio = _perguntar(
-        transcricao, "Data de início? (AAAA-MM-DD — Enter para não informar)",
+    data_inicio = _perguntar_e_registrar(
+        transcricao, conversation_id, 4, "Data de início? (AAAA-MM-DD — Enter para não informar)", trilha,
         obrigatorio=False, valido=validacao.data_iso_valida, entrada=entrada,
     )
     return {
@@ -133,15 +164,7 @@ def coletar_dados_por_texto_livre(
             break
         transcricao.emitir(f"> {texto}" if texto else "> (em branco)")
         if trilha is not None:
-            trilha.registrar_evento(
-                MensagemRecebida(
-                    evento="mensagem_recebida",
-                    conversation_id=conversation_id,
-                    id=f"msg_coleta_{indice}_recebida",
-                    instante=datetime.now(timezone.utc).isoformat(),
-                    texto=texto,
-                )
-            )
+            registrar_resposta_de_coleta(trilha, conversation_id, indice, texto)
         estado = extrair_dados_da_mensagem(portal, texto, estado)
         campos_prontos = not estado.campos_faltantes
         resposta = (
@@ -151,17 +174,9 @@ def coletar_dados_por_texto_livre(
         )
         transcricao.emitir(resposta)
         if trilha is not None:
-            trilha.registrar_evento(
-                MensagemEnviada(
-                    evento="mensagem_enviada",
-                    conversation_id=conversation_id,
-                    id=f"msg_coleta_{indice}_enviada",
-                    instante=datetime.now(timezone.utc).isoformat(),
-                    texto=resposta,
-                    decisao_id=f"dec_coleta_{indice}",
-                    regra_aplicada="portal_de_linguagem:extrair",
-                    origem_do_texto=portal.origem_do_texto,
-                )
+            registrar_pergunta_de_coleta(
+                trilha, conversation_id, indice, resposta,
+                origem_do_texto=portal.origem_do_texto, regra_aplicada="portal_de_linguagem:extrair",
             )
         if campos_prontos:
             break
@@ -208,7 +223,7 @@ def rodar_conversa(
             transcricao, portal_de_linguagem, conversation_id, trilha=trilha, entrada=entrada
         )
     else:
-        dados = coletar_dados(transcricao, entrada=entrada)
+        dados = coletar_dados(transcricao, conversation_id, entrada=entrada, trilha=trilha)
         estado = montar_estado(conversation_id, dados)
 
     if portal is None:

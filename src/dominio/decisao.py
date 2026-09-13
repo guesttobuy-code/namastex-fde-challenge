@@ -24,6 +24,9 @@ class MotivoHandoff(str, Enum):
     QUOTE_ERRO_DE_PAYLOAD = "quote_erro_de_payload"
     RECUSA_REGRA_DE_ACEITACAO = "recusa_regra_de_aceitacao"
     LEAD_QUER_CONTRATAR = "lead_quer_contratar"
+    # issue #57 (P9), decisão do dono: pedido explícito de humano é motivo próprio, nunca
+    # reaproveita LEAD_QUER_CONTRATAR — são pedidos diferentes do lead.
+    LEAD_PEDIU_HUMANO = "lead_pediu_humano"
     # issue #58 (frente `ia-responde`), decisão da coordenação: a IA não conseguiu responder a
     # objeção de preço com segurança (sem chave, sem ficha publicada para a intenção, ou as 2
     # tentativas de geração reprovaram na validação de marcador) — encaminha, nunca inventa número.

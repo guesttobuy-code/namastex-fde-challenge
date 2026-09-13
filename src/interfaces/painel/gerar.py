@@ -11,6 +11,14 @@ from pathlib import Path
 
 from aplicacao.portas.repositorio_contato import RepositorioDeContato
 from dominio.contato_lead import ContatoLead
+from infra.cliente_quote import (
+    ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
+    MAX_TENTATIVAS,
+    ORCAMENTO_TOTAL_SEGUNDOS,
+    TIMEOUT_POR_TENTATIVA_SEGUNDOS,
+)
+from infra.config import url_quote_service
+from infra.planos_http import buscar_planos
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.painel import (
     tela_avaliacao,
@@ -85,8 +93,19 @@ def gerar_paineis(
         caminho.write_text(html, encoding="utf-8")
         escritos.append(caminho)
 
+    planos = buscar_planos(url_quote_service())
     caminho_regras = dir_saida / "regras.html"
-    caminho_regras.write_text(tela_regras.render(caminho_ui_css=caminho_ui_css), encoding="utf-8")
+    caminho_regras.write_text(
+        tela_regras.render(
+            planos=planos,
+            orcamento_total_segundos=ORCAMENTO_TOTAL_SEGUNDOS,
+            timeout_por_tentativa_segundos=TIMEOUT_POR_TENTATIVA_SEGUNDOS,
+            max_tentativas=MAX_TENTATIVAS,
+            esperas_entre_tentativas_segundos=ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
+            caminho_ui_css=caminho_ui_css,
+        ),
+        encoding="utf-8",
+    )
     escritos.append(caminho_regras)
 
     caminho_avaliacao = dir_saida / "avaliacao.html"

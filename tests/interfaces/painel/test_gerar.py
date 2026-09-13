@@ -15,9 +15,10 @@ from interfaces.painel.gerar import gerar_paineis
 
 @pytest.fixture(autouse=True)
 def _sem_rede_real(monkeypatch):
-    """Nenhum teste de geração abre socket real (achado da coordenação, 2026-09-12) — a tela Regras
-    chama `GET /planos` de verdade só na geração real, nunca em teste."""
-    monkeypatch.setattr("interfaces.painel.tela_regras.buscar_planos", lambda base_url: None)
+    """Nenhum teste de geração abre socket real (achado da coordenação, 2026-09-12) — quem chama
+    `GET /planos` de verdade é `painel/gerar.py` (issue #51/#55: `tela_regras` não importa `infra`
+    mais, então o mock migrou para cá)."""
+    monkeypatch.setattr("interfaces.painel.gerar.buscar_planos", lambda base_url: None)
 
 
 def test_gerar_paineis_escreve_as_seis_telas(tmp_path, trilha_fixture, conftest_caminho_trilha):
@@ -99,3 +100,23 @@ def test_main_com_argumentos_errados_devolve_2(capsys):
 
     assert codigo == 2
     assert "uso:" in capsys.readouterr().err
+
+
+def test_gerar_paineis_busca_planos_e_repassa_para_tela_regras(
+    tmp_path, monkeypatch, trilha_fixture, conftest_caminho_trilha
+):
+    """issue #51/#55: `gerar_paineis` é a raiz de composição que busca `GET /planos` (via
+    `infra.planos_http.buscar_planos`) e repassa pronto para `tela_regras.render` — a tela nunca
+    importa `infra` direto. Mock em `interfaces.painel.gerar.buscar_planos` (não mais em
+    `tela_regras.buscar_planos`, que deixou de existir)."""
+    fake = {
+        "moeda": "BRL",
+        "planos": [{"id": "essencial", "nome": "Plano Fake E2E", "base_mensal": 99.9, "franquia": 1000, "coberturas": ["colisao"]}],
+        "regras": {"faixa_etaria": [], "idade_veiculo": [], "regiao_cep": {"multiplicador": 1.0}},
+    }
+    monkeypatch.setattr("interfaces.painel.gerar.buscar_planos", lambda base_url: fake)
+
+    escritos = gerar_paineis(conftest_caminho_trilha, tmp_path)
+
+    caminho_regras = next(c for c in escritos if c.name == "regras.html")
+    assert "Plano Fake E2E" in caminho_regras.read_text(encoding="utf-8")
