@@ -74,13 +74,22 @@ def _preco_de_sucesso() -> dict:
 
 def _criar_app(
     *,
-    painel_dir,
+    tmp_path,
+    painel_dir=None,
     buscar_planos=_sem_planos,
     configuracao_inicial=None,
     trilha_dir=None,
     repositorio_contato=None,
     portal_de_cotacao=None,
 ):
+    """`tmp_path` é OBRIGATÓRIO (achado da auditoria do PR #62, 13/09/2026): `criar_app` de
+    produção, sem `trilha_dir` explícito, cai no padrão real `Path("examples")` — um teste que
+    esquecesse de passar `trilha_dir` escrevia trilha de teste no `examples/` DO REPOSITÓRIO (a
+    mutação da auditoria em `_responder_chat_contato`, gravando nome/WhatsApp na trilha, poluiu
+    exatamente esse diretório). `trilha_dir`/`painel_dir` default para dentro de `tmp_path` quando
+    quem chama não escolhe outro — nenhum teste deste arquivo pode mais tocar o `examples/` real."""
+    painel_dir = painel_dir if painel_dir is not None else tmp_path / "painel-saida"
+    trilha_dir = trilha_dir if trilha_dir is not None else tmp_path / "trilha"
     servico = ServicoDeConhecimento(RepositorioDeConhecimentoMemoria())
     servico_configuracao = ServicoDeConfiguracaoComercial(
         RepositorioDeConfiguracaoComercialMemoria(configuracao_inicial)
@@ -101,7 +110,7 @@ def _criar_app(
 
 @pytest.fixture
 def app(tmp_path):
-    return _criar_app(painel_dir=tmp_path / "painel-saida")
+    return _criar_app(tmp_path=tmp_path)
 
 
 @pytest.fixture(autouse=True)
@@ -151,7 +160,7 @@ def test_publicar_com_digito_fora_de_marcador_e_recusado_com_422_e_nada_e_persis
 
 
 def test_publicar_com_marcador_por_plano_usa_os_ids_da_planos(tmp_path):
-    app = _criar_app(painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos)
     valida = {**_FICHA, "resposta_orientada": "Franquia do Premium: {{franquia_premium}}.", "status": "publicado"}
     status, _, corpo = _chamar(app, "PUT", "/api/objecoes/preco-alto", valida)
     assert status == "200 OK", corpo
@@ -159,7 +168,7 @@ def test_publicar_com_marcador_por_plano_usa_os_ids_da_planos(tmp_path):
 
 def test_publicar_com_marcador_por_plano_sem_a_planos_de_pe_e_recusado(tmp_path):
     # /quote fora do ar (buscar_planos devolve None) = só os marcadores base publicam.
-    app = _criar_app(painel_dir=tmp_path / "painel-saida", buscar_planos=_sem_planos)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=tmp_path / "painel-saida", buscar_planos=_sem_planos)
     invalida = {**_FICHA, "resposta_orientada": "Franquia do Premium: {{franquia_premium}}.", "status": "publicado"}
     status, _, _ = _chamar(app, "PUT", "/api/objecoes/preco-alto", invalida)
     assert status == "422 Unprocessable Entity"
@@ -229,7 +238,7 @@ def test_painel_estatico_serve_arquivo_ja_gerado(tmp_path):
     painel_dir = tmp_path / "painel-saida"
     painel_dir.mkdir()
     (painel_dir / "index.html").write_text("<html>painel</html>", encoding="utf-8")
-    app = _criar_app(painel_dir=painel_dir)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir)
 
     status, headers, corpo = _chamar(app, "GET", "/painel/index.html")
     assert status == "200 OK"
@@ -241,7 +250,7 @@ def test_painel_recusa_escapar_do_diretorio(tmp_path):
     painel_dir = tmp_path / "painel-saida"
     painel_dir.mkdir()
     (tmp_path / "segredo.txt").write_text("nao deveria vazar", encoding="utf-8")
-    app = _criar_app(painel_dir=painel_dir)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir)
 
     status, _, _ = _chamar(app, "GET", "/painel/../segredo.txt")
     assert status in ("404 Not Found", "400 Bad Request")
@@ -297,7 +306,7 @@ def test_configuracao_comercial_metodo_nao_suportado_e_405(app):
 
 
 def test_api_planos_devolve_o_catalogo_da_quote_service(tmp_path):
-    app = _criar_app(painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos_completo)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos_completo)
     status, headers, corpo = _chamar(app, "GET", "/api/planos")
     assert status == "200 OK"
     assert headers["Content-Type"].startswith("application/json")
@@ -322,7 +331,7 @@ def test_paises_json_e_servido_para_o_seletor_do_whatsapp(app):
 
 def test_chat_contato_salva_e_e_lido_de_volta(tmp_path):
     repositorio = RepositorioDeContatoMemoria()
-    app = _criar_app(painel_dir=tmp_path / "painel-saida", repositorio_contato=repositorio)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=tmp_path / "painel-saida", repositorio_contato=repositorio)
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/contato", {
         "conversation_id": "conv-contato",
@@ -336,6 +345,32 @@ def test_chat_contato_salva_e_e_lido_de_volta(tmp_path):
     salvo = repositorio.obter("conv-contato")
     assert salvo is not None
     assert salvo.whatsapp == "+55 21 97224-2584"
+
+
+def test_chat_contato_nunca_grava_nome_nem_whatsapp_em_nenhuma_trilha(tmp_path):
+    """Achado da auditoria do PR #62 (13/09/2026): mutação em `_responder_chat_contato` (gravar
+    `nome`/`whatsapp` na trilha) deixou a suíte VERDE, porque nenhum teste desta rota olhava pra
+    `trilha_dir`. Prova pela DUAS pontas: nenhum arquivo em `trilha_dir` contém o nome nem o
+    telefone depois do `POST` — varre TODO arquivo do diretório, não confia em "não deveria estar
+    lá". `trilha_dir` é `tmp_path`, nunca `examples/` do repositório (ver docstring de `_criar_app`)."""
+    trilha_dir = tmp_path / "trilha"
+    trilha_dir.mkdir()
+    nome = "Ursula Souza"
+    whatsapp = "+55 21 97224-2584"
+    app = _criar_app(tmp_path=tmp_path, trilha_dir=trilha_dir)
+
+    status, _, _ = _chamar(app, "POST", "/api/chat/contato", {
+        "conversation_id": "conv-privacidade-contato", "nome": nome, "whatsapp": whatsapp,
+        "email": "ursula@example.com",
+    })
+
+    assert status == "200 OK"
+    arquivos_da_trilha = list(trilha_dir.rglob("*"))
+    for caminho in arquivos_da_trilha:
+        if caminho.is_file():
+            conteudo = caminho.read_text(encoding="utf-8")
+            assert nome not in conteudo, f"nome vazou em {caminho}: {conteudo!r}"
+            assert whatsapp not in conteudo, f"whatsapp vazou em {caminho}: {conteudo!r}"
 
 
 def test_chat_contato_sem_nome_e_422(app):
@@ -359,7 +394,7 @@ def test_chat_cotar_com_portal_de_sucesso_devolve_preco_e_regenera_o_painel(tmp_
         plano_nome="Completo", premio_mensal=272.87, franquia=3000.0,
         coberturas=("colisao", "roubo", "furto"), moeda="BRL",
     ))])
-    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
         "conversation_id": "conv-teste",
@@ -383,7 +418,7 @@ def test_chat_cotar_com_portal_indisponivel_nao_devolve_preco(tmp_path):
     painel_dir = tmp_path / "painel-saida"
     trilha_dir = tmp_path / "trilha"
     portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.indisponivel("upstream indisponível")])
-    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
         "conversation_id": "conv-indisp", "idade": 30, "veiculo_ano": 2020, "cep": "01310-100",
@@ -410,7 +445,7 @@ def test_chat_cotar_com_conversation_id_de_path_traversal_e_recusado_sem_escreve
     trilha_dir = tmp_path / "trilha"
     trilha_dir.mkdir()
     alvo_fora = tmp_path / "segredo.jsonl"
-    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
         "conversation_id": "../segredo", "idade": 30, "veiculo_ano": 2020, "cep": "01310-100",
@@ -426,7 +461,7 @@ def test_chat_contratar_com_conversation_id_de_path_traversal_e_recusado(tmp_pat
     painel_dir = tmp_path / "painel-saida"
     trilha_dir = tmp_path / "trilha"
     trilha_dir.mkdir()
-    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
 
     status, _, _ = _chamar(app, "POST", "/api/chat/contratar", {"conversation_id": "..\\..\\segredo"})
 
@@ -437,7 +472,7 @@ def test_chat_contratar_com_conversation_id_de_path_traversal_e_recusado(tmp_pat
 def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     painel_dir = tmp_path / "painel-saida"
     trilha_dir = tmp_path / "trilha"
-    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/contratar", {"conversation_id": "conv-contrata"})
 

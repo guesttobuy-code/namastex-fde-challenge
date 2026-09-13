@@ -557,6 +557,11 @@
 
   function enviar() { const v = entrada.value.trim(); if (passoAtual && v) passoAtual(v); }
   form.addEventListener("submit", (e) => { e.preventDefault(); enviar(); });
+  // Achado da auditoria do PR #62 (13/09/2026): Enter não enviava. O protótipo aprovado
+  // (index.html:598) trata `keydown` explicitamente além do `submit` do form — mesma armadilha já
+  // medida no briefing #41 ("Enter em input não enviou pela ferramenta de teste; tratar keydown
+  // Enter explicitamente").
+  entrada.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); enviar(); } });
 
   function reiniciar() {
     dados = {}; passoAtual = null; voltarAoResumo = false; fio.innerHTML = "";
