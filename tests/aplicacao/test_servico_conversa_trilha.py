@@ -5,6 +5,8 @@ painel — e que passa por `ServicoDeTrilha`, que redige PII sozinho (nunca cham
 direto nem reimplementamos a regex)."""
 from __future__ import annotations
 
+import json
+
 from aplicacao.servico_conversa import conduzir_conversa, montar_estado
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.decisao import MotivoHandoff
@@ -146,6 +148,42 @@ def test_sem_trilha_conduzir_conversa_continua_funcionando_igual_a_antes():
 
     assert turno.texto
     assert "Completo" in turno.texto
+
+
+def test_nome_whatsapp_e_email_nunca_aparecem_em_claro_em_nenhum_evento_da_trilha():
+    """Núcleo da decisão C.1 do ADR-0005 (issue #46): `nome`/`whatsapp`/`email` ficam só em
+    `EstadoDaConversa` (para o chat lembrar entre turnos) e em `ContatoLead`
+    (`aplicacao.servico_contato`) — NUNCA na trilha, nem em texto livre (mensagem_recebida,
+    mensagem_enviada), nem em `contexto_coletado` do handoff. Prova por grep no JSON serializado de
+    CADA evento gravado, não por "não deveria estar lá"."""
+    nome = "Ursula Souza Alcantara"
+    whatsapp = "+55 21 97224-2584"
+    email = "ursula.alcantara@example.com"
+
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.indisponivel("upstream respondeu 502")])
+    estado = montar_estado(
+        "conv-privacidade",
+        {**DADOS_COMPLETOS, "nome": nome, "whatsapp": whatsapp, "email": email, "veiculo_modelo": "Onix"},
+    )
+    assert estado.nome == nome
+    assert estado.whatsapp == whatsapp
+    assert estado.email == email
+
+    conduzir_conversa(portal, estado, trilha=trilha)
+
+    eventos = repositorio.eventos_da_conversa("conv-privacidade")
+    assert "handoff" in [e["evento"] for e in eventos], "cenário precisa chegar a um handoff para testar contexto_coletado"
+    for evento in eventos:
+        serializado = json.dumps(evento, ensure_ascii=False)
+        assert nome not in serializado, f"nome vazou no evento {evento['evento']!r}: {serializado!r}"
+        assert whatsapp not in serializado, f"whatsapp vazou no evento {evento['evento']!r}: {serializado!r}"
+        assert email not in serializado, f"email vazou no evento {evento['evento']!r}: {serializado!r}"
+    (handoff,) = [e for e in eventos if e["evento"] == "handoff"]
+    assert handoff["contexto_coletado"]["veiculo_modelo"] == "Onix", (
+        "veiculo_modelo NÃO é PII na mesma categoria (item B.3.5) e deve aparecer no contexto"
+    )
 
 
 def test_payload_enviado_a_quote_carrega_o_cep_real_nunca_o_redigido():

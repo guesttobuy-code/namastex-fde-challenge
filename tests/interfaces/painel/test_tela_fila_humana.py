@@ -1,5 +1,6 @@
 import re
 
+from dominio.contato_lead import ContatoLead
 from dominio.decisao import MotivoHandoff
 
 from interfaces.painel import tela_fila_humana
@@ -64,3 +65,51 @@ def test_campo_ausente_no_contexto_coletado_vira_buraco_nao_branco():
     assert "idade: ," not in html
     assert "ausente na trilha" in html
     assert "veiculo_ano: 2021" in html
+
+
+# ── contato do lead (issue #46, PR 2 de 2, ADR-0005, item C.3) ─────────────
+
+
+def test_card_com_contato_mostra_nome_e_whatsapp(trilha_fixture):
+    contatos = {"conv_b93c": ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584")}
+
+    html = tela_fila_humana.render(trilha_fixture, contatos=contatos)
+
+    assert "Ursula Souza" in html
+    assert "+55 21 97224-2584" in html
+    assert "não informado" not in html
+
+
+def test_card_sem_contato_mostra_nao_informado(trilha_fixture):
+    html = tela_fila_humana.render(trilha_fixture, contatos={})
+
+    assert "não informado" in html
+
+
+def test_card_sem_o_parametro_contatos_mostra_nao_informado():
+    """`contatos=None` (default, chamador que ainda não passa o parâmetro — aditivo) não quebra:
+    a Fila humana continua funcionando, só sem nome/WhatsApp — mesmo comportamento de hoje."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_sem_contato", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+        "contexto_coletado": {"idade": 30},
+    }]
+
+    html = tela_fila_humana.render(eventos)
+
+    assert "não informado" in html
+    assert "conv_sem_contato" in html
+
+
+def test_card_de_handoff_que_nao_e_lead_quer_contratar_tambem_mostra_o_contato_quando_existe(trilha_fixture):
+    """Decisão desta frente (ver docstring do módulo): o contato aparece em QUALQUER handoff, não
+    só `lead_quer_contratar` — `conv_b93c` na fixture tem `reason_code=quote_indisponivel`, e o
+    resto do card (motivo, contexto coletado) continua exatamente como antes (nada quebrou)."""
+    contatos = {"conv_b93c": ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584")}
+
+    html = tela_fila_humana.render(trilha_fixture, contatos=contatos)
+
+    assert "quote_indisponivel" in html
+    assert "HB20 2021" in html  # contexto_coletado da fixture, intacto
+    assert "Ursula Souza" in html

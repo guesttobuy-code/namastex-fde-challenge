@@ -128,6 +128,26 @@ def test_extrair_cep_ausente_devolve_none():
     assert extrair_cep("Oi, queria fazer um seguro pro meu carro") is None
 
 
+# --- Telefone internacional (issue #46, PR 2 de 2, item 4 do PLANO): a #43 já cobria +55 e o
+# formato sem DDI; o chat guiado aceita QUALQUER DDI (1 a 3 dígitos) + 6 a 14 dígitos (E.164-ish).
+# Nascem vermelhos contra o padrão fixo em +55 de hoje, antes de generalizar o regex. ---
+
+
+def test_telefone_eua_ddi_1_e_redigido():
+    saida = redigir_texto("pode me chamar no +1 2025550123 a tarde")
+    assert "+1 2025550123" not in saida
+
+
+def test_telefone_portugal_ddi_351_e_redigido():
+    saida = redigir_texto("meu whats é +351 912345678")
+    assert "+351 912345678" not in saida
+
+
+def test_telefone_argentina_ddi_54_e_redigido():
+    saida = redigir_texto("aqui é +54 91123456789, formato usado no chat/protótipo")
+    assert "+54 91123456789" not in saida
+
+
 def test_extrair_cep_nao_deixa_o_valor_sobreviver_a_redigir_texto():
     """Os dois lados no mesmo teste: o valor extraído (para o estado/`/quote`) e o valor mascarado
     (para o LLM) vêm do MESMO texto bruto — provando que a extração não interfere na máscara."""

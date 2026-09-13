@@ -42,8 +42,11 @@ class TurnoDaConversa:
 
 
 def montar_estado(conversation_id: str, dados: dict) -> EstadoDaConversa:
-    """`dados`: o que já foi coletado do lead (idade, veiculo_ano, plano_id, cep, data_inicio).
-    Só valida FORMATO (`dominio.validacao`) — elegibilidade é decidida pela `/quote`, nunca aqui."""
+    """`dados`: o que já foi coletado do lead (idade, veiculo_ano, plano_id, cep, data_inicio, mais
+    nome/whatsapp/email/veiculo_modelo — issue #46, PR 2 de 2). Só valida FORMATO
+    (`dominio.validacao`) — elegibilidade é decidida pela `/quote`, nunca aqui. `nome`/`whatsapp`/
+    `email` ficam só em `EstadoDaConversa` (para o chat lembrar entre turnos) — nunca vão para
+    `_contexto_coletado`/a trilha, isso é feito só por `ServicoDeContato` (ADR-0005)."""
     faltantes = validacao.campos_obrigatorios_faltantes(dados)
     return EstadoDaConversa(
         conversation_id=conversation_id,
@@ -53,6 +56,10 @@ def montar_estado(conversation_id: str, dados: dict) -> EstadoDaConversa:
         cep=dados.get("cep"),
         data_inicio=dados.get("data_inicio"),
         campos_faltantes=faltantes,
+        nome=dados.get("nome"),
+        whatsapp=dados.get("whatsapp"),
+        email=dados.get("email"),
+        veiculo_modelo=dados.get("veiculo_modelo"),
     )
 
 
@@ -283,12 +290,17 @@ def _dados_usados(estado: EstadoDaConversa, resultado: ResultadoDaCotacao | None
 
 
 def _contexto_coletado(estado: EstadoDaConversa) -> dict:
+    # PROIBIDO (ADR-0005, issue #46, decisão C.1): nunca acrescentar nome/whatsapp/email aqui — eles
+    # nunca podem aparecer em claro na trilha. `veiculo_modelo` não é PII na mesma categoria ("fica
+    # registrado para o corretor", item B.3.5 da issue) e pode ir. O único caminho de escrita do
+    # contato é `aplicacao.servico_contato.ServicoDeContato`, fora da trilha por completo.
     return {
         "idade": estado.idade,
         "veiculo_ano": estado.veiculo_ano,
         "cep": estado.cep,
         "plano_id": estado.plano_id,
         "data_inicio": estado.data_inicio,
+        "veiculo_modelo": estado.veiculo_modelo,
     }
 
 

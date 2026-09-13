@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from dominio.contato_lead import ContatoLead
 from dominio.redator_pii import _PADROES
+from infra.repositorio_contato_json import RepositorioDeContatoMemoria
 from interfaces.painel.gerar import gerar_paineis
 
 
@@ -62,6 +64,33 @@ def test_gerar_paineis_aceita_uma_pasta_com_varios_trilha_star_jsonl(tmp_path, t
     rastreio = next(c for c in escritos if c.name == "rastreio.html").read_text(encoding="utf-8")
     assert "conv_a41f" in rastreio  # veio da trilha_fixture (copiada para conv-a.jsonl)
     assert "conv_outra" in rastreio  # veio de trilha_conv-b.jsonl
+
+
+def test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_a_fila_humana(
+    tmp_path, trilha_fixture, conftest_caminho_trilha
+):
+    """Issue #46, PR 2 de 2, ADR-0005: `repositorio_contato` é aditivo — passado, `handoffs.html`
+    ganha nome/WhatsApp do lead da conversa `conv_b93c` (a única com `handoff` na fixture)."""
+    repositorio = RepositorioDeContatoMemoria()
+    repositorio.salvar("conv_b93c", ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584"))
+
+    escritos = gerar_paineis(conftest_caminho_trilha, tmp_path, repositorio_contato=repositorio)
+
+    handoffs_html = next(c for c in escritos if c.name == "handoffs.html").read_text(encoding="utf-8")
+    assert "Ursula Souza" in handoffs_html
+    assert "+55 21 97224-2584" in handoffs_html
+
+
+def test_gerar_paineis_sem_repositorio_contato_continua_funcionando_igual(
+    tmp_path, trilha_fixture, conftest_caminho_trilha
+):
+    """`repositorio_contato=None` (default) não muda nada do comportamento de hoje — nenhum
+    chamador existente (Dockerfile, `interfaces.servidor` antes desta frente) precisa mudar."""
+    escritos = gerar_paineis(conftest_caminho_trilha, tmp_path)
+
+    handoffs_html = next(c for c in escritos if c.name == "handoffs.html").read_text(encoding="utf-8")
+    assert "conv_b93c" in handoffs_html
+    assert "não informado" in handoffs_html
 
 
 def test_main_com_argumentos_errados_devolve_2(capsys):
