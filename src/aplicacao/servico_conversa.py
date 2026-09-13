@@ -21,10 +21,12 @@ from aplicacao.portas.portal_de_cotacao import PortalDeCotacao
 from aplicacao.portas.portal_de_linguagem import PortalDeLinguagem
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import politica, redator_pii, validacao
-from dominio.decisao import Decisao, TipoDecisao
+from dominio.configuracao_comercial import ConfiguracaoComercial
+from dominio.decisao import Decisao, MotivoHandoff, TipoDecisao
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.eventos_trilha import Decisao as DecisaoTrilha
 from dominio.eventos_trilha import Handoff, MensagemEnviada, MensagemRecebida, TentativaDeCotacao
+from dominio.intencao import Intencao
 from dominio.redator import montar_mensagem
 from dominio.resultado_cotacao import ResultadoDaCotacao
 
@@ -87,9 +89,22 @@ def extrair_dados_da_mensagem(
         data_inicio=data_inicio,
         campos_faltantes=validacao.campos_obrigatorios_faltantes(dados),
         ambiguidades=saida.ambiguidades,
-        ultimo_intent=saida.intent or estado_atual.ultimo_intent,
+        ultimo_intent=_intencao_reconhecida(saida.intent) or estado_atual.ultimo_intent,
         status=estado_atual.status,
     )
+
+
+def _intencao_reconhecida(valor: str | None) -> Intencao | None:
+    """Converte a string livre que o `PortalDeLinguagem` extrai (issue #9, F6, fora da fronteira
+    desta frente) para o Enum fechado `Intencao` (issue #42). Valor que não bate com nenhum membro
+    é descartado em silêncio de campo — mesmo padrão de `idade`/`veiculo_ano` nesta função —, nunca
+    vira `ValueError` que travaria a conversa."""
+    if valor is None:
+        return None
+    try:
+        return Intencao(valor)
+    except ValueError:
+        return None
 
 
 def _payload_da_quote(estado: EstadoDaConversa) -> dict:
@@ -100,6 +115,25 @@ def _payload_da_quote(estado: EstadoDaConversa) -> dict:
         "cep": estado.cep,
         "data_inicio": estado.data_inicio,
     }
+
+
+# issue #42, texto aprovado pelo dono (13/09/2026): os 4 motivos que a `/quote` recusa hoje
+# (quote-service/data/plans.json:33,39 e quote_logic.py:27,37), traduzidos em português correto,
+# com acento e minúscula — os números do motivo vêm da `/quote` e nunca são escritos por LLM.
+_TRADUCAO_MOTIVO_RECUSA = {
+    "Idade acima do limite de aceitacao (75 anos).": "idade acima do limite de aceitação (75 anos)",
+    "Veiculo com mais de 20 anos nao e aceito.": "veículo com mais de 20 anos não é aceito",
+    "Idade fora das faixas aceitas.": "idade fora das faixas aceitas",
+    "Idade do veiculo fora das faixas aceitas.": "idade do veículo fora das faixas aceitas",
+}
+
+
+def _motivo_da_recusa_traduzido(motivo: str) -> str:
+    """Motivo desconhecido (fora da tabela) aparece como veio da `/quote`, sem o ponto final —
+    decisão do dono (#42), para não inventar tradução de um motivo que não foi revisado."""
+    if motivo in _TRADUCAO_MOTIVO_RECUSA:
+        return _TRADUCAO_MOTIVO_RECUSA[motivo]
+    return motivo[:-1] if motivo.endswith(".") else motivo
 
 
 def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) -> str:
@@ -114,7 +148,19 @@ def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) ->
             # O reason_code NUNCA vai no texto ao lead (achado da auditoria do PR #35): é
             # identificador interno do operador, e vazaria pro WhatsApp do cliente. Ele continua
             # em `decisao.reason_code` (evento `handoff`) e em `_regra_aplicada` — só não aqui.
-            return "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."
+            match decisao.reason_code:
+                case MotivoHandoff.LEAD_QUER_CONTRATAR:
+                    # Texto literal do dono (#41): nenhuma menção a pagamento/boleto/apólice.
+                    return "logo um corretor vai entrar em contato para te dar todo o suporte"
+                case MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO:
+                    motivo = _motivo_da_recusa_traduzido(resultado.motivo)
+                    return (
+                        "Sinto muito, pelas regras da seguradora não consigo cotar online neste "
+                        f"caso: {motivo}. Um corretor pode avaliar outras opções para você e vai "
+                        "entrar em contato."
+                    )
+                case _:
+                    return "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."
         case _:
             raise AssertionError(f"TipoDecisao sem texto mapeado neste caso de uso: {decisao.tipo!r}")
 
@@ -202,7 +248,10 @@ def _contexto_coletado(estado: EstadoDaConversa) -> dict:
 
 
 def conduzir_conversa(
-    portal: PortalDeCotacao, estado: EstadoDaConversa, trilha: ServicoDeTrilha | None = None
+    portal: PortalDeCotacao,
+    estado: EstadoDaConversa,
+    trilha: ServicoDeTrilha | None = None,
+    configuracao: ConfiguracaoComercial = ConfiguracaoComercial(),
 ) -> TurnoDaConversa:
     """Roda a conversa até uma decisão terminal (tudo que não é COLETAR_INFORMACAO nem COTAR).
     `politica.decidir(estado, None)` devolve COTAR quando não falta nada e ainda não tentou; só
@@ -210,7 +259,11 @@ def conduzir_conversa(
 
     `trilha`, se passado, grava `mensagem_recebida`, `tentativa_de_cotacao` (uma por tentativa
     HTTP), `decisao`, `mensagem_enviada` e `handoff` — nesta ordem, cada um via
-    `ServicoDeTrilha.registrar_evento` (que redige PII sozinho)."""
+    `ServicoDeTrilha.registrar_evento` (que redige PII sozinho).
+
+    `configuracao` (issue #42): decisão comercial da seguradora sobre o que fazer com a recusa da
+    `/quote` — esta camada só repassa o valor a `dominio.politica.decidir`; quem carrega o valor
+    real de `conhecimento/` é a infraestrutura (F13, #43), fora desta frente."""
     if trilha is not None:
         trilha.registrar_evento(
             MensagemRecebida(
@@ -225,12 +278,12 @@ def conduzir_conversa(
             )
         )
 
-    decisao = politica.decidir(estado, None)
+    decisao = politica.decidir(estado, None, configuracao)
     resultado: ResultadoDaCotacao | None = None
     if decisao.tipo == TipoDecisao.COTAR:
         on_tentativa = (lambda o: _registrar_tentativa(trilha, estado.conversation_id, o)) if trilha else None
         resultado = portal.cotar(_payload_da_quote(estado), estado.conversation_id, on_tentativa=on_tentativa)
-        decisao = politica.decidir(estado, resultado)
+        decisao = politica.decidir(estado, resultado, configuracao)
 
     texto = _texto_da_decisao(decisao, resultado)
 
