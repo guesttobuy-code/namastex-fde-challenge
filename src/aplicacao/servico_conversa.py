@@ -150,7 +150,14 @@ def _texto_da_decisao(decisao: Decisao, resultado: ResultadoDaCotacao | None) ->
         case TipoDecisao.EXPLICAR_COTACAO:
             return montar_mensagem(resultado.preco)
         case TipoDecisao.ENCERRAR:
-            return resultado.motivo
+            # Achado #52: este ramo devolvia o motivo CRU da `/quote`. Decisão do dono (#41):
+            # "explica o motivo e encerra com educação" — mesma tabela de tradução do ramo
+            # ENCAMINHAR (linha abaixo), sem a parte do corretor (config desligada = sem handoff).
+            # Frase aceita pela coordenação, 13/09/2026.
+            return (
+                "Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: "
+                f"{_motivo_da_recusa_traduzido(resultado.motivo)}."
+            )
         case TipoDecisao.ENCAMINHAR:
             # O reason_code NUNCA vai no texto ao lead (achado da auditoria do PR #35): é
             # identificador interno do operador, e vazaria pro WhatsApp do cliente. Ele continua

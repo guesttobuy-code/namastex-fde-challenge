@@ -6,6 +6,10 @@
 
 - O tipo do preço (`PrecoCotado`), a política de decisão (`politica.decidir`) e o vocabulário
   fechado dos motivos de handoff (`MotivoHandoff`). Nenhum outro módulo decide estas três coisas.
+- O mapa id → nome legível de cobertura (`nomes_cobertura.nome_legivel`, issue #54) — **dono único
+  (LEI 11)** dos nomes que aparecem no texto ao lead. Os ids crus continuam vindo de `/planos`/
+  `/quote` sem tradução; quem quiser mostrar um nome legível (ex.: a frente D `trilha-coleta`,
+  #55, em `interfaces.painel.tela_regras`) importa este mapa, nunca escreve um segundo.
 
 ## INVARIANTES (o que nunca pode ser falso)
 
@@ -29,7 +33,10 @@
 - `dominio.intencao.Intencao` (issue #42) — Enum fechado: `INFORMAR_DADOS`, `QUER_CONTRATAR`.
 - `dominio.politica.decidir(estado: EstadoDaConversa, resultado: ResultadoDaCotacao | None, configuracao: ConfiguracaoComercial = ConfiguracaoComercial())` → `Decisao`.
 - `dominio.validacao.cep_valido(str) -> bool` · `data_iso_valida(str) -> bool` · `campos_obrigatorios_faltantes(dict) -> frozenset[str]`.
-- `dominio.redator.montar_mensagem(preco: PrecoCotado) -> str`.
+- `dominio.redator.montar_mensagem(preco: PrecoCotado) -> str` — formato brasileiro de moeda
+  (vírgula decimal, ponto de milhar) e nomes legíveis de cobertura (issue #54).
+- `dominio.nomes_cobertura.nome_legivel(id_cobertura: str) -> str` — id fora do mapa aparece como
+  veio (LEI 2, nunca inventa nome).
 
 ## O que NÃO é responsabilidade deste módulo
 
@@ -42,6 +49,11 @@
 
 ## Decisões registradas
 
+- 2026-09-13 — issue #54 (achado da auditoria, `pode implementar` da coordenação): `nomes_cobertura`
+  é o dono único dos nomes legíveis de cobertura; `interfaces.painel.tela_regras` (segundo leitor
+  do mesmo dado cru) fica fora desta frente e reusa o mapa quando a frente D (#55) mexer nele.
+  `examples/` não é regenerado neste PR — a regeneração acontece uma vez só, no congelamento da
+  entrega (#15, roadmap #3 §10.6).
 - 2026-09-13 — issue #42 (decisão do dono, #41): recusa de negócio (422) vira `ENCAMINHAR` com
   `RECUSA_REGRA_DE_ACEITACAO` quando `ConfiguracaoComercial.encaminhar_lead_fora_do_padrao=True`
   (padrão); `False` mantém `ENCERRAR` (comportamento anterior). "Quero contratar" (`Intencao.QUER_CONTRATAR`
