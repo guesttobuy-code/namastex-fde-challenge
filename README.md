@@ -32,7 +32,7 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 
 | Rota | O que é | Estado |
 |---|---|---|
-| `/` | tela "Conversas" — hoje é um **placeholder honesto**, sem formulário nem chat funcional: o texto da própria tela diz que o chat ligado ao agente real chega com o [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (`src/interfaces/servidor.py:90-105`) | `[PENDENTE: #62]` |
+| `/` | tela "Conversas" — hoje é um **placeholder honesto**, sem formulário nem chat funcional: o texto da própria tela diz que o chat chega "no próximo PR desta frente (issue #46)" (`src/interfaces/servidor.py:90-105`); esse PR é o [#62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (`Closes #46`), pronto mas ainda não mergeado | `[PENDENTE: #62]` |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
 | `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)), servido estático — gerado em build-time, nunca em runtime | funcional |
 
@@ -163,8 +163,8 @@ mesma coisa. **Tinha 3 valores, ganhou mais 2 na issue #42:**
 | `StatusCotacao` (resultado da `/quote`) | `MotivoHandoff` | Decisão |
 |---|---|---|
 | `SUCESSO` | — | `EXPLICAR_COTACAO` (mostra o preço) |
-| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=False` (padrão) | — | `ENCERRAR`, com recusa educada e o motivo traduzido |
-| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=True` | `RECUSA_REGRA_DE_ACEITACAO` | `ENCAMINHAR` a um corretor |
+| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=False` | — | `ENCERRAR`, com recusa educada e o motivo traduzido |
+| `RECUSA_DE_NEGOCIO` (422 de regra) — `encaminhar_lead_fora_do_padrao=True` (padrão) | `RECUSA_REGRA_DE_ACEITACAO` | `ENCAMINHAR` a um corretor |
 | `INDISPONIVEL` (5xx esgotado) | `QUOTE_INDISPONIVEL` | `ENCAMINHAR` |
 | `TIMEOUT` (timeout esgotado) | `QUOTE_TIMEOUT` | `ENCAMINHAR` |
 | `ERRO_DE_PAYLOAD` (400/422 de validação) | `QUOTE_ERRO_DE_PAYLOAD` | `ENCAMINHAR` |
@@ -281,9 +281,11 @@ executados nos dois sentidos (mutação aplicada → falha; revertida → verde 
 O método: uma **frente por chat** (1 branch, 1 worktree, 1 PR), quem implementa nunca audita o próprio
 PR — outro chat audita adversarialmente e publica o veredito como comentário no PR, e o merge é sempre
 de uma pessoa. Cada frente do roadmap é uma issue do GitHub, com o plano publicado **antes** do
-primeiro commit. O texto completo do processo está nas issues e nos `ai-logs/` (ver
-[`ai-logs/README.md`](ai-logs/README.md)) — aqui vai a lista dos erros que viraram melhoria, porque
-mostrar o erro com o conserto ao lado é mais honesto do que fingir que não aconteceu:
+primeiro commit. O texto completo do processo está nas issues e nos `ai-logs/` —
+`[PENDENTE: exportação no congelamento, #15]` (as sessões do Claude Code continuam crescendo até a
+entrega; exportar e sanitizar é o último passo, não antes) — aqui vai a lista dos erros que viraram
+melhoria, porque mostrar o erro com o conserto ao lado é mais honesto do que fingir que não
+aconteceu:
 
 - **Vazamento de dado pessoal pego pela auditoria, não pelo autor**
   ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)): o `esteira.json`
@@ -291,21 +293,28 @@ mostrar o erro com o conserto ao lado é mais honesto do que fingir que não aco
   público. A auditoria fria reprovou a frente por isso; o campo saiu do arquivo e o nome saiu do
   histórico visível.
 - **Uma regra de segurança foi corrigida duas vezes, a segunda vez pela própria frente que a
-  escreveu.** A narrativa original dizia que a flag `(?i)` protegia CPF/CEP contra vazamento por
-  case; medição provou o contrário (CPF/CEP são só dígitos — não têm maiúscula). A própria frente
-  refutou a própria alegação antes de fechar, e derrubou de quebra um roteiro de prova que a
-  coordenação tinha aprovado em cima da narrativa errada.
-- **Um documento de leis existiu, mas não chegou a ninguém.** `docs/LEIS-DO-PROJETO.md` foi escrito
-  para ser o lugar onde toda frente lê as regras do dono — e ficou em dois commits locais da árvore
-  de integração, nunca enviados ao repositório remoto. As seis frentes abertas naquele dia trabalharam
-  sem ele. O erro não era o conteúdo; era o lugar onde ele estava.
-- **O auditor externo (Codex) acertou duas previsões antes de qualquer código existir, e eu demorei a
-  agir.** Numa auditoria adversarial do roadmap, antes da primeira linha de implementação, o parecer
-  registrado dizia que a governança podia consumir mais prazo que o produto, e que a entrega dependia
-  de uma frente marcada como opcional. As duas se confirmaram: ao meio-dia de 12/09 a `main` tinha 17
-  linhas de produto e uma frente de governança inteira fechada, e foi preciso cortar rito às pressas;
-  e o painel de rastreio — marcado "se sobrar tempo" — acabou sendo a peça que a especificação do mock
-  amarrava à trilha real, ou seja, nunca foi de fato opcional.
+  escreveu**
+  ([comentário de coordenação](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16#issuecomment-5646987147)):
+  a narrativa original dizia que a flag `(?i)` protegia CPF/CEP contra vazamento por case; medição
+  provou o contrário (CPF/CEP são só dígitos — não têm maiúscula). A própria frente refutou a própria
+  alegação antes de fechar, e derrubou de quebra um roteiro de prova que a coordenação tinha aprovado
+  em cima da narrativa errada.
+- **Um documento de leis existiu, mas não chegou a ninguém**
+  ([comentário de coordenação](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16#issuecomment-5648026423)):
+  `docs/LEIS-DO-PROJETO.md` foi escrito para ser o lugar onde toda frente lê as regras do dono — e
+  ficou em dois commits locais da árvore de integração, nunca enviados ao repositório remoto. As seis
+  frentes abertas naquele dia trabalharam sem ele. O erro não era o conteúdo; era o lugar onde ele
+  estava.
+- **O auditor externo (Codex) acertou duas previsões antes de qualquer código existir, e a
+  coordenação demorou a agir**
+  ([comentário de coordenação](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16#issuecomment-5648318582),
+  parecer original em `ai-logs/codex/`): numa auditoria adversarial do roadmap, antes da primeira
+  linha de implementação, o parecer registrado dizia que a governança podia consumir mais prazo que o
+  produto, e que a entrega dependia de uma frente marcada como opcional. As duas se confirmaram: ao
+  meio-dia de 12/09 a `main` tinha 17 linhas de produto e uma frente de governança inteira fechada, e
+  foi preciso cortar rito às pressas; e o painel de rastreio — marcado "se sobrar tempo" — acabou
+  sendo a peça que a especificação do mock amarrava à trilha real, ou seja, nunca foi de fato
+  opcional.
 
 ---
 
@@ -333,7 +342,7 @@ não tem:
 
 O guard `plano-na-issue` ficou **vermelho** no PR #35 — troca consciente: essa frente rodou em
 "regime enxuto", autorizado explicitamente pelo dono no comentário de escopo, sem a rodada normal de
-PLANO antes do código. Todos os outros 27 checks daquele PR passaram.
+PLANO antes do código. 28 dos 29 checks daquele PR passaram (o único vermelho foi esse, de propósito).
 
 ---
 
@@ -348,9 +357,10 @@ PLANO antes do código. Todos os outros 27 checks daquele PR passaram.
   `src/dominio/` nem em nenhum módulo de backend — se o cliente for contornado (chamada direta à
   API), nada no servidor recusa um lead menor de idade hoje. Conserto real chega com o
   [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (ainda não mergeado).
-- **Não há fichas de exemplo na base de conhecimento** — `conhecimento/objecoes/` está vazio no
-  repositório (só `.gitkeep`); quem abrir `/conhecimento` num clone limpo vê a tela sem nenhuma
-  objeção cadastrada ainda.
+- **Não há fichas de exemplo na base de conhecimento** — `conhecimento/` só tem `.gitkeep`
+  versionado; `conhecimento/objecoes/` nem existe ainda, nasce em runtime quando a primeira ficha é
+  salva pela tela. Quem abrir `/conhecimento` num clone limpo vê a tela sem nenhuma objeção
+  cadastrada.
 - **A extração por texto livre já foi medida contra o modelo real, não simulada:** PR #44,
   intenção "quero contratar" — antes do conserto do esquema, **0 de 5** frases explícitas chegavam à
   política; depois, **5 de 5** positivas e **0 de 7** falsos positivos num controle negativo

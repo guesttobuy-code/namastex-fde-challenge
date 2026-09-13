@@ -128,10 +128,27 @@ def redator_pii_sintetica():
         return redigir_texto
 
 
+# Rede extra, SO' desta exportacao -- achado ensaiando contra as sessoes reais: o CEP de exemplo do
+# enunciado (`01310-100`) sobrevivia em transcricoes de codigo/docstring porque a docstring de
+# `interfaces/cli.py` mostra `\n` como TEXTO literal (nao quebra de linha real) antes do CEP -- "n"
+# eh caractere de palavra, "0" tambem, entao o `\b` que `dominio.redator_pii` exige antes do CEP
+# nunca casa ali. Nao eh bug do redator (ele foi desenhado pra texto de conversa, nao pra
+# transcricao de sessao de IA citando codigo-fonte) -- e' o contexto novo que este script introduz.
+# Ambos os padroes abaixo sao SEM fronteira de propósito, so' para esta exportacao (nao mexe em
+# `dominio/redator_pii.py`, que continua do jeito que a F4/#7 desenhou e testou).
+PADROES_PII_SEM_FRONTEIRA: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\d{5}-\d{3}"),  # CEP (com hifen), sem exigir \b antes/depois
+    re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}"),  # CPF com pontuacao, sem exigir \b antes/depois
+)
+
+
 def sanitizar_string(texto: str, substituicoes: list[tuple[re.Pattern[str], str]], redigir) -> str:
     for padrao, por in substituicoes:
         texto = padrao.sub(por, texto)
-    return redigir(texto)
+    texto = redigir(texto)
+    for padrao in PADROES_PII_SEM_FRONTEIRA:
+        texto = padrao.sub("[REDIGIDO]", texto)
+    return texto
 
 
 def sanitizar_valor(valor, substituicoes, redigir):

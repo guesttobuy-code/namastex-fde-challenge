@@ -7,6 +7,25 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **README reconciliado com o estado real da `main` (issue #15) — 6 achados da auditoria adversarial
+  do `1573759`, consertados no mesmo push:** rótulo `(padrão)` estava no valor errado de
+  `encaminhar_lead_fora_do_padrao` (era `False`, é `True` — o próprio parágrafo seguinte já dizia
+  `True`); a tela `/` foi citada dizendo algo que não diz (o texto real cita "issue #46", não o
+  PR #62 — corrigido pra não atribuir à tela o que ela não afirma); PR #35 tinha 28 checks passando,
+  não 27 (`gh pr checks 35`: 29 no total, 1 falhou, de propósito); `conhecimento/objecoes/` não existe
+  ainda no repositório (só `conhecimento/.gitkeep` — a pasta nasce em runtime, não é "vazia");
+  `ai-logs/README.md` linkado antes de existir, virou `[PENDENTE: #15]`; três bullets de "como a IA
+  foi usada" sem fonte ganharam o link do comentário de auditoria (issues #16, #17)
+- `scripts/sanitizar_ai_logs.py`: achado ensaiando contra as sessões reais — o CEP de exemplo do
+  enunciado (`01310-100`) sobrevivia à sanitização em transcrições que citam código-fonte, porque a
+  docstring de `interfaces/cli.py` mostra `\n` como texto literal antes do CEP, e o `\b` que
+  `dominio.redator_pii` exige nunca casa entre duas letras/dígitos ("n" e "0" são os dois
+  caracteres de palavra). Não é bug do redator — ele foi desenhado pra texto de conversa, não pra
+  transcrição de sessão de IA citando o próprio código-fonte. Sem mexer em `dominio/redator_pii.py`
+  (dono é a F4/#7), esta exportação ganhou uma segunda passada, sem exigência de fronteira, só para
+  CEP e CPF com pontuação — a checagem final voltou a zero depois. Ensaiado contra as 43 transcrições
+  reais (18 sessões, principal + subagentes) em `_local/` (nunca commitado): e-mail, CPF, CEP e
+  caminho do usuário zerados; nenhum padrão de segredo sobrou
 - **Texto ao lead: formato brasileiro de preço e nomes legíveis de cobertura (issue #54, achado de auditoria):** `dominio.redator.montar_mensagem` saía com `R$ 241.38`/`R$ 3000.00` (ponto, sem separador de milhar) e coberturas cruas (`colisao`, sem acento — id da API, não nome). Novo `dominio.nomes_cobertura` (dono único, LEI 11) mapeia os 7 ids de `plans.json` para nome legível — id fora do mapa aparece como veio, nunca inventado (LEI 2); `_valor_br` formata moeda com vírgula decimal e ponto de milhar. `examples/` não é regenerado neste PR — a regeneração acontece uma vez só, no congelamento da entrega (#15, roadmap #3 §10.6).
 - **Recusa com `encaminhar_lead_fora_do_padrao=False` mostrava o motivo cru da `/quote` (issue #52, achado de auditoria):** o ramo `TipoDecisao.ENCERRAR` de `aplicacao.servico_conversa._texto_da_decisao` devolvia `resultado.motivo` sem tradução, ao contrário do ramo `ENCAMINHAR`, que já usa `_motivo_da_recusa_traduzido`. Agora os dois ramos usam a mesma tabela (dono único); frase aceita pela coordenação: "Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: {motivo}." (deriva do texto já aprovado pelo dono na #42, sem a parte do corretor — config desligada não tem encaminhamento)
 
