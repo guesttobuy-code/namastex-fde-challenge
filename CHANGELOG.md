@@ -6,6 +6,12 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Alterado
+- **Casca única para todas as telas (issue #46, F14, PR 1 de 2):** `src/interfaces/painel/layout.py` — `_ITENS_MENU` passa a usar hrefs absolutos (`/`, `/painel/<arquivo>`, `/conhecimento`) em vez de nomes soltos, porque o chat entra em `/` e a base de conhecimento sai de `/` para `/conhecimento` — três raízes diferentes não resolvem link relativo igual. Grupo novo "Insumos" (Base de conhecimento); "Histórico de atendimentos" (a antiga tela "Conversas" do painel, F10) move para "Observabilidade" — ordem confirmada pelo texto mais recente da issue/coordenação, que diverge do protótipo bruto nesse detalhe (registrado no PLANO da issue). `src/interfaces/conhecimento/tela_edicao.html` (CSS/paleta próprios) vira `_corpo.html` (só o fragmento do editor, campos/ids/`<script>` intactos) + `tela_edicao.py` (`render()`, monta via `layout.pagina`) — elimina a segunda casca visual apontada pelo dono em 13/09 (LEI 11, dono único do menu/CSS). `docs/design/conhecimento.html` novo (7º mock, mesmo padrão dos outros 6) é a fonte do CSS extra da tela. `src/interfaces/servidor.py`: `/` deixa de servir a base de conhecimento cru e vira um placeholder honesto do chat (chega no PR 2); rota nova `/conhecimento` para o editor; rotas de API inalteradas. Protótipo aprovado versionado em `docs/design/prototipo-conversas-v2/` como referência (#46)
+
+### Corrigido
+- **Fila humana mostrava campo ausente em branco em vez do buraco visível (achado confirmado na Análise de impacto da #46):** `src/interfaces/painel/tela_fila_humana.py::_cartao` usava `esc(v)` para cada valor do `contexto_coletado` — `esc(None)` devolve string vazia, então `idade` nunca coletada virava `idade: ,` em vez de `⚠ ausente na trilha`. Troca para `campo(contexto, k)` (mesma função que as outras telas já usam para isso). Teste nasceu vermelho antes do fix (#46)
+
 ### Corrigido
 - **Achados B1-B4 e R1-R5 da auditoria do PR #45 (HEAD `9ee1135`, issue #43, F13), consertados no mesmo push:**
   - **B1 — painel 404 no `docker compose up --build`:** o `Dockerfile` só copiava `src/` e nada gerava o painel dentro do container. Passa a copiar `examples/*.jsonl` (trilhas reais, versionadas) e gerar `painel-saida/` em build-time (`RUN python -m interfaces.painel.gerar`) — `/painel/index.html` responde 200 num clone limpo, sem tocar o servidor em runtime.

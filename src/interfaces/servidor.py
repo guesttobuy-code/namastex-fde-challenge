@@ -3,9 +3,10 @@ ADR-0004 — zero dependência nova, mesma linha de `infra.cliente_quote`/`infra
 (stdlib em vez de SDK/framework de terceiro).
 
 Só costura o que já existe (LEI 11 — nunca reimplementa): `aplicacao.servico_conhecimento` decide
-o que persiste e valida a invariante do marcador; este módulo só traduz HTTP <-> chamada de método
-e serve arquivo estático (a tela de edição e o painel já gerado). Roda de dentro da raiz do
-repositório, com `src/` no `PYTHONPATH` (mesma solução de `interfaces.cli`):
+o que persiste e valida a invariante do marcador; este módulo só traduz HTTP <-> chamada de método,
+monta a base de conhecimento e o placeholder de `/` via `interfaces.painel.layout.pagina` (casca
+única, issue #46) e serve o painel estático já gerado. Roda de dentro da raiz do repositório, com
+`src/` no `PYTHONPATH` (mesma solução de `interfaces.cli`):
 
     PYTHONPATH=src python -m interfaces.servidor
 
@@ -32,8 +33,8 @@ from infra.planos_http import buscar_planos as buscar_planos_real
 from infra.planos_http import ids_dos_planos
 from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON
-
-_TELA_EDICAO = Path(__file__).resolve().parent / "conhecimento" / "tela_edicao.html"
+from interfaces.conhecimento import tela_edicao
+from interfaces.painel.layout import pagina
 
 
 def _json(status: str, corpo: dict | list) -> tuple[str, list[tuple[str, str]], list[bytes]]:
@@ -86,10 +87,28 @@ def _ler_corpo_json(environ) -> dict | None:
         return None
 
 
+_CORPO_RAIZ = """
+<div class="cabecalho">
+  <div>
+    <h1>Conversas</h1>
+    <p>O chat centralizado, ligado ao agente real (<code>aplicacao.servico_conversa</code>), chega no
+       próximo PR desta frente (issue #46). Esta tela é um placeholder honesto por enquanto — sem
+       formulário nem botão que finja conversar.</p>
+  </div>
+</div>
+"""
+
+
 def _responder_raiz(metodo: str):
     if metodo != "GET":
         return _json(*_METODO_NAO_SUPORTADO)
-    return _html("200 OK", _TELA_EDICAO.read_text(encoding="utf-8"))
+    return _html("200 OK", pagina(titulo="Conversas", pagina_ativa="/", corpo=_CORPO_RAIZ))
+
+
+def _responder_conhecimento(metodo: str):
+    if metodo != "GET":
+        return _json(*_METODO_NAO_SUPORTADO)
+    return _html("200 OK", tela_edicao.render())
 
 
 def _responder_lista(servico: ServicoDeConhecimento, metodo: str):
@@ -164,6 +183,8 @@ def _rotear(servico, servico_configuracao, painel_dir, buscar_planos, environ):
 
     if caminho == "/":
         return _responder_raiz(metodo)
+    if caminho == "/conhecimento":
+        return _responder_conhecimento(metodo)
     if caminho == "/api/objecoes":
         return _responder_lista(servico, metodo)
     if caminho.startswith("/api/objecoes/"):

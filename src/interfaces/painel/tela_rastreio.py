@@ -62,7 +62,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Nenhum dado nesta tela é fictício ou calculado —
   todo campo vem de um evento gravado pelo agente; campo que a trilha não tem aparece como buraco visível.</p>
 """
-    return pagina(titulo="Rastreio", pagina_ativa="rastreio.html", corpo=corpo,
+    return pagina(titulo="Rastreio", pagina_ativa="/painel/rastreio.html", corpo=corpo,
                   contagens={"conversas": len(por_conversa)}, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("rastreio.html"))
 

@@ -8,17 +8,24 @@ def test_css_embutido_le_o_ui_css_real_do_desenho():
 
 
 def test_pagina_marca_o_item_ativo_do_menu():
-    html = pagina(titulo="X", pagina_ativa="rastreio.html", corpo="<p>oi</p>")
-    assert 'href="rastreio.html" aria-current="page"' in html
+    html = pagina(titulo="X", pagina_ativa="/painel/rastreio.html", corpo="<p>oi</p>")
+    assert 'href="/painel/rastreio.html" aria-current="page"' in html
+
+
+def test_menu_tem_grupo_insumos_com_a_base_de_conhecimento():
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert "Insumos" in html
+    assert '<a href="/conhecimento">' in html
+    assert "Base de conhecimento" in html
 
 
 def test_pagina_escapa_o_titulo():
-    html = pagina(titulo="<script>alert(1)</script>", pagina_ativa="index.html", corpo="")
+    html = pagina(titulo="<script>alert(1)</script>", pagina_ativa="/", corpo="")
     assert "<title>AutoSeguro · &lt;script&gt;alert(1)&lt;/script&gt;</title>" in html
 
 
 def test_botao_desabilitado_recebe_estilo_visivel():
-    html = pagina(titulo="X", pagina_ativa="index.html", corpo="")
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
     assert "button[disabled]" in html
 
 

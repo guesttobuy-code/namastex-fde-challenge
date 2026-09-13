@@ -49,7 +49,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 </div>
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Campo que a trilha não gravou aparece como buraco visível.</p>
 """
-    return pagina(titulo="Conversas", pagina_ativa="index.html", corpo=corpo,
+    return pagina(titulo="Conversas", pagina_ativa="/painel/index.html", corpo=corpo,
                   contagens={"conversas": len(por_conversa)}, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("index.html"))
 

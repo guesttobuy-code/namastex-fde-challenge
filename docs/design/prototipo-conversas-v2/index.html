@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoSeguro · Nova cotação</title>
+<style>
+/* Mock da tela Conversas v2 — cotação guiada. Paleta e casca herdadas de docs/design/ui.css. */
+:root{
+  --fundo:#16012F; --superficie:#1F0A40; --superficie-2:#2A1152; --borda:#3B2068;
+  --texto:#F2ECFF; --texto-fraco:#B9A8D9; --texto-mais-fraco:#8B79B0;
+  --magenta:#FF00FF; --ciano:#00FFFF; --azul:#198BF5;
+  --ok:#3DDC97; --alerta:#FFC857; --falha:#FF5C7A;
+  --r:14px; --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --lateral:248px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--fundo);color:var(--texto);
+     font:15px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;
+     background-image:radial-gradient(900px 500px at 15% -10%, rgba(255,0,255,.10), transparent 60%),
+                      radial-gradient(800px 500px at 92% 0%, rgba(0,255,255,.07), transparent 55%);
+     background-attachment:fixed}
+a{color:var(--ciano)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ciano);outline-offset:2px}
+
+/* ───── casca (igual ao mock atual) ───── */
+.app{display:grid;grid-template-columns:var(--lateral) 1fr;height:100vh}
+@media (max-width:860px){ .app{grid-template-columns:1fr} .lateral{display:none} }
+.lateral{background:rgba(22,1,47,.72);border-right:1px solid var(--borda);padding:18px 14px;
+         display:flex;flex-direction:column;gap:18px;backdrop-filter:blur(6px)}
+.produto{display:flex;flex-direction:column;gap:3px;padding:4px 8px 0}
+.produto b{font-size:19px;position:relative;display:inline-block;isolation:isolate}
+.produto b::before,.produto b::after{content:attr(data-t);position:absolute;inset:0;z-index:-1}
+.produto b::before{color:var(--magenta);transform:translate(-2px,1px)}
+.produto b::after{color:var(--ciano);transform:translate(2px,-1px)}
+.produto span{color:var(--texto-mais-fraco);font-size:11.5px}
+.menu{display:flex;flex-direction:column;gap:3px}
+.menu .grupo{color:var(--texto-mais-fraco);font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;padding:12px 10px 5px}
+.menu a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;color:var(--texto-fraco);
+        text-decoration:none;font-size:14px;border:1px solid transparent}
+.menu a:hover{background:var(--superficie);color:var(--texto)}
+.menu a[aria-current="page"]{background:var(--superficie-2);color:var(--texto);border-color:var(--borda);box-shadow:inset 2px 0 0 var(--magenta)}
+.menu a .ic{width:18px;text-align:center}
+.selo{margin-top:auto;background:rgba(255,255,255,.04);border:1px solid var(--borda);border-radius:12px;padding:9px 10px}
+.selo small{color:var(--texto-mais-fraco);font-size:10.5px;line-height:1.3;display:block}
+
+/* ───── área principal ───── */
+.principal{display:flex;flex-direction:column;min-width:0;height:100vh}
+.barra{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--borda);flex-wrap:wrap}
+.barra h1{font-size:15px;margin:0;font-weight:600}
+.selo-mock{font-family:var(--mono);font-size:10.5px;color:var(--alerta);border:1px dashed rgba(255,200,87,.5);
+           border-radius:999px;padding:1px 9px}
+.barra .dir{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.barra label{font-size:12px;color:var(--texto-mais-fraco)}
+.barra select,.btn-leve{background:var(--superficie);border:1px solid var(--borda);border-radius:9px;
+           padding:5px 9px;font-size:12.5px;color:var(--texto);cursor:pointer}
+.btn-leve:hover{border-color:var(--texto-mais-fraco)}
+
+.palco{flex:1;overflow-y:auto} /* sem scroll-behavior:smooth: com ele cada mensagem nova cancela a rolagem anterior (medido no teste) */
+.coluna{max-width:760px;margin:0 auto;padding:28px 20px 24px}
+
+/* ───── hero (estado inicial) ───── */
+.hero{min-height:calc(100vh - 190px);display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;gap:14px;padding:20px 0}
+.hero .marca{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--texto-mais-fraco)}
+.hero h2{font-size:clamp(28px,4.2vw,42px);line-height:1.12;margin:0;max-width:17ch;text-wrap:balance;letter-spacing:-.8px}
+.hero h2 em{font-style:normal;background:linear-gradient(90deg,var(--magenta),var(--ciano));
+            -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0;color:var(--texto-fraco);max-width:52ch;font-size:16px}
+.cta{margin-top:10px;border:0;border-radius:14px;padding:15px 26px;font-size:16.5px;font-weight:650;cursor:pointer;
+     color:#16012F;background:linear-gradient(90deg,#FF5CFF,#7DFFFF);
+     box-shadow:0 10px 34px -10px rgba(255,0,255,.55);transition:transform .15s,box-shadow .15s}
+.cta:hover{transform:translateY(-1px);box-shadow:0 14px 40px -10px rgba(0,255,255,.5)}
+.cta small{display:block;font-size:12px;font-weight:500;opacity:.75}
+.garantias{list-style:none;padding:0;margin:18px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%}
+@media (max-width:640px){ .garantias{grid-template-columns:1fr} }
+.garantias li{background:rgba(31,10,64,.7);border:1px solid var(--borda);border-radius:12px;padding:11px 12px;
+              text-align:left;font-size:12.5px;color:var(--texto-fraco)}
+.garantias b{display:block;color:var(--texto);font-size:13px;margin-bottom:2px}
+
+/* ───── conversa ───── */
+.fio{display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;align-items:flex-end;max-width:100%;animation:entra .22s ease-out}
+@keyframes entra{from{opacity:.001;transform:translateY(6px)}to{opacity:1;transform:none}}
+.avatar{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;
+        color:#16012F;background:linear-gradient(135deg,var(--magenta),var(--ciano))}
+.bolha{background:var(--superficie);border:1px solid var(--borda);border-radius:16px 16px 16px 4px;padding:10px 14px;max-width:560px}
+.bolha .quem{display:block;font-family:var(--mono);font-size:10.5px;color:var(--texto-mais-fraco);margin-bottom:3px}
+.bolha details summary{color:var(--ciano);cursor:pointer}
+.msg.lead{justify-content:flex-end}
+.msg.lead .bolha{background:rgba(255,0,255,.14);border-color:rgba(255,0,255,.35);border-radius:16px 16px 4px 16px}
+.msg.sistema .bolha{background:transparent;border-style:dashed;color:var(--texto-fraco);font-size:13.5px}
+.digitando{display:inline-flex;gap:4px;padding:4px 0}
+.digitando i{width:6px;height:6px;border-radius:50%;background:var(--texto-mais-fraco);animation:pisca 1s infinite}
+.digitando i:nth-child(2){animation-delay:.15s}.digitando i:nth-child(3){animation-delay:.3s}
+@keyframes pisca{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* progresso */
+.progresso{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--texto-mais-fraco);margin:0 0 18px}
+.progresso .trilho{flex:1;height:4px;background:var(--superficie-2);border-radius:99px;overflow:hidden}
+.progresso .trilho span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--magenta),var(--ciano));transition:width .3s}
+
+/* cards de plano */
+.planos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:4px 0 0 38px}
+@media (max-width:640px){ .planos{grid-template-columns:1fr;margin-left:0} }
+.plano{background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:14px;text-align:left;cursor:pointer;
+       display:flex;flex-direction:column;gap:8px;transition:border-color .15s,transform .15s}
+.plano:hover{border-color:var(--texto-mais-fraco);transform:translateY(-1px)}
+.plano[aria-pressed="true"]{border-color:var(--ciano);box-shadow:0 0 0 1px var(--ciano) inset}
+.plano h4{margin:0;font-size:16px}
+.plano .franquia{font-size:12px;color:var(--texto-fraco)}
+.plano .franquia b{font-variant-numeric:tabular-nums;color:var(--texto)}
+.plano ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--texto-fraco)}
+.plano li::before{content:"✓ ";color:var(--ok)}
+.plano li.extra{color:var(--texto)}
+.plano .sub{font-size:11px;color:var(--texto-mais-fraco)}
+
+/* resumo e resultado */
+.cartao{background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:14px 16px;margin-left:38px;max-width:560px}
+@media (max-width:640px){ .cartao{margin-left:0} }
+.cartao dl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;margin:0;font-size:14px}
+.cartao dt{color:var(--texto-mais-fraco)} .cartao dd{margin:0;font-variant-numeric:tabular-nums}
+.cartao .alt{font-size:12px;background:none;border:0;color:var(--ciano);cursor:pointer;padding:0}
+.preco{font-size:34px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;margin:2px 0}
+.preco small{font-size:14px;font-weight:500;color:var(--texto-fraco)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{border-radius:999px;padding:2px 9px;font-size:11.5px;border:1px solid var(--borda);color:var(--texto-fraco)}
+.nota{font-size:12.5px;color:var(--texto-fraco);margin:6px 0 0}
+.rastro{margin-top:10px;padding-top:8px;border-top:1px solid var(--borda);font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco)}
+.rastro .ok{color:var(--ok)} .rastro .falha{color:var(--falha)}
+.tag-exemplo{font-family:var(--mono);font-size:10px;color:var(--alerta)}
+
+/* ───── doca de resposta ───── */
+.doca{border-top:1px solid var(--borda);background:rgba(22,1,47,.85);backdrop-filter:blur(6px)}
+.doca .coluna{padding:12px 20px 16px}
+.rapidas{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.rapida{background:var(--superficie);border:1px solid var(--borda);border-radius:999px;padding:7px 14px;cursor:pointer;font-size:13.5px}
+.rapida:hover{border-color:var(--ciano)}
+.rapida.primaria{border-color:rgba(0,255,255,.55);color:var(--ciano)}
+.caixa{display:flex;gap:8px;background:var(--superficie);border:1px solid var(--borda);border-radius:14px;padding:6px 6px 6px 14px;align-items:center}
+.caixa:focus-within{border-color:var(--texto-mais-fraco)}
+.caixa input{flex:1;background:none;border:0;color:var(--texto);font-size:15px;padding:8px 0;min-width:0;outline:none}
+.caixa input::placeholder{color:var(--texto-mais-fraco)}
+.caixa select#pais{background:var(--superficie-2);border:1px solid var(--borda);border-radius:9px;color:var(--texto);
+           font:inherit;font-size:13px;padding:7px 6px;max-width:180px;flex:none}
+.enviar{border:0;border-radius:10px;padding:9px 14px;font-weight:650;cursor:pointer;color:#16012F;background:var(--ciano)}
+.enviar:disabled{opacity:.35;cursor:not-allowed}
+.ajuda{font-size:11.5px;color:var(--texto-mais-fraco);margin:7px 2px 0;min-height:1em}
+.ajuda.erro{color:var(--falha)}
+
+/* ───── especificação (gaveta) ───── */
+.gaveta{position:fixed;inset:0 0 0 auto;width:min(460px,100%);background:var(--superficie);border-left:1px solid var(--borda);
+        padding:22px 22px 40px;overflow-y:auto;transform:translateX(100%);transition:transform .25s;z-index:10}
+.gaveta.aberta{transform:none}
+.gaveta h3{margin:0 0 4px;font-size:18px}
+.gaveta h4{margin:18px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--texto-mais-fraco)}
+.gaveta ol,.gaveta ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--texto-fraco);display:flex;flex-direction:column;gap:6px}
+.gaveta b{color:var(--texto)}
+.gaveta .fechar{float:right}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important;scroll-behavior:auto!important} }
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
+  <nav class="menu">
+    <div class="grupo">Atendimento</div>
+    <a href="#" aria-current="page"><span class="ic">💬</span> Conversas</a>
+    <a href="#"><span class="ic">🙋</span> Fila humana</a>
+    <div class="grupo">Observabilidade</div>
+    <a href="#"><span class="ic">🧭</span> Rastreio</a>
+    <a href="#"><span class="ic">📈</span> Cotações</a>
+    <a href="#"><span class="ic">🎯</span> Avaliação</a>
+    <div class="grupo">Configuração</div>
+    <a href="#"><span class="ic">⚖️</span> Regras e política</a>
+    <div class="grupo">Insumos</div>
+    <a href="historico.html"><span class="ic">📚</span> Histórico de conversas</a>
+    <a href="conhecimento.html"><span class="ic">🧠</span> Base de conhecimento</a>
+  </nav>
+  <div class="selo"><small>desafio técnico FDE<br>mock da tela Conversas v2</small></div>
+</aside>
+
+<div class="principal">
+  <div class="barra">
+    <h1>Conversas</h1>
+    <span class="selo-mock">MOCK · respostas simuladas no navegador</span>
+    <div class="dir">
+      <label for="cenario">Simular a /quote:</label>
+      <select id="cenario">
+        <option value="ok">responde de primeira</option>
+        <option value="recupera">falha 1 vez e recupera</option>
+        <option value="fora">fora do ar (3 falhas)</option>
+      </select>
+      <button class="btn-leve" id="btn-reiniciar" type="button">Reiniciar</button>
+      <button class="btn-leve" id="btn-spec" type="button">O que esperamos desta tela</button>
+    </div>
+  </div>
+
+  <main class="palco" id="palco">
+    <div class="coluna">
+      <section class="hero" id="hero">
+        <div class="marca">AutoSeguro · seguro auto</div>
+        <h2>Faça aqui sua cotação <em>gratuita</em></h2>
+        <p>Encontre o melhor seguro para o seu carro. São poucas perguntas rápidas, e o preço sai na hora, calculado pela tabela oficial.</p>
+        <button class="cta" id="btn-comecar" type="button">Começar minha cotação →<small>sem cadastro · sem compromisso</small></button>
+        <ul class="garantias">
+          <li><b>Preço de verdade</b>Só mostramos valor confirmado pelo sistema de cotação. Nada de estimativa.</li>
+          <li><b>Nunca fica sem resposta</b>Se o sistema falhar, tentamos de novo. Se não der, um corretor assume com seus dados.</li>
+          <li><b>Seus dados protegidos</b>CEP e dados pessoais ficam mascarados no nosso registro.</li>
+        </ul>
+      </section>
+
+      <div id="conversa" hidden>
+        <div class="progresso" id="progresso"><span id="passo-txt">Pergunta 1 de 9</span><div class="trilho"><span id="barra"></span></div></div>
+        <div class="fio" id="fio" aria-live="polite"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="doca" id="doca" hidden>
+    <div class="coluna">
+      <div class="rapidas" id="rapidas"></div>
+      <form class="caixa" id="form">
+        <select id="pais" aria-label="País do WhatsApp" hidden></select>
+        <input id="entrada" autocomplete="off" aria-label="Sua resposta">
+        <button class="enviar" id="enviar" type="submit">Enviar</button>
+      </form>
+      <p class="ajuda" id="ajuda"></p>
+    </div>
+  </div>
+</div>
+</div>
+
+<aside class="gaveta" id="gaveta" aria-label="O que esperamos desta tela">
+  <button class="btn-leve fechar" id="btn-fechar" type="button">Fechar</button>
+  <h3>O que esperamos desta tela</h3>
+  <p style="color:var(--texto-fraco);font-size:13.5px;margin:0">A porta de entrada do lead: clicar e cotar, sem instalar nada.</p>
+  <h4>Fluxo (em ordem)</h4>
+  <ol>
+    <li>CTA</li>
+    <li>aviso de uso dos dados (LGPD)</li>
+    <li>nome completo e WhatsApp com país (obrigatórios)</li>
+    <li>e-mail (opcional)</li>
+    <li>idade (menor de 18 recebe mensagem acolhedora e não cota)</li>
+    <li>modelo</li>
+    <li>ano</li>
+    <li>CEP (pode pular)</li>
+    <li>plano, com a explicação de franquia</li>
+    <li>início</li>
+    <li>resumo</li>
+    <li>cotação com tentativas visíveis (preço só com resposta 200; 3 falhas → Fila humana)</li>
+    <li>a IA responde</li>
+    <li>“Quero contratar” → corretor entra em contato pelo WhatsApp (Fila humana)</li>
+  </ol>
+  <h4>Fora deste mock</h4>
+  <ul>
+    <li>ligar ao agente real (mesma trilha, mesma /quote)</li>
+    <li>resposta da IA pelo LLM real</li>
+    <li>a Fila humana real com a lista de leads</li>
+    <li>insights do histórico</li>
+  </ul>
+  <h4>Decisões confirmadas pelo dono</h4>
+  <ol>
+    <li>menor de 18 segue a API e recebe resposta educada</li>
+    <li>perguntar o modelo, sem FIPE</li>
+    <li>“Quero contratar” vai para a Fila humana, sem cobrança</li>
+    <li>nome e WhatsApp obrigatórios, e-mail opcional, país pelo código</li>
+    <li>aviso de dados: "Seus dados são usados só para esta cotação e para um corretor falar com você, conforme a LGPD." (sem caixa de aceite)</li>
+  </ol>
+  <h4>Em aberto</h4>
+  <ul>
+    <li><b>4 · Histórico de conversas:</b> o que tirar dele para a tela (o dono está lendo antes de decidir).</li>
+  </ul>
+  <h4>Nota</h4>
+  <p style="color:var(--texto-fraco);font-size:13.5px;margin:0">O preço no mock é calculado no navegador com a tabela da /planos, só para parecer real. No sistema, o preço vem sempre da /quote.</p>
+</aside>
+
+<script src="paises.js"></script>
+<script>
+(function(){
+  // Tabela copiada de GET /planos (quote-service), só para o mock parecer real.
+  const PLANOS = {
+    essencial:{nome:"Essencial", base:119.90, franquia:4500, cob:["colisao","roubo","furto"]},
+    completo:{nome:"Completo", base:209.90, franquia:3000, cob:["colisao","roubo","furto","terceiros","vidros"]},
+    premium:{nome:"Premium", base:339.90, franquia:1500, cob:["colisao","roubo","furto","terceiros","vidros","carro_reserva","assistencia_24h"]}
+  };
+  const NOME_COB = {colisao:"Colisão",roubo:"Roubo",furto:"Furto",terceiros:"Terceiros",vidros:"Vidros",carro_reserva:"Carro reserva",assistencia_24h:"Assistência 24h"};
+  // window.PAISES vem de paises.js (245 países, libphonenumber). Sem ele, cai num fallback só com o Brasil.
+  const PAISES = window.PAISES || [{iso:"BR",nome:"Brasil",ddi:55,bandeira:"🇧🇷"}];
+  const RAPIDO = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const HOJE = new Date(); HOJE.setHours(0,0,0,0);
+  const ANO_ATUAL = HOJE.getFullYear();
+
+  const $ = id => document.getElementById(id);
+  const fio = $("fio"), rapidas = $("rapidas"), entrada = $("entrada"), ajuda = $("ajuda"), form = $("form"), paisSel = $("pais");
+  let dados = {}, passoAtual = null, voltarAoResumo = false;
+
+  PAISES.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p.iso; o.textContent = `${p.bandeira} ${p.nome} +${p.ddi}`;
+    if (p.iso === "BR") o.selected = true;
+    paisSel.append(o);
+  });
+
+  const brl = v => v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  const dataBR = d => d.toLocaleDateString("pt-BR");
+  const esperar = ms => new Promise(r => setTimeout(r, RAPIDO ? 0 : ms));
+  // Rola depois do conteúdo novo entrar, sem animação: rolagem suave encadeada se cancela e para no meio.
+  // setTimeout e não requestAnimationFrame: rAF não dispara com a aba em segundo plano (medido no teste).
+  const rolar = () => setTimeout(() => { const p = $("palco"); p.scrollTop = p.scrollHeight; }, 30);
+
+  function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+  function mensagemLead(texto){
+    const m = el("div","msg lead"); m.append(el("div","bolha")); m.firstChild.textContent = texto;
+    fio.append(m); rolar();
+  }
+  async function mensagemBot(html, {quem="Assistente AutoSeguro", cls=""} = {}){
+    const m = el("div","msg bot " + cls); const av = el("div","avatar","A"); const b = el("div","bolha");
+    b.innerHTML = '<div class="digitando"><i></i><i></i><i></i></div>';
+    m.append(av, b); fio.append(m); rolar();
+    await esperar(520);
+    b.innerHTML = `<span class="quem">${quem}</span>${html}`; rolar();
+    return m;
+  }
+  function anexar(no){ fio.append(no); rolar(); }
+
+  function doca({placeholder="", tipo="text", botoes=[], textoLivre=true, dica="", pais=false}){
+    $("doca").hidden = false;
+    rapidas.innerHTML = "";
+    botoes.forEach(b => {
+      const x = el("button","rapida" + (b.primaria ? " primaria" : ""), b.rotulo); x.type = "button";
+      x.onclick = () => b.acao(); rapidas.append(x);
+    });
+    form.style.display = textoLivre ? "" : "none";
+    paisSel.hidden = !pais;
+    entrada.oninput = null;
+    entrada.type = tipo; entrada.value = ""; entrada.placeholder = placeholder;
+    ajuda.textContent = dica; ajuda.className = "ajuda";
+    if (textoLivre) entrada.focus();
+    rolar(); // a doca aparecendo encolhe o palco: rola de novo para a última mensagem não ficar escondida
+  }
+  function erro(msg){ ajuda.textContent = msg; ajuda.className = "ajuda erro"; }
+  function progresso(n){ $("passo-txt").textContent = n > 9 ? "Tudo pronto" : `Pergunta ${n} de 9`; $("barra").style.width = Math.min(n-1,9)/9*100 + "%"; }
+
+  // ───── os passos ─────
+  const PASSOS = {
+    async nome(){
+      progresso(1);
+      await mensagemBot("Para começar, <b>qual é o seu nome completo?</b>");
+      doca({placeholder:"Nome completo", dica:"Usamos seu nome para o corretor falar com você."});
+      passoAtual = v => {
+        const nome = v.trim();
+        const validas = nome.split(/\s+/).filter(p => (p.match(/[A-Za-zÀ-ÿ]/g) || []).length >= 2);
+        if (validas.length < 2) return erro("Digite nome e sobrenome.");
+        mensagemLead(nome); dados.nome = nome; seguir("whatsapp");
+      };
+    },
+    async whatsapp(){
+      progresso(2);
+      await mensagemBot("Qual o seu <b>WhatsApp</b>? Escolha o país e digite o número.");
+      doca({placeholder:"Número, com DDD", pais:true});
+      const aplicarMascaraBR = () => {
+        const d = entrada.value.replace(/\D/g,"").slice(0,11);
+        if (d.length > 6) entrada.value = `(${d.slice(0,2)}) ${d.slice(2, d.length > 10 ? 7 : 6)}-${d.slice(d.length > 10 ? 7 : 6)}`;
+        else if (d.length > 2) entrada.value = `(${d.slice(0,2)}) ${d.slice(2)}`;
+        else entrada.value = d;
+      };
+      const aplicarMascaraOutro = () => { entrada.value = entrada.value.replace(/\D/g,"").slice(0,14); };
+      const atualizarMascara = () => { entrada.value = ""; entrada.oninput = paisSel.value === "BR" ? aplicarMascaraBR : aplicarMascaraOutro; };
+      const atualizarTextos = () => {
+        const pais = PAISES.find(p => p.iso === paisSel.value) || PAISES[0];
+        if (pais.iso === "BR") { entrada.placeholder = "Número, com DDD"; ajuda.textContent = "Ex.: (11) 91234-5678"; }
+        else { entrada.placeholder = "Número de telefone, sem o código do país"; ajuda.textContent = `Só os números. O código +${pais.ddi} já está no país escolhido.`; }
+      };
+      paisSel.onchange = () => { atualizarMascara(); atualizarTextos(); };
+      atualizarMascara();
+      atualizarTextos();
+      passoAtual = v => {
+        const pais = PAISES.find(p => p.iso === paisSel.value) || PAISES[0];
+        const digitos = v.replace(/\D/g,"");
+        let exibicao;
+        if (pais.iso === "BR") {
+          if (digitos.length !== 10 && digitos.length !== 11) return erro("Digite DDD e número, ex.: (11) 91234-5678.");
+          const ddd = digitos.slice(0,2), resto = digitos.slice(2);
+          exibicao = `+${pais.ddi} (${ddd}) ${digitos.length === 11 ? resto.slice(0,5) + "-" + resto.slice(5) : resto.slice(0,4) + "-" + resto.slice(4)}`;
+        } else {
+          if (digitos.length < 4 || digitos.length > 14 || (String(pais.ddi).length + digitos.length) > 15) return erro("Digite só os números do telefone, sem o código do país.");
+          exibicao = `+${pais.ddi} ${digitos}`;
+        }
+        mensagemLead(exibicao);
+        dados.whatsapp = {iso: pais.iso, ddi: pais.ddi, numero: digitos, exibicao};
+        seguir("email");
+      };
+    },
+    async email(){
+      progresso(3);
+      await mensagemBot("Se quiser, deixe seu <b>e-mail</b>. É opcional.");
+      doca({placeholder:"seuemail@exemplo.com", tipo:"email",
+            botoes:[{rotulo:"Pular, não uso muito e-mail", acao:() => { mensagemLead("Prefiro não informar"); dados.email = null; seguir("idade"); }}]});
+      passoAtual = v => {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return erro("Esse e-mail não parece válido. Confira ou toque em Pular.");
+        mensagemLead(v.trim()); dados.email = v.trim(); seguir("idade");
+      };
+    },
+    async idade(){
+      progresso(4);
+      await mensagemBot("E <b>quantos anos você tem?</b>");
+      doca({placeholder:"Sua idade, ex.: 35", tipo:"number", dica:"Usamos a idade para a faixa de preço."});
+      passoAtual = v => {
+        const n = parseInt(v,10);
+        if (!Number.isInteger(n)) return erro("Digite só o número, ex.: 35.");
+        mensagemLead(`${n} anos`); dados.idade = n;
+        if (n < 18) return menorDeIdade();
+        if (n > 75) return recusa("Idade acima do limite de aceitação (75 anos).");
+        seguir("modelo");
+      };
+    },
+    async modelo(){
+      progresso(5);
+      await mensagemBot("Qual o <b>modelo</b> do seu carro? (ex.: Onix, HB20, Corolla)");
+      doca({placeholder:"Modelo do carro", dica:"O modelo fica registrado para o corretor. Nesta cotação ele não altera o preço."});
+      passoAtual = v => {
+        const modelo = v.trim();
+        if (modelo.length < 2) return erro("Digite o modelo do carro.");
+        mensagemLead(modelo); dados.modelo = modelo; seguir("ano");
+      };
+    },
+    async ano(){
+      progresso(6);
+      await mensagemBot(`E o seu ${dados.modelo}, <b>de que ano é?</b>`);
+      const anos = [0,1,2,3,4].map(i => ANO_ATUAL - i);
+      doca({placeholder:"Ou digite o ano, ex.: 2019", tipo:"number",
+            botoes: anos.map(a => ({rotulo:String(a), acao:() => passoAtual(String(a))})),
+            dica:"Carros com até 20 anos de uso são aceitos."});
+      passoAtual = v => {
+        const n = parseInt(v,10);
+        if (!Number.isInteger(n) || n < 1950 || n > ANO_ATUAL + 1) return erro(`Digite um ano entre 1950 e ${ANO_ATUAL + 1}.`);
+        mensagemLead(String(n)); dados.ano = n;
+        if (ANO_ATUAL - n > 20) return recusa("Veículo com mais de 20 anos não é aceito.");
+        seguir("cep");
+      };
+    },
+    async cep(){
+      progresso(7);
+      await mensagemBot("Qual o <b>CEP</b> onde o carro fica à noite? <span style='color:var(--texto-mais-fraco)'>Se preferir, pode pular.</span>");
+      doca({placeholder:"00000-000", botoes:[{rotulo:"Pular esta pergunta", acao:() => { mensagemLead("Prefiro não informar"); dados.cep = null; seguir("plano"); }}],
+            dica:"O CEP entra só no cálculo e fica mascarado no nosso registro."});
+      entrada.oninput = () => { let d = entrada.value.replace(/\D/g,"").slice(0,8); entrada.value = d.length > 5 ? d.slice(0,5) + "-" + d.slice(5) : d; };
+      passoAtual = v => {
+        if (!/^\d{5}-\d{3}$/.test(v)) return erro("CEP com 8 números, ex.: 01310-100.");
+        entrada.oninput = null; mensagemLead(v); dados.cep = v; seguir("plano");
+      };
+    },
+    async plano(){
+      progresso(8);
+      await mensagemBot(`Agora escolha o <b>plano</b>. Toque no card que faz mais sentido para você:
+        <details><summary>O que é franquia?</summary>Franquia é o valor que você paga do seu bolso quando usa o seguro para consertar o carro depois de um dano parcial, como uma batida. O seguro paga o restante do conserto. Exemplo ilustrativo: com franquia de R$ 3.000,00, um conserto de R$ 8.000,00 fica R$ 3.000,00 para você e R$ 5.000,00 para o seguro. Quanto menor a franquia, menos você paga quando precisa usar o seguro.</details>`);
+      const grade = el("div","planos");
+      Object.entries(PLANOS).forEach(([id,p], i) => {
+        const anterior = i ? Object.values(PLANOS)[i-1].cob : [];
+        const card = el("button","plano"); card.type = "button"; card.setAttribute("aria-pressed","false");
+        card.innerHTML = `<h4>${p.nome}</h4>
+          <div class="franquia">Franquia <b>${brl(p.franquia)}</b></div>
+          <ul>${p.cob.map(c => `<li class="${anterior.includes(c) ? "" : (i ? "extra" : "")}">${NOME_COB[c]}</li>`).join("")}</ul>
+          <div class="sub">${i ? "inclui tudo do " + Object.values(PLANOS)[i-1].nome : "o básico para proteger o carro"}</div>`;
+        card.onclick = () => {
+          grade.querySelectorAll(".plano").forEach(c => { c.setAttribute("aria-pressed","false"); c.disabled = true; });
+          card.setAttribute("aria-pressed","true");
+          mensagemLead(`Plano ${p.nome}`); dados.plano = id; seguir("inicio");
+        };
+        grade.append(card);
+      });
+      anexar(grade);
+      doca({textoLivre:false, dica:"O preço de cada plano depende do seu perfil. Ele aparece depois do resumo."});
+    },
+    async inicio(){
+      progresso(9);
+      await mensagemBot("Por último: <b>quando o seguro deve começar?</b>");
+      const prox = new Date(HOJE.getFullYear(), HOJE.getMonth()+1, 1);
+      doca({placeholder:"", tipo:"date",
+            botoes:[{rotulo:`Hoje (${dataBR(HOJE)})`, acao:() => escolherInicio(HOJE)},
+                    {rotulo:`1º do próximo mês (${dataBR(prox)})`, acao:() => escolherInicio(prox)}],
+            dica:"Ou escolha outra data no campo acima."});
+      entrada.min = HOJE.toISOString().slice(0,10);
+      passoAtual = v => { if (!v) return erro("Escolha uma data."); const [a,m,d] = v.split("-").map(Number); escolherInicio(new Date(a,m-1,d)); };
+    },
+    async resumo(){
+      progresso(10);
+      const p = PLANOS[dados.plano];
+      await mensagemBot("Confere se está tudo certo:");
+      const c = el("div","cartao");
+      const linha = (rot,val,passo) => `<dt>${rot}</dt><dd>${val}</dd><dd><button class="alt" type="button" data-passo="${passo}">alterar</button></dd>`;
+      c.innerHTML = `<dl>${linha("Nome", dados.nome,"nome")}${linha("WhatsApp", dados.whatsapp.exibicao,"whatsapp")}
+        ${linha("E-mail", dados.email || "não informado","email")}${linha("Idade", dados.idade + " anos","idade")}
+        ${linha("Carro", dados.modelo + " " + dados.ano,"modelo")}${linha("CEP", dados.cep || "não informado","cep")}
+        ${linha("Plano", p.nome,"plano")}${linha("Início", dataBR(dados.inicio),"inicio")}</dl>`;
+      c.querySelectorAll(".alt").forEach(b => b.onclick = () => { voltarAoResumo = true; mensagemLead("Quero alterar: " + b.previousElementSibling?.textContent); PASSOS[b.dataset.passo](); });
+      anexar(c);
+      doca({textoLivre:false, botoes:[{rotulo:"Cotar agora →", primaria:true, acao:cotar}]});
+    }
+  };
+
+  async function menorDeIdade(){
+    passoAtual = null;
+    await mensagemBot("Que bom que você está pesquisando um seguro! A cotação e a contratação precisam ser feitas por um adulto, com 18 anos ou mais. Chame seu pai, sua mãe ou o responsável para fazer a cotação com os dados dele. Leva poucos minutos, e a gente fica esperando vocês por aqui.");
+    doca({textoLivre:false, botoes:[{rotulo:"Recomeçar com os dados do responsável", acao:reiniciar}]});
+  }
+
+  function escolherInicio(d){ entrada.min = ""; mensagemLead(dataBR(d)); dados.inicio = d; seguir("resumo"); }
+  function seguir(proximo){ passoAtual = null; if (voltarAoResumo && proximo !== "resumo") { voltarAoResumo = false; proximo = "resumo"; } PASSOS[proximo](); }
+
+  async function recusa(motivo){
+    passoAtual = null;
+    await mensagemBot(`Obrigado por me contar. Infelizmente não consigo cotar online neste caso: <b>${motivo}</b><br>Um corretor pode ver outras opções para você.`);
+    doca({textoLivre:false, botoes:[{rotulo:"Falar com um corretor", primaria:true, acao:() => handoff("Quero falar com um corretor", "recusa_regra_de_aceitacao")}, {rotulo:"Recomeçar", acao:reiniciar}]});
+  }
+
+  async function handoff(textoDoLead, motivo){
+    mensagemLead(textoDoLead);
+    const primeiroNome = dados.nome ? dados.nome.trim().split(/\s+/)[0] : "";
+    const exibicao = dados.whatsapp ? dados.whatsapp.exibicao : "";
+    await mensagemBot(`${primeiroNome ? `Perfeito, ${primeiroNome}!` : "Perfeito!"} Logo um corretor vai entrar em contato pelo WhatsApp ${exibicao} para te dar todo o suporte.<br><span class="tag-exemplo">entra na Fila humana · motivo: ${motivo}</span>`,
+      {cls:"sistema"});
+    doca({textoLivre:false, botoes:[{rotulo:"Fazer outra cotação", acao:reiniciar}]});
+  }
+
+  // ───── cotação simulada: mostra as tentativas como o agente real faz (3 tentativas) ─────
+  async function cotar(){
+    mensagemLead("Cotar agora");
+    $("doca").hidden = true;
+    const cenario = $("cenario").value;
+    const falhas = cenario === "ok" ? 0 : cenario === "recupera" ? 1 : 3;
+    const status = await mensagemBot("Consultando a tabela de preços… <b>tentativa 1 de 3</b>");
+    const b = status.querySelector(".bolha");
+    const rastro = [];
+    for (let t = 1; t <= 3; t++) {
+      await esperar(1100);
+      const id = "q_" + Math.random().toString(16).slice(2,8);
+      if (t <= falhas) {
+        rastro.push(`<span class="falha">✗ ${id} · tentativa ${t} · ${t === 2 ? "timeout" : "503"}</span>`);
+        if (t < 3) { b.innerHTML = `<span class="quem">Assistente AutoSeguro</span>O sistema de cotação demorou a responder. Tentando de novo… <b>tentativa ${t+1} de 3</b>`; continue; }
+        b.innerHTML = `<span class="quem">Assistente AutoSeguro</span>O sistema de cotação está fora do ar agora. <b>Não vou chutar um preço.</b> Um corretor continua daqui com os seus dados já preenchidos.
+          <div class="rastro">${rastro.join("<br>")}</div>`;
+        rolar();
+        doca({textoLivre:false, botoes:[{rotulo:"Falar com um corretor", primaria:true, acao:() => handoff("Quero falar com um corretor", "quote_indisponivel")}, {rotulo:"Tentar de novo", acao:cotar}]});
+        return;
+      }
+      rastro.push(`<span class="ok">✓ ${id} · tentativa ${t} · 200</span>`);
+      b.closest(".msg").remove();
+      return mostrarPreco(rastro);
+    }
+  }
+
+  function precoSimulado(){
+    const p = PLANOS[dados.plano]; let v = p.base;
+    const i = dados.idade; v *= i <= 24 ? 1.6 : i <= 29 ? 1.25 : i <= 59 ? 1.0 : 1.4;
+    const uso = ANO_ATUAL - dados.ano; v *= uso <= 5 ? 1.0 : uso <= 10 ? 1.15 : 1.45;
+    if (dados.cep && ["07","08","21","26","59"].includes(dados.cep.slice(0,2))) v *= 1.3;
+    return Number(v.toFixed(2)); // mesmo arredondamento da /quote (conferido: Completo, 35 anos, 2019 → 241,38)
+  }
+  function primeiraParcela(valor){
+    const d = dados.inicio, diasNoMes = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    const cobrados = diasNoMes - d.getDate() + 1;
+    return {cobrados, diasNoMes, valor: Number((valor*cobrados/diasNoMes).toFixed(2))};
+  }
+
+  async function mostrarPreco(rastro){
+    const p = PLANOS[dados.plano], valor = precoSimulado();
+    const carencia = new Date(dados.inicio); carencia.setDate(carencia.getDate() + 30);
+    await mensagemBot("Sua cotação saiu:");
+    const c = el("div","cartao");
+    c.innerHTML = `<div style="font-size:13px;color:var(--texto-fraco)">Plano ${p.nome}</div>
+      <div class="preco">${brl(valor)} <small>/mês</small></div>
+      <div style="font-size:13px;color:var(--texto-fraco)">Franquia ${brl(p.franquia)}</div>
+      <div class="chips">${p.cob.map(x => `<span class="chip">${NOME_COB[x]}</span>`).join("")}</div>
+      <p class="nota">Roubo e furto passam a valer em ${dataBR(carencia)} (carência de 30 dias).</p>
+      ${dados.inicio.getDate() !== 1 ? (pp => `<p class="nota">Como começa no meio do mês, a primeira parcela é proporcional: <b>${brl(pp.valor)}</b> (${pp.cobrados} de ${pp.diasNoMes} dias). As seguintes são de ${brl(valor)}.</p>`)(primeiraParcela(valor)) : ""}
+      <div class="rastro">${rastro.join("<br>")} · <a href="#">ver no Rastreio</a><br><span class="tag-exemplo">valor calculado no navegador (mock) · no sistema vem da /quote</span></div>`;
+    anexar(c);
+    const outros = Object.keys(PLANOS).filter(k => k !== dados.plano).map(k => PLANOS[k].nome);
+    await mensagemBot(`Com ${dados.idade} anos e um ${dados.modelo} ${dados.ano}, o <b>${p.nome}</b> fica em ${brl(valor)} por mês.
+      ${dados.plano === "essencial" ? "Ele cobre colisão, roubo e furto. Se você quiser proteção contra danos a terceiros e vidros, o Completo inclui." : "Ele já inclui proteção para terceiros e vidros, que o Essencial não tem."}
+      Quer tirar alguma dúvida ou comparar com o ${outros.join(" ou o ")}?<br><span class="tag-exemplo">IA · texto de exemplo. No sistema, a resposta vem do LLM real.</span>`, {quem:"IA AutoSeguro"});
+    doca({placeholder:"Pergunte algo sobre o plano…", dica:"Resposta livre da IA: próximo pedaço.",
+      botoes:[{rotulo:"Quero contratar", primaria:true, acao:() => handoff("Quero contratar", "lead_quer_contratar")},
+              {rotulo:"Ver outro plano", acao:() => { mensagemLead("Quero ver outro plano"); voltarAoResumo = true; PASSOS.plano(); }},
+              {rotulo:"Falar com um corretor", acao:() => handoff("Quero falar com um corretor", "lead_pediu_humano")}]});
+    passoAtual = async v => { mensagemLead(v); entrada.value = ""; await mensagemBot("(Próximo pedaço: aqui a IA responde de verdade, com o LLM, sem inventar preço nem aprovar desconto.)", {quem:"IA AutoSeguro", cls:"sistema"}); };
+  }
+
+  function enviar(){ const v = entrada.value.trim(); if (passoAtual && v) passoAtual(v); }
+  form.addEventListener("submit", e => { e.preventDefault(); enviar(); });
+  entrada.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); enviar(); } });
+
+  function reiniciar(){
+    dados = {}; passoAtual = null; voltarAoResumo = false; fio.innerHTML = "";
+    entrada.oninput = null; paisSel.value = "BR"; paisSel.hidden = true;
+    $("hero").hidden = false; $("conversa").hidden = true; $("doca").hidden = true; $("palco").scrollTop = 0;
+  }
+  $("btn-comecar").onclick = async () => {
+    $("hero").hidden = true; $("conversa").hidden = false;
+    await mensagemBot("Oi! Sou o assistente da AutoSeguro. Vou te fazer algumas perguntas rápidas e já te mostro o preço.");
+    await mensagemBot("Seus dados são usados só para esta cotação e para um corretor falar com você, conforme a LGPD.", {cls:"sistema"});
+    PASSOS.nome();
+  };
+  $("btn-reiniciar").onclick = reiniciar;
+  $("btn-spec").onclick = () => $("gaveta").classList.add("aberta");
+  $("btn-fechar").onclick = () => $("gaveta").classList.remove("aberta");
+})();
+</script>
+</body>
+</html>

@@ -1,52 +1,3 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Base de conhecimento — fichas de objeção de preço</title>
-<style>
-  :root{--bg:#0f1420;--painel:#161d2e;--borda:#26314a;--texto:#e7ecf5;--sutil:#93a1bd;--acento:#4f8cff;--erro:#ff6b6b;--ok:#4fd18b}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--texto)}
-  header{padding:16px 24px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center}
-  header h1{font-size:16px;margin:0;font-weight:600}
-  header nav a{color:var(--sutil);text-decoration:none;font-size:13px;margin-left:16px}
-  main{display:grid;grid-template-columns:260px 1fr;gap:0;min-height:calc(100vh - 57px)}
-  aside{border-right:1px solid var(--borda);padding:16px}
-  aside button.nova{width:100%;padding:8px;margin-bottom:12px;background:var(--acento);color:#fff;border:none;border-radius:6px;cursor:pointer}
-  #lista{list-style:none;margin:0 0 24px;padding:0}
-  #lista li{padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--sutil);font-size:13px}
-  #lista li:hover,#lista li.ativa{background:var(--painel);color:var(--texto)}
-  #lista li .badge{font-size:11px;padding:1px 6px;border-radius:10px;margin-left:6px}
-  .badge.rascunho{background:#3a3220;color:#e0b84f}
-  .badge.publicado{background:#173a2a;color:var(--ok)}
-  .config-comercial{border-top:1px solid var(--borda);padding-top:14px}
-  .config-comercial h2{font-size:12px;color:var(--sutil);margin:0 0 8px;text-transform:uppercase;letter-spacing:.03em}
-  .config-comercial label{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--texto);cursor:pointer}
-  .config-comercial input[type=checkbox]{margin-top:2px;width:auto}
-  #config-status{font-size:11px;color:var(--sutil);margin-top:6px;min-height:14px}
-  section{padding:24px;max-width:720px}
-  label{display:block;font-size:12px;color:var(--sutil);margin:14px 0 4px}
-  input,textarea{width:100%;padding:8px;border-radius:6px;border:1px solid var(--borda);background:var(--painel);color:var(--texto);font-family:inherit;font-size:14px}
-  textarea{min-height:70px;resize:vertical}
-  .ajuda{font-size:11px;color:var(--sutil);margin-top:4px}
-  .argumentos{display:flex;flex-direction:column;gap:6px}
-  .argumentos label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto);margin:0}
-  .argumentos input{width:auto}
-  .acoes{margin-top:20px;display:flex;gap:10px}
-  button{font-size:14px;padding:9px 16px;border-radius:6px;border:1px solid var(--borda);background:var(--painel);color:var(--texto);cursor:pointer}
-  button.primario{background:var(--acento);border-color:var(--acento);color:#fff}
-  #mensagem{margin-top:14px;padding:10px 12px;border-radius:6px;font-size:13px;display:none}
-  #mensagem.erro{display:block;background:#3a1c1c;color:var(--erro)}
-  #mensagem.sucesso{display:block;background:#173a2a;color:var(--ok)}
-</style>
-</head>
-<body>
-<header>
-  <h1>Base de conhecimento — objeções de preço</h1>
-  <nav><a href="/painel/index.html">Painel</a></nav>
-</header>
-<main>
   <aside>
     <button class="nova" id="btn-nova">+ nova ficha</button>
     <ul id="lista"></ul>
@@ -90,7 +41,6 @@
     </div>
     <div id="mensagem"></div>
   </section>
-</main>
 <script>
 const lista = document.getElementById('lista');
 const mensagem = document.getElementById('mensagem');
@@ -207,5 +157,3 @@ document.getElementById('config-encaminhar').addEventListener('change', salvarCo
 carregarLista();
 carregarConfiguracaoComercial();
 </script>
-</body>
-</html>
