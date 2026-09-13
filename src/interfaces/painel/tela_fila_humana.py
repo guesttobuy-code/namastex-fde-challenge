@@ -30,6 +30,7 @@ _DESCRICAO_MOTIVO = {
     MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD.value: "Erro de payload nosso (400) — não repete, registra e passa adiante.",
     MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO.value: "A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.",
     MotivoHandoff.LEAD_QUER_CONTRATAR.value: "O lead pediu para contratar: o fechamento é feito por um corretor.",
+    MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL.value: "A IA não conseguiu responder a objeção de preço com segurança (sem chave, sem ficha publicada, ou a geração reprovou a validação de marcador): encaminhado ao corretor.",
 }
 
 

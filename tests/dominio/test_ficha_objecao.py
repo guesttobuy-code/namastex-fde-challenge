@@ -11,6 +11,7 @@ from dominio.ficha_objecao import (
     FichaDeObjecao,
     MARCADORES_BASE,
     MarcadorInvalido,
+    preencher_marcadores,
     validar_argumentos_permitidos,
     validar_resposta_orientada,
     vocabulario_de_marcadores,
@@ -173,3 +174,33 @@ def test_publicar_exige_instante_explicito_sem_default():
     rascunho = _ficha("Posso ajustar a franquia para {{franquia}}.", status="rascunho", versao=0)
     with pytest.raises(TypeError):
         rascunho.publicar()  # type: ignore[call-arg]
+
+
+# ── #58: preencher_marcadores (a IA escreve com marcador, o código resolve) ─
+
+
+def test_preencher_marcadores_substitui_cada_marcador_pelo_valor():
+    texto = preencher_marcadores(
+        "Plano {{plano_nome}}: franquia {{franquia}}, coberturas {{coberturas}}.",
+        {"plano_nome": "Completo", "franquia": "R$ 3.000,00", "coberturas": "colisão, roubo"},
+    )
+    assert texto == "Plano Completo: franquia R$ 3.000,00, coberturas colisão, roubo."
+
+
+def test_preencher_marcadores_sem_marcador_no_texto_devolve_texto_intacto():
+    assert preencher_marcadores("Texto sem nenhum marcador.", {}) == "Texto sem nenhum marcador."
+
+
+def test_preencher_marcadores_com_marcador_sem_valor_correspondente_e_recusado():
+    with pytest.raises(MarcadorInvalido, match=r"\{\{premio_mensal\}\}"):
+        preencher_marcadores("Sai por {{premio_mensal}} por mês.", {"franquia": "R$ 3.000,00"})
+
+
+def test_preencher_marcadores_nunca_deixa_chave_dupla_escapar_no_resultado():
+    """Mutação: se `preencher_marcadores` algum dia devolvesse o texto cru quando falta valor (em
+    vez de recusar), o lead veria `{{premio_mensal}}` literal — pior que um número fabricado."""
+    try:
+        resultado = preencher_marcadores("{{premio_mensal}}", {})
+    except MarcadorInvalido:
+        return
+    assert "{{" not in resultado

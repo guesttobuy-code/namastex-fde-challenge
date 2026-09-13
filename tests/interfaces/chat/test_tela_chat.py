@@ -32,8 +32,17 @@ def test_render_le_o_fragmento_do_chat_do_disco_com_o_script_intacto():
     assert "/api/chat/cotar" in html
     assert "/api/chat/contato" in html
     assert "/api/chat/contratar" in html
+    assert "/api/chat/responder" in html
     assert "/api/planos" in html
     assert "/docs/design/paises.json" in html
+
+
+def test_render_tem_o_campo_de_objecao_de_preco_com_o_texto_exato_aprovado():
+    """Issue #58: texto aprovado pelo dono para o campo de objeção depois do card de preço — não
+    pode ser redigitado."""
+    html = tela_chat.render()
+    assert "Ficou com alguma dúvida sobre o preço? Pode escrever aqui." in html
+    assert "habilitarCampoDeObjecao" in html
 
 
 def test_render_tem_os_textos_exatos_aprovados_pela_issue_46():

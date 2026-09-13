@@ -505,6 +505,7 @@
           { rotulo: "Ver outro plano", acao: () => { mensagemLead("Quero ver outro plano"); PASSOS.plano(); } },
         ],
       });
+      habilitarCampoDeObjecao(); // issue #58 — função própria, abaixo; não mexe no resto de cotar()
       return;
     }
 
@@ -524,6 +525,48 @@
       // oferece só recomeçar em vez de fingir que sabe qual campo falta.
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Recomeçar", acao: reiniciar }] });
     }
+  }
+
+  // ── issue #58 (frente ia-responde): campo opcional de objeção de preço, depois do card —
+  // função própria, chamada por UMA linha em cotar() (fora do tratamento de erro, que é do chat
+  // 17 em robustez-quote-entrada). Reusa o mesmo mecanismo de passoAtual/mostrarDoca de toda
+  // pergunta de texto livre do fluxo guiado — nada novo no DOM além do que mostrarDoca já monta.
+  function habilitarCampoDeObjecao() {
+    passoAtual = async (texto) => {
+      mensagemLead(texto);
+      esconderDoca();
+      const status = mensagemBot("Só um instante…");
+      let resposta;
+      try {
+        resposta = await fetch("/api/chat/responder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: conversationId, texto }),
+        });
+      } catch (e) {
+        status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora.';
+        habilitarCampoDeObjecao();
+        return;
+      }
+      const dados = await resposta.json();
+      if (dados.tratado) {
+        status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(dados.texto)}`;
+      } else {
+        // Mensagem não era objeção de preço (ou não havia cotação ainda) — o back-end não decide
+        // nada aqui; o front só não mostra resposta nenhuma, o lead segue com os botões normais.
+        status.remove();
+      }
+      habilitarCampoDeObjecao();
+    };
+    mostrarDoca({
+      textoLivre: true,
+      dica: "Ficou com alguma dúvida sobre o preço? Pode escrever aqui.",
+      botoes: [
+        { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar") },
+        { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor") },
+        { rotulo: "Ver outro plano", acao: () => { mensagemLead("Quero ver outro plano"); PASSOS.plano(); } },
+      ],
+    });
   }
 
   // ── "Quero contratar" e "Falar com um corretor" caem no MESMO endpoint: o domínio (issue #42)

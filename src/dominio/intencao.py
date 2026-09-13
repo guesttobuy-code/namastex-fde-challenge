@@ -6,6 +6,10 @@ Fica fora daqui, por decisão do dono (issue #42): `dominio.saida_de_linguagem.S
 e o adaptador do LLM (F6/#9) — território de outra frente, continuam `str | None`. A conversão da
 string livre do LLM para este Enum acontece em `aplicacao.servico_conversa`, na fronteira que esta
 frente é dona de decidir.
+
+`OBJECAO_DE_PRECO` (issue #58, frente `ia-responde`): o lead levanta objeção de preço fora do
+fluxo de coleta — desvia `conduzir_conversa` para a resposta orientada pela base de conhecimento
+em vez do fluxo guiado normal (ver `aplicacao.servico_resposta_orientada`).
 """
 from __future__ import annotations
 
@@ -15,3 +19,4 @@ from enum import Enum
 class Intencao(str, Enum):
     INFORMAR_DADOS = "informar_dados"
     QUER_CONTRATAR = "quer_contratar"
+    OBJECAO_DE_PRECO = "objecao_de_preco"

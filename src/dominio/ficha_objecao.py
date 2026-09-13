@@ -53,7 +53,8 @@ _TENTATIVAS_MAX = 5
 
 
 class MarcadorInvalido(ValueError):
-    """Dígito fora de `{{...}}`, ou marcador fora do vocabulário conhecido."""
+    """Dígito fora de `{{...}}`, marcador fora do vocabulário conhecido, ou (issue #58) marcador
+    presente no texto sem valor correspondente para preencher."""
 
 
 def vocabulario_de_marcadores(ids_dos_planos: Iterable[str] = ()) -> frozenset[str]:
@@ -77,6 +78,24 @@ def validar_resposta_orientada(texto: str, marcadores_conhecidos: frozenset[str]
             raise MarcadorInvalido(
                 f"O marcador {{{{{nome}}}}} não é reconhecido. Marcadores permitidos: {permitidos}."
             )
+
+
+def preencher_marcadores(texto: str, valores: dict[str, str]) -> str:
+    """Substitui cada `{{marcador}}` pelo valor correspondente em `valores` (issue #58) — quem
+    chama já formatou o valor como string (moeda em formato BR, por exemplo); este módulo só
+    substitui, nunca formata número. Chama primeiro `validar_resposta_orientada` (responsabilidade
+    de quem orquestra, não desta função) para garantir que só marcadores do vocabulário chegam
+    aqui. Marcador sem valor correspondente em `valores` é `MarcadorInvalido` — nunca deixa
+    `{{...}}` literal escapar para o texto que o lead lê (pior que um número fabricado: um
+    placeholder visível, LEI 2)."""
+
+    def _substituir(encontrado: re.Match[str]) -> str:
+        nome = encontrado.group(1)
+        if nome not in valores:
+            raise MarcadorInvalido(f"Não há valor para preencher o marcador {{{{{nome}}}}}.")
+        return valores[nome]
+
+    return _MARCADOR_RE.sub(_substituir, texto)
 
 
 def validar_argumentos_permitidos(argumentos: Iterable[str]) -> None:
