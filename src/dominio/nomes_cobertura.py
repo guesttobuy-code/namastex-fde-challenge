@@ -17,3 +17,11 @@ _NOMES: dict[str, str] = {
 
 def nome_legivel(id_cobertura: str) -> str:
     return _NOMES.get(id_cobertura, id_cobertura)
+
+
+def ids_mapeados() -> frozenset[str]:
+    """Ids com entrada EXPLÍCITA no mapa (achado da auditoria do PR #60): `nome_legivel` sozinha
+    não distingue "tem entrada com o mesmo nome do id" (`roubo` -> `roubo`) de "não tem entrada
+    nenhuma" — as duas caem no mesmo fallback. Quem precisa garantir cobertura total (o teste que
+    lê `plans.json`) usa esta função, não `nome_legivel`."""
+    return frozenset(_NOMES)
