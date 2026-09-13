@@ -1,5 +1,11 @@
-"""Tela Conversas (índice, escopo #13) — o atendimento como o lead vê: só `mensagem_recebida`,
-`mensagem_enviada` e `decisao`. A prova de proveniência mora no Rastreio; aqui é o tom da conversa.
+"""Tela Histórico de atendimentos (índice, escopo #13) — o atendimento como o lead vê: só
+`mensagem_recebida`, `mensagem_enviada` e `decisao`. A prova de proveniência mora no Rastreio; aqui
+é o tom da conversa.
+
+Renomeada de "Conversas" para "Histórico de atendimentos" na issue #46 (PR 1/2, achado B2 da
+auditoria do PR #47): o rótulo "Conversas" no menu agora é o chat centralizado (`/`, PR 2); esta
+tela — a lista de conversas já gravadas na trilha — precisa dizer o que é, senão o título contradiz
+o item ativo no menu.
 """
 
 from __future__ import annotations
@@ -33,8 +39,8 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
     corpo = f"""
 <div class="cabecalho">
   <div>
-    <h1>Conversas</h1>
-    <p>O atendimento como o lead vê. A prova do que aconteceu fica no <a href="rastreio.html">Rastreio</a>.</p>
+    <h1>Histórico de atendimentos</h1>
+    <p>As conversas já registradas na trilha. A prova do que aconteceu fica no <a href="rastreio.html">Rastreio</a>.</p>
   </div>
   <span class="chip viva">{len(por_conversa)} conversa(s) na trilha</span>
 </div>
@@ -49,7 +55,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 </div>
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Campo que a trilha não gravou aparece como buraco visível.</p>
 """
-    return pagina(titulo="Conversas", pagina_ativa="/painel/index.html", corpo=corpo,
+    return pagina(titulo="Histórico de atendimentos", pagina_ativa="/painel/index.html", corpo=corpo,
                   contagens={"conversas": len(por_conversa)}, caminho_ui_css=caminho_ui_css,
                   css_extra=css_extra_da_tela("index.html"))
 

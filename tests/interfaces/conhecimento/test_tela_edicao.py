@@ -33,3 +33,13 @@ def test_render_le_o_fragmento_do_editor_do_disco_com_o_script_intacto():
     assert "campo-tentativas" in html
     assert "carregarConfiguracaoComercial" in html
     assert "/api/configuracao-comercial" in html
+
+
+def test_render_tem_titulo_igual_ao_prototipo():
+    """Achado B1 da auditoria do PR #47 (issue #46): o protótipo aprovado abre com
+    `<h1>Base de conhecimento</h1>` num `.cabecalho`; a tela do PR ia direto para "+ nova ficha",
+    sem título nenhum. Trava contra o cabeçalho sumir de novo."""
+    html = tela_edicao.render()
+
+    assert '<div class="cabecalho">' in html
+    assert "<h1>Base de conhecimento</h1>" in html

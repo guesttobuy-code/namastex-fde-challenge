@@ -101,16 +101,18 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
 
 </style>
 <style>
-/* Base de conhecimento (issue #46, PR 1 de 2): pele nova para o editor de fichas EXISTENTE —
-   mesmas classes/ids de `interfaces/conhecimento/_corpo.html` (#lista, .badge, .config-comercial,
-   .argumentos, .acoes, #mensagem…), sem redesenhar a UX interna (PLANO item 5). O editor entra
-   direto como filho de `.conteudo` (sem `.painel` própria), então o grid de duas colunas mora
-   aqui, escopado a esta tela via `.conteudo > aside`/`.conteudo > section`. */
-.conteudo{display:grid;grid-template-columns:260px 1fr;gap:0;padding:0;align-items:start}
-@media (max-width:860px){ .conteudo{grid-template-columns:1fr} }
+/* Base de conhecimento (issue #46, PR 1 de 2; achado B1 da auditoria do PR #47): pele nova para o
+   editor de fichas EXISTENTE — mesmas classes/ids de `interfaces/conhecimento/_corpo.html`
+   (#lista, .badge, .config-comercial, .argumentos, .acoes, #mensagem…), sem redesenhar a UX
+   interna (PLANO item 5). `.cabecalho` (título + subtítulo) usa o padrão JÁ definido no bloco de
+   `ui.css` acima, igual às outras seis telas — não redefinido aqui. O grid de duas colunas mora em
+   `.editor` (o `<div>` que envolve `<aside>`/`<section>` em `_corpo.html`, abaixo do cabeçalho),
+   não em `.conteudo` — senão o cabeçalho vira uma terceira coluna torta do grid. */
+.editor{display:grid;grid-template-columns:260px 1fr;gap:0;align-items:start;margin-top:8px}
+@media (max-width:860px){ .editor{grid-template-columns:1fr} }
 
-.conteudo > aside{border-right:1px solid var(--borda);padding:22px 18px;min-width:0}
-@media (max-width:860px){ .conteudo > aside{border-right:none;border-bottom:1px solid var(--borda)} }
+.editor > aside{border-right:1px solid var(--borda);padding:22px 18px 22px 0;min-width:0}
+@media (max-width:860px){ .editor > aside{border-right:none;border-bottom:1px solid var(--borda)} }
 
 button.nova{width:100%;padding:9px;margin-bottom:14px;background:var(--magenta);color:#16012F;
             font-weight:650;border:none;border-radius:10px;cursor:pointer;font-size:13.5px}
@@ -132,29 +134,34 @@ button.nova:hover{background:#ff33ff}
 .config-comercial input[type=checkbox]{margin-top:2px;width:auto;accent-color:var(--magenta)}
 #config-status{font-size:11px;color:var(--texto-mais-fraco);margin-top:6px;min-height:14px}
 
-.conteudo > section{padding:24px 26px 60px;max-width:640px;min-width:0}
-.conteudo > section label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+.editor > section{padding:0 0 40px 26px;max-width:640px;min-width:0}
+.editor > section label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
                            color:var(--texto-mais-fraco);margin:16px 0 5px}
-.conteudo > section label:first-child{margin-top:0}
-.conteudo > section input,.conteudo > section textarea{width:100%;padding:9px 12px;border-radius:10px;
+.editor > section label:first-child{margin-top:0}
+.editor > section input,.editor > section textarea{width:100%;padding:9px 12px;border-radius:10px;
         border:1px solid var(--borda);background:var(--superficie);color:var(--texto);
         font-family:inherit;font-size:14px}
-.conteudo > section input::placeholder,.conteudo > section textarea::placeholder{color:var(--texto-mais-fraco)}
-.conteudo > section textarea{min-height:78px;resize:vertical;line-height:1.5}
+.editor > section input::placeholder,.editor > section textarea::placeholder{color:var(--texto-mais-fraco)}
+.editor > section textarea{min-height:78px;resize:vertical;line-height:1.5}
 .ajuda{font-size:11.5px;color:var(--texto-mais-fraco);margin-top:6px;line-height:1.5}
 .ajuda code{font-family:var(--mono);color:var(--ciano)}
 
+/* Seletor com DUAS classes (.editor .argumentos) de propósito — precisa vencer `.editor > section
+   label`/`input` em especificidade (achado B1 da auditoria do PR #47: a versão anterior usava só
+   `.argumentos label`/`.argumentos input`, com especificidade MENOR que a regra genérica de
+   `section`, então perdia — cada caixa saía maiúscula e isolada, a marcação de "não aplicado"
+   nunca aparecia porque a regra que devia aplicar não vencia a cascata). */
 .argumentos{display:flex;flex-direction:column;gap:8px}
-.argumentos label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto);
+.editor .argumentos label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--texto);
                    margin:0;text-transform:none;letter-spacing:normal;cursor:pointer}
-.argumentos input{width:auto;accent-color:var(--magenta)}
+.editor .argumentos input{width:auto;accent-color:var(--magenta)}
 
 .acoes{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
-.conteudo > section button{font-size:13.5px;padding:9px 17px;border-radius:999px;border:1px solid var(--borda);
+.editor > section button{font-size:13.5px;padding:9px 17px;border-radius:999px;border:1px solid var(--borda);
         background:var(--superficie-2);color:var(--texto);cursor:pointer;font-family:inherit}
-.conteudo > section button:hover{border-color:var(--ciano)}
-.conteudo > section button.primario{background:rgba(255,0,255,.14);border-color:rgba(255,0,255,.5)}
-.conteudo > section button.primario:hover{border-color:var(--magenta)}
+.editor > section button:hover{border-color:var(--ciano)}
+.editor > section button.primario{background:rgba(255,0,255,.14);border-color:rgba(255,0,255,.5)}
+.editor > section button.primario:hover{border-color:var(--magenta)}
 
 #mensagem{margin-top:16px;padding:10px 13px;border-radius:10px;font-size:13px;display:none}
 #mensagem.erro{display:block;background:rgba(255,92,122,.12);color:var(--falha)}
@@ -185,6 +192,14 @@ button.nova:hover{background:#ff33ff}
 
 <main class="conteudo">
 
+  <div class="cabecalho">
+    <div>
+      <h1>Base de conhecimento</h1>
+      <p>Fichas de objeção que orientam a resposta do agente depois da cotação — números nunca
+         digitados aqui, só marcadores preenchidos pela ficha (<code>{{...}}</code>).</p>
+    </div>
+  </div>
+  <div class="editor">
   <aside>
     <button class="nova">+ nova ficha</button>
     <ul id="lista">
@@ -237,6 +252,7 @@ achei caro pra esse carro</textarea>
       (campos, ids e o <code>&lt;script&gt;</code> que chama <code>/api/objecoes*</code> e
       <code>/api/configuracao-comercial</code>) não muda nesta PR; só a pele visual.</p>
   </section>
+  </div>
 
 </main>
 </div>
