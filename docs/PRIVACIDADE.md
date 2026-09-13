@@ -41,12 +41,27 @@ dataset sempre gera a placa em maiúsculo (`GGE4X30`) — sem a flag, o padrão 
 consistência, mesmo onde é redundante — não custa nada e evita alguém tirá-la "para simplificar" e
 quebrar a placa sem perceber.
 
+## Contato do lead: fora do git, nunca na trilha (issue #46, ADR-0005)
+
+O chat centralizado coleta nome completo, WhatsApp e e-mail do lead — dado que o corretor precisa
+de verdade para ligar, mas que **não pode** seguir os dois caminhos que todo o resto de PII segue
+(redigir e deixar na trilha). Decisão: os três campos **nunca são gravados em nenhum evento da
+trilha** (nem em texto livre, nem em `contexto_coletado`) — `aplicacao.servico_conversa` monta o
+contexto do handoff sem eles por construção, não por convenção. Em vez disso, moram num
+armazenamento próprio (`aplicacao.servico_contato.ServicoDeContato` /
+`infra.repositorio_contato_json.RepositorioDeContatoJSON`), um arquivo por lead em
+`contato/leads/<conversation_id>.json`, fora do `git` (`.gitignore`) e com volume próprio no
+`docker-compose.yml` — só a Fila humana (que o corretor usa) lê esse dado, na borda do servidor.
+Detalhe da decisão e as alternativas descartadas: `governance/adr/0005-chat-guiado-estado-e-contato.md`.
+
 ## Limite conhecido, declarado (não escondido)
 
 A varredura por regex só pega os formatos que conhecemos:
 
 - CPF: com pontuação (`123.456.789-01`) e sem pontuação (`12345678901`, fixture manual).
-- Telefone: com `+55` e sem (fixture manual). Não cobre formatos internacionais fora do Brasil.
+- Telefone: com `+55` e sem (fixture manual), e desde a issue #46 qualquer DDI de 1 a 3 dígitos
+  seguido de 6 a 14 dígitos (`+1`, `+351`, `+54` testados explicitamente — é o mesmo padrão do
+  seletor de país do chat).
 - CEP: com hífen e com espaço (fixture manual). Não cobre CEP sem separador (`01310100`) — colidiria
   demais com outros números de 8 dígitos e o custo de falso positivo superaria o ganho.
 - Placa: padrão Mercosul e padrão antigo (fixture manual).
