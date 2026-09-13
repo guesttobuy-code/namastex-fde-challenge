@@ -315,6 +315,17 @@ def test_api_planos_devolve_o_catalogo_da_quote_service(tmp_path):
     assert catalogo["planos"][0]["franquia"] == 4500
 
 
+def test_api_planos_traduz_ids_de_cobertura_para_nome_legivel(tmp_path):
+    """Achado da auditoria do PR #62 (item 5): `_corpo.html` tinha um segundo mapa id->nome escrito
+    à mão (`NOME_COB`), duplicando `dominio.nomes_cobertura` (dono único, LEI 11). O JSON que sai
+    daqui já vem traduzido — o chat só exibe o que veio, nunca decide o nome."""
+    app = _criar_app(tmp_path=tmp_path, painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos_completo)
+    status, _, corpo = _chamar(app, "GET", "/api/planos")
+    assert status == "200 OK"
+    catalogo = json.loads(corpo)
+    assert catalogo["planos"][0]["coberturas"] == ["colisão", "roubo", "furto"]
+
+
 def test_api_planos_com_quote_service_fora_do_ar_e_503(app):
     # `app` (fixture) usa `_sem_planos` por padrão — nunca um catálogo inventado (LEI 2).
     status, _, _ = _chamar(app, "GET", "/api/planos")
@@ -407,6 +418,9 @@ def test_chat_cotar_com_portal_de_sucesso_devolve_preco_e_regenera_o_painel(tmp_
     assert turno["decisao"]["tipo"] == "explicar_cotacao"
     assert turno["preco"]["premio_mensal"] == 272.87
     assert turno["preco"]["plano_nome"] == "Completo"
+    # Achado da auditoria do PR #62 (item 5): ids crus ("colisao") não podem chegar ao chat —
+    # `dominio.nomes_cobertura` (dono único, LEI 11) traduz antes da resposta HTTP sair.
+    assert turno["preco"]["coberturas"] == ["colisão", "roubo", "furto"]
 
     # ADR-0005, decisão 2: o painel é regenerado a cada evento — sem reiniciar o processo, a
     # conversa nova já aparece no Histórico de atendimentos (index.html).

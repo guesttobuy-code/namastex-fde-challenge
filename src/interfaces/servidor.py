@@ -49,6 +49,7 @@ from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.ficha_objecao import MarcadorInvalido
 from dominio.intencao import Intencao
+from dominio.nomes_cobertura import nome_legivel
 from infra.cliente_quote import MAX_TENTATIVAS, ClienteQuoteHTTP
 from infra.config import url_quote_service
 from infra.planos_http import buscar_planos as buscar_planos_real
@@ -218,6 +219,19 @@ def _responder_configuracao_comercial(servico_configuracao: ServicoDeConfiguraca
     return _json(*_METODO_NAO_SUPORTADO)
 
 
+def _planos_com_coberturas_legiveis(planos: dict) -> dict:
+    """Traduz `coberturas` (ids crus de `plans.json`) para nome legível ANTES de sair pela borda
+    HTTP — dono único (LEI 11, achado #54): `dominio.nomes_cobertura` já é o dono do mapa, então o
+    chat nunca escreve um segundo (a versão anterior tinha `NOME_COB` hardcoded em `_corpo.html`)."""
+    return {
+        **planos,
+        "planos": [
+            {**plano, "coberturas": [nome_legivel(c) for c in plano.get("coberturas", [])]}
+            for plano in planos.get("planos", [])
+        ],
+    }
+
+
 def _responder_planos(buscar_planos, metodo: str):
     """`GET /api/planos` (issue #46, PR 2 de 2): proxy só-leitura de `infra.planos_http.buscar_planos`
     — o MESMO cliente que a base de conhecimento já usa para o vocabulário de marcadores (LEI 11,
@@ -227,7 +241,7 @@ def _responder_planos(buscar_planos, metodo: str):
     planos = buscar_planos()
     if planos is None:
         return _json("503 Service Unavailable", {"erro": "quote-service indisponível"})
-    return _json("200 OK", planos)
+    return _json("200 OK", _planos_com_coberturas_legiveis(planos))
 
 
 def _responder_paises(metodo: str):
@@ -297,7 +311,7 @@ def _preco_para_json(preco) -> dict | None:
         "plano_nome": preco.plano_nome,
         "premio_mensal": preco.premio_mensal,
         "franquia": preco.franquia,
-        "coberturas": list(preco.coberturas),
+        "coberturas": [nome_legivel(c) for c in preco.coberturas],
         "moeda": preco.moeda,
         "carencia": preco.carencia,
         "pro_rata": preco.pro_rata,

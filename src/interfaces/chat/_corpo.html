@@ -344,10 +344,6 @@
       const catalogo = await resposta.json();
       const planos = catalogo.planos || [];
       const moeda = catalogo.moeda || "BRL";
-      const NOME_COB = {
-        colisao: "Colisão", roubo: "Roubo", furto: "Furto", terceiros: "Terceiros",
-        vidros: "Vidros", carro_reserva: "Carro reserva", assistencia_24h: "Assistência 24h",
-      };
       mensagemBot(
         'Agora escolha o <b>plano</b>. Toque no card que faz mais sentido para você:' +
         '<details><summary>O que é franquia?</summary>Franquia é o valor que você paga do seu bolso ' +
@@ -359,7 +355,7 @@
       const grade = el("div", "planos");
       planos.forEach((p) => {
         const franquia = Number(p.franquia || 0).toLocaleString("pt-BR", { style: "currency", currency: moeda });
-        const coberturas = (p.coberturas || []).map((c) => `<li>${esc(NOME_COB[c] || c)}</li>`).join("");
+        const coberturas = (p.coberturas || []).map((c) => `<li>${esc(c)}</li>`).join("");
         const card = el("button", "plano");
         card.type = "button"; card.setAttribute("aria-pressed", "false");
         card.innerHTML = `<h4>${esc(p.nome || p.id)}</h4><div class="franquia">Franquia <b>${franquia}</b></div><ul>${coberturas}</ul>`;
