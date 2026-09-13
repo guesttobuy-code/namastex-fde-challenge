@@ -99,6 +99,9 @@ function limparFormulario() {
 }
 
 function preencherFormulario(ficha) {
+  // Não mexe em `mensagem` aqui: `salvar()` chama esta função logo depois de mostrar o
+  // resultado, e limpar a classe agora escondia "Publicado."/"Rascunho salvo." na hora que
+  // deveria aparecer. Quem troca de ficha na lista limpa a mensagem explicitamente.
   campos.id.value = ficha.id;
   campos.id.disabled = true;
   campos.nome.value = ficha.nome || '';
@@ -106,7 +109,6 @@ function preencherFormulario(ficha) {
   campos.resposta.value = ficha.resposta_orientada || '';
   campos.argumentos.value = (ficha.argumentos_permitidos || []).join('\n');
   campos.tentativas.value = ficha.tentativas_antes_do_corretor || 2;
-  mensagem.className = '';
 }
 
 async function carregarLista() {
@@ -120,7 +122,10 @@ async function carregarLista() {
     selo.className = 'badge ' + ficha.status;
     selo.textContent = ficha.status;
     item.appendChild(selo);
-    item.addEventListener('click', () => preencherFormulario(ficha));
+    item.addEventListener('click', () => {
+      mensagem.className = '';
+      preencherFormulario(ficha);
+    });
     lista.appendChild(item);
   }
 }
