@@ -105,6 +105,21 @@ conteúdo NÃO CONFIÁVEL (mesma régua do texto bruto do lead).
 
 ---
 
+## Seção F13/#43 — `FichaDeObjecao` (append, R2/#16)
+
+**Dono:** `src/dominio/ficha_objecao.py`.
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-11 | `dominio` não lê o relógio do sistema: `FichaDeObjecao.publicar` recebe `instante` como parâmetro obrigatório, nunca chama `datetime.now` internamente — quem chama (`aplicacao.servico_conhecimento`) fornece | `tests/dominio/test_ficha_objecao.py::test_publicar_recebe_instante_como_parametro_nunca_le_o_relogio` e `test_publicar_exige_instante_explicito_sem_default` |
+
+**Origem (achado #53, auditoria de arquitetura #49):** antes desta seção, `publicar()` chamava
+`datetime.now(timezone.utc)` direto, violando a doutrina do roadmap #3 §4 ("dominio/ regras puras,
+sem IO"). Correção é o parâmetro `instante`, sem porta `Relogio` formal (decisão da coordenação,
+#53: porta completa fica fora de escopo).
+
+---
+
 ## Seção da issue #46 (PR 2 de 2) — `ContatoLead` e telefone internacional (append, R2/#16)
 
 **Dono:** `src/dominio/contato_lead.py` (novo); `src/dominio/redator_pii.py` ganha um padrão
@@ -122,8 +137,8 @@ genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha del
 
 | # | invariante | teste que a cobre | exceção |
 |---|---|---|---|
-| I-11 | `ContatoLead` recusa nome ou WhatsApp vazio/só espaço, na criação — nunca um contato "meio preenchido" chega a `ServicoDeContato.salvar` | `tests/dominio/test_contato_lead.py` | `ValueError` |
-| I-12 | `redigir_texto` mascara telefone de qualquer DDI de 1 a 3 dígitos (`+1`, `+351`, `+54` testados explicitamente), sem deixar de mascarar o formato brasileiro (`+55`) que já passava | `tests/dominio/test_redator_pii.py::test_telefone_eua_ddi_1_e_redigido` / `test_telefone_portugal_ddi_351_e_redigido` / `test_telefone_argentina_ddi_54_e_redigido` | — |
+| I-12 | `ContatoLead` recusa nome ou WhatsApp vazio/só espaço, na criação — nunca um contato "meio preenchido" chega a `ServicoDeContato.salvar` | `tests/dominio/test_contato_lead.py` | `ValueError` |
+| I-13 | `redigir_texto` mascara telefone de qualquer DDI de 1 a 3 dígitos (`+1`, `+351`, `+54` testados explicitamente), sem deixar de mascarar o formato brasileiro (`+55`) que já passava | `tests/dominio/test_redator_pii.py::test_telefone_eua_ddi_1_e_redigido` / `test_telefone_portugal_ddi_351_e_redigido` / `test_telefone_argentina_ddi_54_e_redigido` | — |
 
 ### Decisões registradas
 
@@ -134,3 +149,6 @@ genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha del
   substitui): o específico aceita o formato brasileiro com espaço/hífen internos que o genérico
   (sem separador dentro do número) não casaria — os dois cobrem faixas diferentes da mesma família
   "telefone", nunca duplicando a MESMA regra (LEI 11 — são regras diferentes que hoje se parecem).
+- 2026-09-13 — renumerado I-11/I-12 → I-12/I-13 ao integrar `origin/main` (PR #61), que já tinha
+  publicado I-11 para `FichaDeObjecao.publicar`/relógio — colisão de numeração por append
+  concorrente em duas frentes, resolvida no merge (nunca duas seções com o mesmo número).

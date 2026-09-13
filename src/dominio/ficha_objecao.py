@@ -24,7 +24,6 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
 
 MARCADORES_BASE = frozenset(
     {
@@ -133,13 +132,15 @@ class FichaDeObjecao:
             "atualizado_em": self.atualizado_em,
         }
 
-    def publicar(self, ids_dos_planos: Iterable[str] = ()) -> "FichaDeObjecao":
+    def publicar(self, instante: str, ids_dos_planos: Iterable[str] = ()) -> "FichaDeObjecao":
         """Recusa (sem mutar `self`, frase para o dono) quando a resposta orientada tem número
         fora de marcador, o marcador não está no vocabulário (`ids_dos_planos` amplia com
         `franquia_<id>` por plano), os argumentos permitidos estão vazios ou fora da lista
         aprovada, ou `tentativas_antes_do_corretor` está vazio/fora de 1..5. Publicação
-        bem-sucedida: nova ficha `status="publicado"`, `atualizado_em` agora, e `versao` = 1 na
-        primeira publicação, incrementada a partir daí (achado R3 — a primeira nunca é 2)."""
+        bem-sucedida: nova ficha `status="publicado"`, `atualizado_em=instante`, e `versao` = 1 na
+        primeira publicação, incrementada a partir daí (achado R3 — a primeira nunca é 2).
+        `instante` é obrigatório (#53): o domínio não lê o relógio do sistema — quem chama
+        (`aplicacao.servico_conhecimento`) fornece."""
         validar_resposta_orientada(self.resposta_orientada, vocabulario_de_marcadores(ids_dos_planos))
         validar_argumentos_permitidos(self.argumentos_permitidos)
         if self.tentativas_antes_do_corretor is None or not (
@@ -153,5 +154,5 @@ class FichaDeObjecao:
             self,
             status="publicado",
             versao=self.versao + 1 if self.versao > 0 else 1,
-            atualizado_em=datetime.now(timezone.utc).isoformat(),
+            atualizado_em=instante,
         )

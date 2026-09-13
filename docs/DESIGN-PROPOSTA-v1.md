@@ -150,6 +150,15 @@ Direção de dependência: `interfaces → application → domain`; `infrastruct
 Portas: `PortalDeCotacao`, `PortalDeLinguagem`, `Relogio`, `RepositorioDeConversa`, `FilaDeHandoff`,
 `CanalDeMensagem`. Cada uma com adaptador real e dublê determinístico para teste.
 
+> **Nota (2026-09-13, issue #56):** esta seção foi superada pelo roadmap #3 §4 — a arquitetura
+> vigente é 4 camadas planas por tipo (`interfaces/aplicacao/dominio/infra`), não módulos por
+> domínio (`conversa`, `cotacao`, `handoff`, `privacidade`, `rastreio`, `dados`). Das portas
+> listadas acima, só `PortalDeCotacao` e `PortalDeLinguagem` foram criadas
+> (`src/aplicacao/portas/`); `Relogio`, `RepositorioDeConversa`, `FilaDeHandoff` e `CanalDeMensagem`
+> ficam como simplificação declarada — não são pendência escondida. Ver `dominio/CONTRACT.md`,
+> seção F13/#43, para a alternativa mínima adotada no lugar de `Relogio` (parâmetro `instante` +
+> relógio injetável na aplicação, sem porta formal).
+
 ### 5.3 Política de resiliência (derivada das medições da §4.1/4.2)
 
 | Decisão | Valor | Por que exatamente isso |

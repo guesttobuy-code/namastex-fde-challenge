@@ -75,3 +75,13 @@ def test_listar_objecoes_delega_para_o_repositorio():
 def test_obter_objecao_inexistente_devolve_none():
     servico = _servico()
     assert servico.obter_objecao("nao-existe") is None
+
+
+# ── #53: relógio injetável — o domínio não lê o relógio, esta camada fornece ─
+
+
+def test_agora_injetado_define_o_atualizado_em_gravado():
+    instante_fixo = "2026-09-13T12:00:00+00:00"
+    servico = ServicoDeConhecimento(RepositorioDeConhecimentoMemoria(), agora=lambda: instante_fixo)
+    persistido = servico.salvar_objecao({**_DADOS, "status": "publicado"})
+    assert persistido["atualizado_em"] == instante_fixo
