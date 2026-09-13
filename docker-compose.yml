@@ -10,3 +10,21 @@ services:
       QUOTE_SLOW_SECONDS: "8"
       # QUOTE_SEED: "42"   # descomente p/ falhas reproduziveis
     restart: unless-stopped
+
+  app:
+    # Servidor local (issue #43, F13, ADR-0004): tela de edicao da base de conhecimento + painel
+    # estatico ja gerado. Sobe na mesma rede do compose que quote-api (nome do servico = hostname,
+    # ex. "http://quote-api:8000") para quando uma frente futura ligar o chat ao agente real --
+    # nao chama a /quote nesta entrega, por isso nenhuma URL fica fixada aqui ainda.
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      CONHECIMENTO_DIR: "/app/conhecimento/objecoes"
+      PAINEL_DIR: "/app/painel-saida"
+    volumes:
+      # a edicao feita na tela vira alteracao visivel no git da maquina de quem testa
+      - ./conhecimento:/app/conhecimento
+    depends_on:
+      - quote-api
+    restart: unless-stopped

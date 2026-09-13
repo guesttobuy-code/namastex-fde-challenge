@@ -134,3 +134,39 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
 - `infra.planos_http.buscar_planos(base_url=None) -> dict | None` (F10/#13): cliente só-leitura do
   `GET /planos`, timeout explícito de 2s (`TIMEOUT_SEGUNDOS`), `None` se o serviço não responder —
   quem chama mostra o buraco visível, nunca um valor de memória.
+
+---
+
+## Seção F13/#43 — `RepositorioDeConhecimentoJSON` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON` — adaptador real da porta
+  `RepositorioDeConhecimento`: um arquivo JSON por ficha em `conhecimento/objecoes/<id>.json`
+  (ADR-0004).
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria` — dublê determinístico,
+  mesma interface, sem tocar disco.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-13 | `id` que não bate com o formato de slug seguro (`_ID_VALIDO`) é recusado nas duas classes antes de tocar o dicionário/disco — nenhum `id` escapa de `conhecimento/objecoes/` | `tests/infra/test_repositorio_conhecimento_json.py::test_id_fora_do_formato_seguro_e_recusado_no_disco` |
+| I-14 | `RepositorioDeConhecimentoMemoria` nunca devolve a referência interna — leitura é sempre cópia | `tests/infra/test_repositorio_conhecimento_json.py::test_duble_em_memoria_devolve_copia_nao_a_referencia_interna` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoJSON(diretorio: Path)` — implementa
+  `RepositorioDeConhecimento`.
+- `infra.repositorio_conhecimento_json.RepositorioDeConhecimentoMemoria()` — dublê determinístico.
+
+### O que NÃO é responsabilidade deste módulo
+
+- Validar o marcador da resposta orientada (`dominio.ficha_objecao`) — este módulo só persiste e
+  lê o `dict` que recebe.
+
+### Decisões registradas
+
+- 2026-09-13 — Formato JSON legível (não JSONL), um arquivo por ficha: cada ficha é uma unidade
+  editável e revisável isoladamente no `git diff` — diferente da trilha (append-only, uma linha por
+  evento), aqui cada publicação SUBSTITUI o arquivo (ADR-0004).

@@ -120,3 +120,42 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
   ou linha sem o nome da variável não pode virar silêncio).
 - 2026-09-12 — Chamada ao OpenRouter via `urllib.request` (stdlib), sem SDK novo — decisão do dono
   (emenda ao escopo da #9), registrada em ADR-0003.
+
+---
+
+## Seção F13/#43 — `ServicoDeConhecimento` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `aplicacao.portas.repositorio_conhecimento.RepositorioDeConhecimento` — a porta de persistência
+  das fichas de objeção de preço.
+- `aplicacao.servico_conhecimento.ServicoDeConhecimento` — caso de uso que lista, lê e salva
+  fichas; delega a invariante do marcador para `dominio.ficha_objecao.FichaDeObjecao.publicar`,
+  nunca a reimplementa.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-9 | `ServicoDeConhecimento.salvar_objecao` só chama `FichaDeObjecao.publicar()` (e portanto só valida o marcador) quando `dados["status"] == "publicado"` — salvar rascunho nunca valida | `tests/aplicacao/test_servico_conhecimento.py::test_salvar_rascunho_nunca_valida_marcador` |
+| I-10 | Publicação recusada não persiste nada (a porta não é chamada) | `tests/aplicacao/test_servico_conhecimento.py::test_publicar_com_digito_fora_de_marcador_e_recusado_e_nada_e_persistido` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.repositorio_conhecimento.RepositorioDeConhecimento` — `Protocol` com
+  `listar_objecoes() -> list[dict]`, `obter_objecao(id: str) -> dict | None`,
+  `salvar_objecao(id: str, ficha: dict) -> None`.
+- `aplicacao.servico_conhecimento.ServicoDeConhecimento(repositorio).listar_objecoes() -> list[dict]`,
+  `.obter_objecao(id: str) -> dict | None`, `.salvar_objecao(dados: dict) -> dict`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Validar a forma do marcador (`dominio.ficha_objecao`) e persistir de verdade em disco
+  (`infra.repositorio_conhecimento_json`) — `aplicacao` só orquestra os dois.
+- A "Configuração comercial" (`ConfiguracaoComercial`, `encaminhar_lead_fora_do_padrao`) — fica
+  para PR seguinte, depois do merge da #42 (dono do tipo, LEI 11).
+
+### Decisões registradas
+
+- 2026-09-13 — Armazenamento e servidor decididos em ADR-0004 (JSON versionado + `wsgiref` da
+  stdlib, sem dependência nova).
