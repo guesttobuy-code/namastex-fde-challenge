@@ -102,3 +102,35 @@ uma frase de injeção de prompt fez o modelo ecoar o texto inteiro do ataque de
 sinalizador para o operador revisar, não um vazamento, DESDE QUE este campo nunca vire texto ao
 lead (I-10). Se uma frente futura expuser `ambiguidades` numa tela de operador, tratar como
 conteúdo NÃO CONFIÁVEL (mesma régua do texto bruto do lead).
+
+---
+
+## Seção da issue #46 (PR 2 de 2) — `ContatoLead` e telefone internacional (append, R2/#16)
+
+**Dono:** `src/dominio/contato_lead.py` (novo); `src/dominio/redator_pii.py` ganha um padrão
+genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha dela — o padrão fixo de
+`+55` continua ao lado, para o formato brasileiro pontuado que o genérico não cobre).
+
+- `ContatoLead(nome, whatsapp, email=None)` — dataclass congelada, valida SÓ forma (nome e
+  WhatsApp não podem ser vazios/só espaço); nunca gera id, nunca persiste — isso é
+  `aplicacao.servico_contato`/`infra.repositorio_contato_json` (ADR-0005). Nome/WhatsApp/e-mail do
+  lead **nunca** entram em `EventoTrilha`/`contexto_coletado` — só neste tipo, fora da trilha.
+- `_PADRAO_TELEFONE_INTERNACIONAL` em `redator_pii._PADROES`: `+<DDI 1-3 dígitos><6-14 dígitos>`
+  (E.164-ish, espaço opcional entre DDI e número), cobre qualquer país que o seletor do chat
+  ofereça (`docs/design/paises.json`) — o padrão fixo de `+55` continua ao lado (formato brasileiro
+  pontuado, com espaço no DDD e hífen no número local, que o genérico não casa).
+
+| # | invariante | teste que a cobre | exceção |
+|---|---|---|---|
+| I-11 | `ContatoLead` recusa nome ou WhatsApp vazio/só espaço, na criação — nunca um contato "meio preenchido" chega a `ServicoDeContato.salvar` | `tests/dominio/test_contato_lead.py` | `ValueError` |
+| I-12 | `redigir_texto` mascara telefone de qualquer DDI de 1 a 3 dígitos (`+1`, `+351`, `+54` testados explicitamente), sem deixar de mascarar o formato brasileiro (`+55`) que já passava | `tests/dominio/test_redator_pii.py::test_telefone_eua_ddi_1_e_redigido` / `test_telefone_portugal_ddi_351_e_redigido` / `test_telefone_argentina_ddi_54_e_redigido` | — |
+
+### Decisões registradas
+
+- 2026-09-13 — issue #46 (PR 2 de 2): `ContatoLead` segue o mesmo padrão de `dominio.ficha_objecao`
+  (valida só FORMA, nunca decide persistência) — dono único da validação é este tipo, nunca
+  reimplementada em `aplicacao.servico_contato` nem na borda HTTP (`interfaces.servidor`).
+- 2026-09-13 — o padrão genérico de telefone fica ao LADO do padrão fixo de `+55` (não o
+  substitui): o específico aceita o formato brasileiro com espaço/hífen internos que o genérico
+  (sem separador dentro do número) não casaria — os dois cobrem faixas diferentes da mesma família
+  "telefone", nunca duplicando a MESMA regra (LEI 11 — são regras diferentes que hoje se parecem).

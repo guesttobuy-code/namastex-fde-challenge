@@ -20,6 +20,16 @@ medidos no dataset e nas fixtures manuais desta suíte — CPF sem pontuação, 
 com espaço e placa no padrão antigo. Formato fora dessa lista pode não ser pego. Nome próprio não usa
 NER: só redige o que está em `nomes_conhecidos`, quando o chamador informa (ex.: o `sender_name` da
 conversa) — sem essa lista, nome próprio passa intacto.
+
+Telefone internacional (issue #46, PR 2 de 2, item 4 do PLANO): o chat guiado deixa o lead escolher
+qualquer país (`docs/design/prototipo-conversas-v2/paises.js`), não só o Brasil — o padrão fixo em
+`+55` da #43 não cobria isso (nasceu vermelho contra `+1`/`+351`/`+54`, issue #46). O padrão genérico
+`_PADRAO_TELEFONE_INTERNACIONAL` casa `+<DDI de 1 a 3 dígitos><6 a 14 dígitos>` (E.164-ish, com um
+espaço opcional entre o DDI e o número — formato do chat: "+54 91123456789"). Ele exige um dígito
+seguindo direto o `+` sem separador dentro do número (sem espaço/hífen no meio), por isso NÃO
+substitui o padrão específico de `+55` logo abaixo (que aceita o formato brasileiro pontuado, com
+espaço entre DDI/DDD e hífen no número local) — os dois continuam lado a lado, o genérico pega o que
+o específico não pega.
 """
 
 from __future__ import annotations
@@ -36,6 +46,9 @@ _PADROES = (
     re.compile(r"(?i)\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"),  # CPF com pontuação
     re.compile(r"(?i)\+?55\s?\d{2}\s?9?\d{4}-\d{4}\b"),  # telefone com ou sem +55
     re.compile(r"(?i)\b\d{2}\s?9\d{4}-\d{4}\b"),  # telefone sem DDI (fixture manual)
+    re.compile(r"(?i)\+\d{1,3}\s?\d{6,14}\b"),  # telefone internacional (qualquer DDI) — genérico,
+    # por último dentro da família "telefone" (issue #46): pega o que os dois padrões específicos
+    # de cima não pegam (DDI diferente de 55, sem hífen no número local).
     re.compile(r"(?i)\b[a-z]{3}\d[a-z]\d{2}\b"),  # placa Mercosul
     re.compile(r"(?i)\b[a-z]{3}-?\d{4}\b"),  # placa padrão antigo (fixture manual)
     _PADRAO_CEP_HIFEN,

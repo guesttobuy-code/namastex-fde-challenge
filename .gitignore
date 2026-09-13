@@ -6,6 +6,10 @@ venv/
 .uv/
 *.egg-info/
 
+# Node (issue #46: devDependency só para o script one-off scripts/gerar-paises-whatsapp.mjs —
+# a saída versionada é docs/design/paises.json; a lib em si nunca roda em produção)
+node_modules/
+
 # env / secrets (NUNCA commitar)
 .env
 .env.*
@@ -25,6 +29,10 @@ venv/
 _local/
 _PRIVADO/
 *.token
+
+# Contato do lead (issue #46, ADR-0005): nome/WhatsApp/e-mail nunca vão ao git — só a trilha
+# redigida (sem PII) é versionável. Volume próprio no docker-compose.yml.
+contato/
 
 # Exceções conscientes ao que está ignorado acima
 # .env.example documenta as variáveis SEM segredo, e a regra `.env.*` o engoliria

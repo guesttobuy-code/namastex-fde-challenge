@@ -24,3 +24,7 @@ class EstadoDaConversa:
     ambiguidades: tuple[str, ...] = field(default_factory=tuple)
     ultimo_intent: Intencao | None = None
     status: str | None = None
+    nome: str | None = None
+    whatsapp: str | None = None
+    email: str | None = None
+    veiculo_modelo: str | None = None

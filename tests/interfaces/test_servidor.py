@@ -1,7 +1,9 @@
 """Vermelho-antes do servidor da #43: WSGI puro (stdlib), chamado direto — sem abrir socket de
 verdade — mesma disciplina de dublê de transporte usada em `infra/cliente_quote.py`. Cobre as
-rotas da API de fichas, da configuração comercial (B4), a tela de edição e o estático do painel;
-nunca decide (só chama `aplicacao.servico_conhecimento`/`servico_configuracao_comercial`)."""
+rotas da API de fichas, da configuração comercial (B4), a tela de edição, o estático do painel e,
+desde a issue #46 (PR 2 de 2), o chat guiado ligado ao agente real; nunca decide (só chama
+`aplicacao.servico_conhecimento`/`servico_configuracao_comercial`/`servico_conversa`/
+`servico_contato`)."""
 from __future__ import annotations
 
 import json
@@ -11,9 +13,14 @@ import pytest
 
 from aplicacao.servico_conhecimento import ServicoDeConhecimento
 from aplicacao.servico_configuracao_comercial import ServicoDeConfiguracaoComercial
+from aplicacao.servico_contato import ServicoDeContato
+from dominio.preco_cotado import PrecoCotado
+from dominio.resultado_cotacao import ResultadoDaCotacao
+from infra.cliente_quote import FakePortalDeCotacao
 from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialMemoria
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoMemoria
-from interfaces.servidor import criar_app
+from infra.repositorio_contato_json import RepositorioDeContatoMemoria
+from interfaces.servidor import _ESTADOS_EM_MEMORIA, criar_app
 
 
 def _chamar(app, method, path, corpo: dict | None = None):
@@ -44,22 +51,66 @@ def _com_planos() -> dict:
     return {"planos": [{"id": "essencial"}, {"id": "completo"}, {"id": "premium"}]}
 
 
-def _criar_app(*, painel_dir, buscar_planos=_sem_planos, configuracao_inicial=None):
+def _com_planos_completo() -> dict:
+    """Forma da `/planos` de verdade (`quote-service/data/plans.json`), para as rotas do chat que
+    leem `nome`/`franquia`/`coberturas` — nunca só o `id` que `_com_planos` (acima) basta para as
+    rotas de fichas."""
+    return {
+        "moeda": "BRL",
+        "planos": [
+            {"id": "essencial", "nome": "Essencial", "base_mensal": 119.90, "franquia": 4500, "coberturas": ["colisao", "roubo", "furto"]},
+            {"id": "completo", "nome": "Completo", "base_mensal": 209.90, "franquia": 3000, "coberturas": ["colisao", "roubo", "furto", "terceiros", "vidros"]},
+            {"id": "premium", "nome": "Premium", "base_mensal": 339.90, "franquia": 1500, "coberturas": ["colisao", "roubo", "furto", "terceiros", "vidros", "carro_reserva", "assistencia_24h"]},
+        ],
+    }
+
+
+def _preco_de_sucesso() -> dict:
+    return {
+        "plano_id": "completo", "plano_nome": "Completo", "premio_mensal": 272.87, "franquia": 3000.0,
+        "coberturas": ["colisao", "roubo", "furto"], "moeda": "BRL",
+    }
+
+
+def _criar_app(
+    *,
+    painel_dir,
+    buscar_planos=_sem_planos,
+    configuracao_inicial=None,
+    trilha_dir=None,
+    repositorio_contato=None,
+    portal_de_cotacao=None,
+):
     servico = ServicoDeConhecimento(RepositorioDeConhecimentoMemoria())
     servico_configuracao = ServicoDeConfiguracaoComercial(
         RepositorioDeConfiguracaoComercialMemoria(configuracao_inicial)
     )
+    repositorio_contato = repositorio_contato if repositorio_contato is not None else RepositorioDeContatoMemoria()
+    servico_contato = ServicoDeContato(repositorio_contato)
     return criar_app(
         servico=servico,
         painel_dir=painel_dir,
         servico_configuracao=servico_configuracao,
         buscar_planos=buscar_planos,
+        servico_contato=servico_contato,
+        trilha_dir=trilha_dir,
+        repositorio_contato=repositorio_contato,
+        portal_de_cotacao=portal_de_cotacao,
     )
 
 
 @pytest.fixture
 def app(tmp_path):
     return _criar_app(painel_dir=tmp_path / "painel-saida")
+
+
+@pytest.fixture(autouse=True)
+def _estados_em_memoria_isolados():
+    """`_ESTADOS_EM_MEMORIA` é um dict a nível de MÓDULO (ADR-0005) — sem isolar entre testes, uma
+    conversa gravada por um teste vazaria para o próximo que usar o mesmo `conversation_id`."""
+    _ESTADOS_EM_MEMORIA.clear()
+    yield
+    _ESTADOS_EM_MEMORIA.clear()
 
 
 _FICHA = {
@@ -139,18 +190,19 @@ def test_rota_desconhecida_e_404(app):
     assert status == "404 Not Found"
 
 
-def test_raiz_e_o_placeholder_honesto_do_chat_nao_o_editor(app):
-    """Issue #46, PR 1 de 2: `/` deixa de servir a base de conhecimento (que ganhou rota própria,
-    `/conhecimento`) e passa a ser um placeholder honesto do chat — sem formulário nem botão que
-    finja funcionar, dentro da mesma casca (`layout.pagina`)."""
+def test_raiz_serve_o_chat_centralizado_ligado_ao_agente_real(app):
+    """Issue #46, PR 2 de 2: `/` passa a servir o chat guiado real (`interfaces.chat.tela_chat`,
+    por trás das rotas `/api/chat/*` que chamam `aplicacao.servico_conversa`), não mais o
+    placeholder honesto do PR 1."""
     status, headers, corpo = _chamar(app, "GET", "/")
     assert status == "200 OK"
     assert headers["Content-Type"].startswith("text/html")
     texto = corpo.decode("utf-8")
     assert "Conversas" in texto
     assert 'aria-current="page"' in texto  # servida pela casca compartilhada, não HTML cru
+    assert "Começar minha cotação" in texto
+    assert "/api/chat/cotar" in texto
     assert "campo-id" not in texto  # nenhum campo do formulário de edição de ficha
-    assert "<form" not in texto.lower()
 
 
 def test_tela_de_edicao_em_conhecimento(app):
@@ -239,3 +291,129 @@ def test_configuracao_comercial_sem_o_campo_e_400(app):
 def test_configuracao_comercial_metodo_nao_suportado_e_405(app):
     status, _, _ = _chamar(app, "DELETE", "/api/configuracao-comercial")
     assert status == "405 Method Not Allowed"
+
+
+# ── chat guiado ligado ao agente real (issue #46, PR 2 de 2) ───────────────
+
+
+def test_api_planos_devolve_o_catalogo_da_quote_service(tmp_path):
+    app = _criar_app(painel_dir=tmp_path / "painel-saida", buscar_planos=_com_planos_completo)
+    status, headers, corpo = _chamar(app, "GET", "/api/planos")
+    assert status == "200 OK"
+    assert headers["Content-Type"].startswith("application/json")
+    catalogo = json.loads(corpo)
+    assert catalogo["planos"][0]["id"] == "essencial"
+    assert catalogo["planos"][0]["franquia"] == 4500
+
+
+def test_api_planos_com_quote_service_fora_do_ar_e_503(app):
+    # `app` (fixture) usa `_sem_planos` por padrão — nunca um catálogo inventado (LEI 2).
+    status, _, _ = _chamar(app, "GET", "/api/planos")
+    assert status == "503 Service Unavailable"
+
+
+def test_paises_json_e_servido_para_o_seletor_do_whatsapp(app):
+    status, headers, corpo = _chamar(app, "GET", "/docs/design/paises.json")
+    assert status == "200 OK"
+    assert headers["Content-Type"].startswith("application/json")
+    catalogo = json.loads(corpo)
+    assert any(p["iso"] == "BR" for p in catalogo["paises"])
+
+
+def test_chat_contato_salva_e_e_lido_de_volta(tmp_path):
+    repositorio = RepositorioDeContatoMemoria()
+    app = _criar_app(painel_dir=tmp_path / "painel-saida", repositorio_contato=repositorio)
+
+    status, _, corpo = _chamar(app, "POST", "/api/chat/contato", {
+        "conversation_id": "conv-contato",
+        "nome": "Ursula Souza",
+        "whatsapp": "+55 21 97224-2584",
+        "email": "ursula@example.com",
+    })
+
+    assert status == "200 OK"
+    assert json.loads(corpo)["nome"] == "Ursula Souza"
+    salvo = repositorio.obter("conv-contato")
+    assert salvo is not None
+    assert salvo.whatsapp == "+55 21 97224-2584"
+
+
+def test_chat_contato_sem_nome_e_422(app):
+    status, _, corpo = _chamar(app, "POST", "/api/chat/contato", {
+        "conversation_id": "conv-sem-nome", "whatsapp": "+55 21 97224-2584",
+    })
+    assert status == "422 Unprocessable Entity"
+    assert "nome" in json.loads(corpo)["erro"].lower()
+
+
+def test_chat_contato_sem_conversation_id_e_400(app):
+    status, _, _ = _chamar(app, "POST", "/api/chat/contato", {"nome": "X", "whatsapp": "+55 11 90000-0000"})
+    assert status == "400 Bad Request"
+
+
+def test_chat_cotar_com_portal_de_sucesso_devolve_preco_e_regenera_o_painel(tmp_path):
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.sucesso(PrecoCotado(
+        quote_attempt_id="qa_1", conversation_id="conv-teste", plano_id="completo",
+        plano_nome="Completo", premio_mensal=272.87, franquia=3000.0,
+        coberturas=("colisao", "roubo", "furto"), moeda="BRL",
+    ))])
+    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
+
+    status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
+        "conversation_id": "conv-teste",
+        "idade": 35, "veiculo_ano": 2019, "veiculo_modelo": "Onix",
+        "cep": "01310-100", "plano_id": "completo", "data_inicio": "2026-10-01",
+    })
+
+    assert status == "200 OK"
+    turno = json.loads(corpo)
+    assert turno["decisao"]["tipo"] == "explicar_cotacao"
+    assert turno["preco"]["premio_mensal"] == 272.87
+    assert turno["preco"]["plano_nome"] == "Completo"
+
+    # ADR-0005, decisão 2: o painel é regenerado a cada evento — sem reiniciar o processo, a
+    # conversa nova já aparece no Histórico de atendimentos (index.html).
+    conversas_html = (painel_dir / "index.html").read_text(encoding="utf-8")
+    assert "conv-teste" in conversas_html
+
+
+def test_chat_cotar_com_portal_indisponivel_nao_devolve_preco(tmp_path):
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.indisponivel("upstream indisponível")])
+    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir, portal_de_cotacao=portal)
+
+    status, _, corpo = _chamar(app, "POST", "/api/chat/cotar", {
+        "conversation_id": "conv-indisp", "idade": 30, "veiculo_ano": 2020, "cep": "01310-100",
+    })
+
+    assert status == "200 OK"
+    turno = json.loads(corpo)
+    assert turno["preco"] is None
+    assert turno["decisao"]["tipo"] == "encaminhar"
+    assert turno["decisao"]["reason_code"] == "quote_indisponivel"
+
+
+def test_chat_cotar_sem_conversation_id_e_400(app):
+    status, _, _ = _chamar(app, "POST", "/api/chat/cotar", {"idade": 30})
+    assert status == "400 Bad Request"
+
+
+def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    app = _criar_app(painel_dir=painel_dir, trilha_dir=trilha_dir)
+
+    status, _, corpo = _chamar(app, "POST", "/api/chat/contratar", {"conversation_id": "conv-contrata"})
+
+    assert status == "200 OK"
+    resposta = json.loads(corpo)
+    assert resposta["decisao"]["tipo"] == "encaminhar"
+    assert resposta["decisao"]["reason_code"] == "lead_quer_contratar"
+    assert "corretor" in resposta["texto"].lower()
+
+    handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
+    assert "conv-contrata" in handoffs_html
+    assert "lead_quer_contratar" in handoffs_html
