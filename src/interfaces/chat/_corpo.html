@@ -1,18 +1,10 @@
-  <div class="cabecalho">
-    <div>
-      <h1>Conversas</h1>
-      <p>O chat centralizado, guiado e determinístico, ligado ao agente real
-         (<code>aplicacao.servico_conversa</code>) por trás de <code>/api/chat/*</code>.</p>
-    </div>
-  </div>
-
   <div id="chat-raiz">
     <section class="hero" id="hero">
       <div class="marca">AutoSeguro · seguro auto</div>
       <h2>Faça aqui sua cotação <em>gratuita</em></h2>
       <p>Encontre o melhor seguro para o seu carro. São poucas perguntas rápidas, e o preço sai na
          hora, calculado pela tabela oficial.</p>
-      <button class="cta" id="btn-comecar" type="button">Começar minha cotação →</button>
+      <button class="cta" id="btn-comecar" type="button">Começar minha cotação →<small>sem cadastro · sem compromisso</small></button>
       <ul class="garantias">
         <li><b>Preço de verdade</b>Só mostramos valor confirmado pelo sistema de cotação. Nada de estimativa.</li>
         <li><b>Nunca fica sem resposta</b>Se o sistema falhar, tentamos de novo. Se não der, um corretor assume com seus dados.</li>
@@ -55,6 +47,7 @@
 .hero p{margin:0;color:var(--texto-fraco);max-width:52ch;font-size:15.5px}
 .cta{margin-top:8px;border:0;border-radius:14px;padding:14px 24px;font-size:16px;font-weight:650;cursor:pointer;
      color:#16012F;background:linear-gradient(90deg,#FF5CFF,#7DFFFF)}
+.cta small{display:block;font-size:12px;font-weight:500;opacity:.75}
 .garantias{list-style:none;padding:0;margin:16px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%;max-width:640px}
 @media (max-width:640px){ .garantias{grid-template-columns:1fr} }
 .garantias li{background:var(--superficie);border:1px solid var(--borda);border-radius:12px;padding:11px 12px;

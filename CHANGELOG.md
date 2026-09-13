@@ -6,6 +6,9 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Corrigido
+- **Tela inicial do chat com texto de programador visível pro lead (achado da auditoria do PR #62, 13/09/2026):** `src/interfaces/chat/_corpo.html` tinha um `.cabecalho` extra, fora do protótipo aprovado, dizendo *"O chat centralizado, guiado e determinístico, ligado ao agente real (aplicacao.servico_conversa) por trás de /api/chat/*."* — vocabulário de implementação, não de produto. Removido. Também faltava a frase *"sem cadastro · sem compromisso"* abaixo do botão "Começar minha cotação", presente no protótipo (`docs/design/prototipo-conversas-v2/index.html`) — adicionada, com o CSS `.cta small` que faltava (#46)
+
 ### Segurança
 - **Path traversal em `POST /api/chat/cotar`/`/api/chat/contratar` (issue #46, achado de revisão de segurança automática, 13/09/2026):** `conversation_id` chega pelo corpo do POST (HTTP, não confiável) e virava nome de arquivo da trilha (`trilha_dir / f"trilha_{conversation_id}.jsonl"`) sem validação — diferente de `POST /api/chat/contato`, que já delegava a `infra.repositorio_contato_json._validar_conversation_id`. Um `conversation_id` tipo `"../../segredo"` escrevia/lia fora de `trilha_dir`. Corrigido com `_conversation_id_ou_400` (mesmo regex de slug seguro, `^[a-z0-9][a-z0-9_-]{0,63}$`, LEI 11 — duplicação deliberada de uma técnica de validação de nome de arquivo, não de regra de negócio), aplicado nas 3 rotas que recebem o id. **Vermelho-antes provado ao vivo:** com a validação temporariamente trocada por `.*`, os 2 testes novos falham (`200 OK` em vez de `400`); restaurada, os 386 testes da suíte passam (#46)
 

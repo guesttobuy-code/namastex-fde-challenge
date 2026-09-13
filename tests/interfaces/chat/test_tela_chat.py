@@ -54,8 +54,15 @@ def test_render_tem_os_textos_exatos_aprovados_pela_issue_46():
 
 
 def test_render_esta_dentro_da_casca_compartilhada():
+    """Achado da auditoria do PR #62 (13/09/2026): a tela tinha um `.cabecalho` extra, com texto
+    de programador ("ligado ao agente real via aplicacao.servico_conversa... /api/chat/*") visível
+    para o lead — o protótipo aprovado não tem esse bloco. Removido; a casca (menu + `<title>`)
+    continua provada pelo `<title>`/`aria-current`, e o título visível vira o `<h2>` do hero, igual
+    ao protótipo."""
     html = tela_chat.render()
 
-    assert "<h1>Conversas</h1>" in html
     assert "<title>AutoSeguro · Conversas</title>" in html
     assert 'aria-current="page"' in html
+    assert "servico_conversa" not in html  # nada de vocabulário de programador na tela do lead
+    assert "Faça aqui sua cotação" in html
+    assert "sem cadastro · sem compromisso" in html
