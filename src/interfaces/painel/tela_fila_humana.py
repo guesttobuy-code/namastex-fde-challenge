@@ -17,6 +17,9 @@ _DESCRICAO_MOTIVO = {
     MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD.value: "Erro de payload nosso (400) — não repete, registra e passa adiante.",
     MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO.value: "A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.",
     MotivoHandoff.LEAD_QUER_CONTRATAR.value: "O lead pediu para contratar: o fechamento é feito por um corretor.",
+    # issue #57 (P9): consequência mecânica de MotivoHandoff.LEAD_PEDIU_HUMANO — sem esta entrada,
+    # test_regra_de_regras (abaixo) cai no fallback "sem descrição registrada" (achado do #42).
+    MotivoHandoff.LEAD_PEDIU_HUMANO.value: "O lead pediu para falar com uma pessoa.",
 }
 
 

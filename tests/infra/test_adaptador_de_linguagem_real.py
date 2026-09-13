@@ -84,3 +84,38 @@ def test_extracao_real_injecao_misturada_com_dado_real_nao_vaza_preco():
     # que importa aqui é que os campos que REALMENTE viram estado/decisão continuam limpos:
     for campo in (saida.plano_id, saida.data_inicio, saida.intent):
         assert campo is None or "R$ 10" not in str(campo), f"o valor injetado vazou em campo usado pelo domínio: {saida!r}"
+
+
+# issue #57 (P9), decisão da coordenação (13/09/2026): "a auditoria roda a prova real" — este
+# roteiro é o comando executável que ela usa, com a saída esperada de cada frase já declarada nos
+# `pytest.param`. Mesmo padrão do #44 para `quer_contratar`: 5 frases positivas + controle de
+# falsos positivos, contra o modelo real (`pytest -m llm_real -k quer_falar_com_humano -v`). A
+# chave nunca é lida por este arquivo além do que `criar_adaptador_de_linguagem`/`carregar_dotenv_no_ambiente`
+# já fazem (nunca impressa, nunca logada).
+_FRASES_QUER_FALAR_COM_HUMANO = [
+    pytest.param("quero falar com um atendente", "quer_falar_com_humano", id="atendente"),
+    pytest.param("pode me passar pra uma pessoa de verdade?", "quer_falar_com_humano", id="pessoa_de_verdade"),
+    pytest.param("tem algum humano aí para me ajudar?", "quer_falar_com_humano", id="humano_para_ajudar"),
+    pytest.param("prefiro falar com um corretor, não com o robô", "quer_falar_com_humano", id="corretor_nao_robo"),
+    pytest.param("me transfere pra um atendente, por favor", "quer_falar_com_humano", id="transfere_atendente"),
+]
+
+_FRASES_CONTROLE_FALSO_POSITIVO = [
+    pytest.param("quero contratar esse plano agora", "quer_contratar", id="quer_contratar_nao_e_humano"),
+    pytest.param("tenho 30 anos e meu carro é um Onix 2019", None, id="informar_dados_nao_e_humano"),
+    pytest.param("qual o preço do plano completo?", None, id="pergunta_de_preco_nao_e_humano"),
+]
+
+
+@pytest.mark.parametrize("texto,intent_esperado", _FRASES_QUER_FALAR_COM_HUMANO + _FRASES_CONTROLE_FALSO_POSITIVO)
+def test_extracao_real_quer_falar_com_humano_e_controle_de_falsos_positivos(texto, intent_esperado):
+    """5 frases positivas (pedido explícito de humano) + 3 de controle (não devem disparar o
+    intent novo) — mesmo rigor do #44, que mediu 0 de 5 positivas chegando à política quando
+    `intent` era string livre sem `enum` fechado no esquema (achado que gerou a #42)."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    estado = EstadoDaConversa(conversation_id=f"conv-prova-real-humano-{abs(hash(texto))}")
+
+    saida = adaptador.extrair(texto, estado)
+
+    print(f"\n[prova-real-humano] texto={texto!r} intent_extraido={saida.intent!r} esperado={intent_esperado!r}")
+    assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"

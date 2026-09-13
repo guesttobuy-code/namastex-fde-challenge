@@ -187,6 +187,29 @@ def test_quer_contratar_encaminha_para_fila_humana_sem_mencionar_pagamento():
         assert palavra not in turno.texto.lower()
 
 
+def test_quer_falar_com_humano_encaminha_com_o_mesmo_texto_de_quer_contratar():
+    """issue #57 (P9), decisão da coordenação (13/09/2026): mesmo texto de LEAD_QUER_CONTRATAR —
+    texto novo ao lead exigiria aprovação do dono, indisponível no momento desta frente. O
+    reason_code, porém, é o motivo PRÓPRIO (LEAD_PEDIU_HUMANO), nunca reaproveitado."""
+    portal = FakePortalDeCotacao(roteiro=[])
+    estado = EstadoDaConversa(
+        conversation_id="conv-1",
+        idade=30,
+        veiculo_ano=2020,
+        cep="01310-100",
+        plano_id="completo",
+        ultimo_intent=Intencao.QUER_FALAR_COM_HUMANO,
+    )
+
+    turno = conduzir_conversa(portal, estado)
+
+    assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
+    assert turno.decisao.reason_code == MotivoHandoff.LEAD_PEDIU_HUMANO
+    assert turno.texto == "Logo um corretor vai entrar em contato para te dar todo o suporte."
+    assert len(portal.chamadas) == 0  # não tenta cotar de novo — o lead já pediu humano
+    assert MotivoHandoff.LEAD_PEDIU_HUMANO.value not in turno.texto  # reason_code nunca vai ao lead
+
+
 def test_indisponivel_encaminha_com_reason_code_fechado():
     portal = FakePortalDeCotacao(roteiro=[ResultadoDaCotacao.indisponivel("upstream respondeu 502")])
     estado = montar_estado("conv-1", DADOS_COMPLETOS)
