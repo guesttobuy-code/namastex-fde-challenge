@@ -132,6 +132,41 @@ sem IO"). Correção é o parâmetro `instante`, sem porta `Relogio` formal (dec
 
 ---
 
+## Seção da issue #46 (PR 2 de 2) — `ContatoLead` e telefone internacional (append, R2/#16)
+
+**Dono:** `src/dominio/contato_lead.py` (novo); `src/dominio/redator_pii.py` ganha um padrão
+genérico de telefone (acréscimo à seção da F4, sem editar nenhuma linha dela — o padrão fixo de
+`+55` continua ao lado, para o formato brasileiro pontuado que o genérico não cobre).
+
+- `ContatoLead(nome, whatsapp, email=None)` — dataclass congelada, valida SÓ forma (nome e
+  WhatsApp não podem ser vazios/só espaço); nunca gera id, nunca persiste — isso é
+  `aplicacao.servico_contato`/`infra.repositorio_contato_json` (ADR-0005). Nome/WhatsApp/e-mail do
+  lead **nunca** entram em `EventoTrilha`/`contexto_coletado` — só neste tipo, fora da trilha.
+- `_PADRAO_TELEFONE_INTERNACIONAL` em `redator_pii._PADROES`: `+<DDI 1-3 dígitos><6-14 dígitos>`
+  (E.164-ish, espaço opcional entre DDI e número), cobre qualquer país que o seletor do chat
+  ofereça (`docs/design/paises.json`) — o padrão fixo de `+55` continua ao lado (formato brasileiro
+  pontuado, com espaço no DDD e hífen no número local, que o genérico não casa).
+
+| # | invariante | teste que a cobre | exceção |
+|---|---|---|---|
+| I-12 | `ContatoLead` recusa nome ou WhatsApp vazio/só espaço, na criação — nunca um contato "meio preenchido" chega a `ServicoDeContato.salvar` | `tests/dominio/test_contato_lead.py` | `ValueError` |
+| I-13 | `redigir_texto` mascara telefone de qualquer DDI de 1 a 3 dígitos (`+1`, `+351`, `+54` testados explicitamente), sem deixar de mascarar o formato brasileiro (`+55`) que já passava | `tests/dominio/test_redator_pii.py::test_telefone_eua_ddi_1_e_redigido` / `test_telefone_portugal_ddi_351_e_redigido` / `test_telefone_argentina_ddi_54_e_redigido` | — |
+
+### Decisões registradas
+
+- 2026-09-13 — issue #46 (PR 2 de 2): `ContatoLead` segue o mesmo padrão de `dominio.ficha_objecao`
+  (valida só FORMA, nunca decide persistência) — dono único da validação é este tipo, nunca
+  reimplementada em `aplicacao.servico_contato` nem na borda HTTP (`interfaces.servidor`).
+- 2026-09-13 — o padrão genérico de telefone fica ao LADO do padrão fixo de `+55` (não o
+  substitui): o específico aceita o formato brasileiro com espaço/hífen internos que o genérico
+  (sem separador dentro do número) não casaria — os dois cobrem faixas diferentes da mesma família
+  "telefone", nunca duplicando a MESMA regra (LEI 11 — são regras diferentes que hoje se parecem).
+- 2026-09-13 — renumerado I-11/I-12 → I-12/I-13 ao integrar `origin/main` (PR #61), que já tinha
+  publicado I-11 para `FichaDeObjecao.publicar`/relógio — colisão de numeração por append
+  concorrente em duas frentes, resolvida no merge (nunca duas seções com o mesmo número).
+
+---
+
 ## Seção da issue #57 (P9, PR 1 de 2) — pedido explícito de humano (append)
 
 **Dono:** `src/dominio/intencao.py`, `src/dominio/decisao.py`, `src/dominio/politica.py` (mesmos
@@ -151,7 +186,7 @@ arquivos da #42, acréscimo — nunca uma segunda lista escrita à mão).
 
 | # | invariante | teste que a cobre |
 |---|---|---|
-| I-12 | `politica.decidir` encaminha com `LEAD_PEDIU_HUMANO` sempre que `ultimo_intent == QUER_FALAR_COM_HUMANO`, mesmo sem cotação e mesmo com `campos_faltantes` não vazio | `tests/dominio/test_politica.py::test_quer_falar_com_humano_encaminha_mesmo_sem_resultado_de_cotacao` e `test_quer_falar_com_humano_tem_prioridade_sobre_campos_faltantes` |
+| I-14 | `politica.decidir` encaminha com `LEAD_PEDIU_HUMANO` sempre que `ultimo_intent == QUER_FALAR_COM_HUMANO`, mesmo sem cotação e mesmo com `campos_faltantes` não vazio | `tests/dominio/test_politica.py::test_quer_falar_com_humano_encaminha_mesmo_sem_resultado_de_cotacao` e `test_quer_falar_com_humano_tem_prioridade_sobre_campos_faltantes` |
 
 **Limite declarado:** "os dois sinais vindo juntos" (mencionado na decisão do dono) não é
 alcançável hoje por `EstadoDaConversa.ultimo_intent` (campo de valor único) — nenhum teste de
@@ -165,3 +200,6 @@ mas sem teste que a exercite de verdade.
 - 2026-09-13 — issue #57 (P9), decisão do dono: pedido explícito de humano ("quero falar com um
   atendente") encaminha para "Aguardando corretor" (status), com motivo próprio no domínio.
   Coordenação (13/09/2026): ordem do `if` e o limite declarado acima.
+- 2026-09-13 — renumerado I-12 → I-14 ao integrar `origin/main` (PR #62), que já tinha publicado
+  I-12/I-13 para `ContatoLead`/telefone internacional — mesma colisão de numeração por append
+  concorrente já documentada acima, resolvida do mesmo jeito (nunca duas seções com o mesmo número).

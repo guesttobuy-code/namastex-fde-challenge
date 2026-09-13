@@ -228,3 +228,44 @@ por append, no fim deste arquivo — nunca editando linha alheia (R2, #16).
   vocabulário de marcadores agora deriva de `PrecoCotado` + ids reais da `/planos`, e a
   configuração comercial passa a ter adaptador real em vez de ficar fora do escopo com premissa
   vencida (a #42 já tinha mergeado antes da análise original desta frente).
+
+---
+
+## Seção da issue #46 (PR 2 de 2) — `RepositorioDeContatoJSON` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `infra.repositorio_contato_json.RepositorioDeContatoJSON` — adaptador real da porta
+  `RepositorioDeContato`: um arquivo JSON por lead em `contato/leads/<conversation_id>.json`, FORA
+  do `git` (`.gitignore`, ADR-0005) — mesmo molde de `RepositorioDeConhecimentoJSON` (um arquivo
+  por unidade, nunca JSONL append-only: cada `salvar` SUBSTITUI o arquivo do lead).
+- `infra.repositorio_contato_json.RepositorioDeContatoMemoria` — dublê determinístico, mesma
+  interface, sem tocar disco (para os testes de `aplicacao`/`interfaces` não precisarem de
+  `contato/` real).
+- `_validar_conversation_id` — mesma técnica de `_validar_id` em
+  `infra.repositorio_conhecimento_json` (slug seguro), para nenhum `conversation_id` vindo da
+  borda HTTP escapar de `contato/leads/` (path traversal) — LEI 11, não uma segunda validação.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-17 | `conversation_id` fora do formato de slug seguro é recusado nas duas classes antes de tocar disco/dicionário — nenhum id escapa de `contato/leads/` | `tests/infra/test_repositorio_contato_json.py::test_conversation_id_fora_do_formato_seguro_e_recusado_no_disco` |
+| I-18 | `contato/leads/` está de fato no `.gitignore` — provado rodando `git check-ignore` contra um arquivo real dentro do repo, não só afirmado | `tests/infra/test_repositorio_contato_json.py::test_git_check_ignore` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `infra.repositorio_contato_json.RepositorioDeContatoJSON(diretorio: Path)` — implementa
+  `RepositorioDeContato`.
+- `infra.repositorio_contato_json.RepositorioDeContatoMemoria()` — dublê determinístico.
+
+### O que NÃO é responsabilidade deste módulo
+
+- Validar nome/WhatsApp (isso é `dominio.contato_lead.ContatoLead`) — este módulo só serializa e
+  lê o que já chegou validado.
+
+### Decisões registradas
+
+- 2026-09-13 — ADR-0005: JSON legível (não JSONL), um arquivo por lead — mesma razão de
+  `RepositorioDeConhecimentoJSON` (cada contato é uma unidade que o corretor lê isolada, não um
+  log append-only de eventos).

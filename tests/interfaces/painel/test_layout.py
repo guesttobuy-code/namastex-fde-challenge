@@ -48,6 +48,9 @@ def test_titulo_da_tela_bate_com_o_rotulo_do_menu():
     )
     html = tela_conversas.render([])
     assert f"<h1>{rotulo_do_menu}</h1>" in html
+    # R2 da auditoria do PR #47 (issue #46): o `<title>` também tem que bater com o rótulo do
+    # menu, não só o `<h1>` — mesmo achado, segunda etiqueta que pode divergir da primeira.
+    assert f"<title>AutoSeguro · {rotulo_do_menu}</title>" in html
 
 
 def test_css_extra_da_tela_traz_o_segundo_bloco_de_estilo_do_mock():

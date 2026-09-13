@@ -100,9 +100,15 @@ _FRASES_QUER_FALAR_COM_HUMANO = [
     pytest.param("me transfere pra um atendente, por favor", "quer_falar_com_humano", id="transfere_atendente"),
 ]
 
+# issue #57, achado da auditoria do PR #63 (comentário "Auditoria para merge — REPROVADO",
+# `informar_dados_nao_e_humano`): o controle original exigia `intent is None` para "tenho 30 anos
+# e meu carro é um Onix 2019", mas `informar_dados` é a classificação CORRETA e um valor válido do
+# Enum — o teste estava certo em provar que a frase NÃO vira `quer_falar_com_humano`, errado em
+# exigir `None` em vez da intenção real. Corrigido para o valor medido pela auditoria com o modelo
+# real (5 de 5 positivas certas, os 3 controles como abaixo).
 _FRASES_CONTROLE_FALSO_POSITIVO = [
     pytest.param("quero contratar esse plano agora", "quer_contratar", id="quer_contratar_nao_e_humano"),
-    pytest.param("tenho 30 anos e meu carro é um Onix 2019", None, id="informar_dados_nao_e_humano"),
+    pytest.param("tenho 30 anos e meu carro é um Onix 2019", "informar_dados", id="informar_dados_nao_e_humano"),
     pytest.param("qual o preço do plano completo?", None, id="pergunta_de_preco_nao_e_humano"),
 ]
 
@@ -111,7 +117,9 @@ _FRASES_CONTROLE_FALSO_POSITIVO = [
 def test_extracao_real_quer_falar_com_humano_e_controle_de_falsos_positivos(texto, intent_esperado):
     """5 frases positivas (pedido explícito de humano) + 3 de controle (não devem disparar o
     intent novo) — mesmo rigor do #44, que mediu 0 de 5 positivas chegando à política quando
-    `intent` era string livre sem `enum` fechado no esquema (achado que gerou a #42)."""
+    `intent` era string livre sem `enum` fechado no esquema (achado que gerou a #42). Os controles
+    provam `intent != "quer_falar_com_humano"` E a classificação correta de cada frase — nunca só
+    "não é None", que deixaria passar qualquer intent errado."""
     adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
     estado = EstadoDaConversa(conversation_id=f"conv-prova-real-humano-{abs(hash(texto))}")
 

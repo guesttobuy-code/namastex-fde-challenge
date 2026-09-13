@@ -245,6 +245,47 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 
 ---
 
+## Seção da issue #46 (PR 2 de 2) — `ServicoDeContato` (append, R2/#16)
+
+### O que esta frente é dona de
+
+- `aplicacao.portas.repositorio_contato.RepositorioDeContato` — a porta de persistência do contato
+  real do lead (nome, WhatsApp, e-mail), fora do git (ADR-0005).
+- `aplicacao.servico_contato.ServicoDeContato` — caso de uso que salva/obtém o contato; delega
+  TODA a validação de forma para `dominio.contato_lead.ContatoLead.__post_init__`, nunca a
+  reimplementa (LEI 11, mesmo molde de `ServicoDeConhecimento`/`FichaDeObjecao`). **Único caminho**
+  de escrita/leitura do contato — nada mais no código chama `infra.repositorio_contato_json`
+  direto.
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-11 | `ServicoDeContato.salvar` nunca grava um contato com nome/WhatsApp vazio — o `ValueError` de `ContatoLead` atravessa até quem chamou (a rota HTTP decide o 422, esta camada não engole a exceção) | `tests/aplicacao/test_servico_contato.py` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.portas.repositorio_contato.RepositorioDeContato` — `Protocol` com
+  `salvar(conversation_id: str, contato: ContatoLead) -> None` e
+  `obter(conversation_id: str) -> ContatoLead | None`.
+- `aplicacao.servico_contato.ServicoDeContato(repositorio).salvar(conversation_id, *, nome, whatsapp, email=None) -> ContatoLead`,
+  `.obter(conversation_id) -> ContatoLead | None`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Escrever nome/WhatsApp/e-mail na trilha (`aplicacao.servico_conversa`/`ServicoDeTrilha`) —
+  `PROIBIDO` por construção: nada nesta seção conhece `EventoTrilha`.
+- Decidir QUANDO chamar `salvar` (isso é `interfaces.servidor`, na borda HTTP, assim que o chat
+  coleta nome+WhatsApp — antes do fim do fluxo, para o corretor ter o contato mesmo se o lead
+  abandonar).
+
+### Decisões registradas
+
+- 2026-09-13 — ADR-0005: contato fora do git, um arquivo por lead — decisão de arquitetura das 3
+  tratadas no ADR (estado entre turnos, painel regenerado por evento, contato fora do git).
+
+---
+
 ## Seção da issue #57 (P9, PR 1 de 2) — texto de `LEAD_PEDIU_HUMANO` (append)
 
 ### O que esta frente acrescenta

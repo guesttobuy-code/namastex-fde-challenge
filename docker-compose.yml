@@ -25,9 +25,18 @@ services:
       CONHECIMENTO_DIR: "/app/conhecimento/objecoes"
       CONFIGURACAO_COMERCIAL_ARQUIVO: "/app/conhecimento/configuracao_comercial.json"
       PAINEL_DIR: "/app/painel-saida"
+      # issue #46 (F14, PR 2): chat real grava trilha e regenera o painel em runtime, mas NUNCA no
+      # ./examples do host -- so dentro do container (ADR-0005: perdido ao reiniciar, de proposito,
+      # para nao poluir as trilhas de exemplo versionadas com conversa de demonstracao)
+      TRILHA_DIR: "/app/examples"
+      # contato do lead (nome/WhatsApp/e-mail): NUNCA na trilha, so aqui, com volume proprio
+      # (ADR-0005) para sobreviver a um restart -- sem o volume, o contato some junto do container
+      CONTATO_DIR: "/app/contato/leads"
     volumes:
       # a edicao feita na tela vira alteracao visivel no git da maquina de quem testa
       - ./conhecimento:/app/conhecimento
+      # contato do lead: fora do git (.gitignore), sobrevive ao restart, nunca vira trilha
+      - ./contato:/app/contato
     depends_on:
       - quote-api
     restart: unless-stopped

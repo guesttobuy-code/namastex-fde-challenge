@@ -1,0 +1,1475 @@
+{
+  "_origem": "libphonenumber-js 1.13.13 (npm) + Intl.DisplayNames(['pt-BR']) do Node — gerado por scripts/gerar-paises-whatsapp.mjs em 2026-09-13",
+  "paises": [
+    {
+      "iso": "AF",
+      "nome": "Afeganistão",
+      "ddi": 93,
+      "bandeira": "🇦🇫"
+    },
+    {
+      "iso": "ZA",
+      "nome": "África do Sul",
+      "ddi": 27,
+      "bandeira": "🇿🇦"
+    },
+    {
+      "iso": "AL",
+      "nome": "Albânia",
+      "ddi": 355,
+      "bandeira": "🇦🇱"
+    },
+    {
+      "iso": "DE",
+      "nome": "Alemanha",
+      "ddi": 49,
+      "bandeira": "🇩🇪"
+    },
+    {
+      "iso": "AD",
+      "nome": "Andorra",
+      "ddi": 376,
+      "bandeira": "🇦🇩"
+    },
+    {
+      "iso": "AO",
+      "nome": "Angola",
+      "ddi": 244,
+      "bandeira": "🇦🇴"
+    },
+    {
+      "iso": "AI",
+      "nome": "Anguila",
+      "ddi": 1,
+      "bandeira": "🇦🇮"
+    },
+    {
+      "iso": "AG",
+      "nome": "Antígua e Barbuda",
+      "ddi": 1,
+      "bandeira": "🇦🇬"
+    },
+    {
+      "iso": "SA",
+      "nome": "Arábia Saudita",
+      "ddi": 966,
+      "bandeira": "🇸🇦"
+    },
+    {
+      "iso": "DZ",
+      "nome": "Argélia",
+      "ddi": 213,
+      "bandeira": "🇩🇿"
+    },
+    {
+      "iso": "AR",
+      "nome": "Argentina",
+      "ddi": 54,
+      "bandeira": "🇦🇷"
+    },
+    {
+      "iso": "AM",
+      "nome": "Armênia",
+      "ddi": 374,
+      "bandeira": "🇦🇲"
+    },
+    {
+      "iso": "AW",
+      "nome": "Aruba",
+      "ddi": 297,
+      "bandeira": "🇦🇼"
+    },
+    {
+      "iso": "AU",
+      "nome": "Austrália",
+      "ddi": 61,
+      "bandeira": "🇦🇺"
+    },
+    {
+      "iso": "AT",
+      "nome": "Áustria",
+      "ddi": 43,
+      "bandeira": "🇦🇹"
+    },
+    {
+      "iso": "AZ",
+      "nome": "Azerbaijão",
+      "ddi": 994,
+      "bandeira": "🇦🇿"
+    },
+    {
+      "iso": "BS",
+      "nome": "Bahamas",
+      "ddi": 1,
+      "bandeira": "🇧🇸"
+    },
+    {
+      "iso": "BD",
+      "nome": "Bangladesh",
+      "ddi": 880,
+      "bandeira": "🇧🇩"
+    },
+    {
+      "iso": "BB",
+      "nome": "Barbados",
+      "ddi": 1,
+      "bandeira": "🇧🇧"
+    },
+    {
+      "iso": "BH",
+      "nome": "Barein",
+      "ddi": 973,
+      "bandeira": "🇧🇭"
+    },
+    {
+      "iso": "BE",
+      "nome": "Bélgica",
+      "ddi": 32,
+      "bandeira": "🇧🇪"
+    },
+    {
+      "iso": "BZ",
+      "nome": "Belize",
+      "ddi": 501,
+      "bandeira": "🇧🇿"
+    },
+    {
+      "iso": "BJ",
+      "nome": "Benin",
+      "ddi": 229,
+      "bandeira": "🇧🇯"
+    },
+    {
+      "iso": "BM",
+      "nome": "Bermudas",
+      "ddi": 1,
+      "bandeira": "🇧🇲"
+    },
+    {
+      "iso": "BY",
+      "nome": "Bielorrússia",
+      "ddi": 375,
+      "bandeira": "🇧🇾"
+    },
+    {
+      "iso": "BO",
+      "nome": "Bolívia",
+      "ddi": 591,
+      "bandeira": "🇧🇴"
+    },
+    {
+      "iso": "BA",
+      "nome": "Bósnia e Herzegovina",
+      "ddi": 387,
+      "bandeira": "🇧🇦"
+    },
+    {
+      "iso": "BW",
+      "nome": "Botsuana",
+      "ddi": 267,
+      "bandeira": "🇧🇼"
+    },
+    {
+      "iso": "BR",
+      "nome": "Brasil",
+      "ddi": 55,
+      "bandeira": "🇧🇷"
+    },
+    {
+      "iso": "BN",
+      "nome": "Brunei",
+      "ddi": 673,
+      "bandeira": "🇧🇳"
+    },
+    {
+      "iso": "BG",
+      "nome": "Bulgária",
+      "ddi": 359,
+      "bandeira": "🇧🇬"
+    },
+    {
+      "iso": "BF",
+      "nome": "Burquina Faso",
+      "ddi": 226,
+      "bandeira": "🇧🇫"
+    },
+    {
+      "iso": "BI",
+      "nome": "Burundi",
+      "ddi": 257,
+      "bandeira": "🇧🇮"
+    },
+    {
+      "iso": "BT",
+      "nome": "Butão",
+      "ddi": 975,
+      "bandeira": "🇧🇹"
+    },
+    {
+      "iso": "CV",
+      "nome": "Cabo Verde",
+      "ddi": 238,
+      "bandeira": "🇨🇻"
+    },
+    {
+      "iso": "CM",
+      "nome": "Camarões",
+      "ddi": 237,
+      "bandeira": "🇨🇲"
+    },
+    {
+      "iso": "KH",
+      "nome": "Camboja",
+      "ddi": 855,
+      "bandeira": "🇰🇭"
+    },
+    {
+      "iso": "CA",
+      "nome": "Canadá",
+      "ddi": 1,
+      "bandeira": "🇨🇦"
+    },
+    {
+      "iso": "QA",
+      "nome": "Catar",
+      "ddi": 974,
+      "bandeira": "🇶🇦"
+    },
+    {
+      "iso": "KZ",
+      "nome": "Cazaquistão",
+      "ddi": 7,
+      "bandeira": "🇰🇿"
+    },
+    {
+      "iso": "TD",
+      "nome": "Chade",
+      "ddi": 235,
+      "bandeira": "🇹🇩"
+    },
+    {
+      "iso": "CL",
+      "nome": "Chile",
+      "ddi": 56,
+      "bandeira": "🇨🇱"
+    },
+    {
+      "iso": "CN",
+      "nome": "China",
+      "ddi": 86,
+      "bandeira": "🇨🇳"
+    },
+    {
+      "iso": "CY",
+      "nome": "Chipre",
+      "ddi": 357,
+      "bandeira": "🇨🇾"
+    },
+    {
+      "iso": "VA",
+      "nome": "Cidade do Vaticano",
+      "ddi": 39,
+      "bandeira": "🇻🇦"
+    },
+    {
+      "iso": "CO",
+      "nome": "Colômbia",
+      "ddi": 57,
+      "bandeira": "🇨🇴"
+    },
+    {
+      "iso": "KM",
+      "nome": "Comores",
+      "ddi": 269,
+      "bandeira": "🇰🇲"
+    },
+    {
+      "iso": "CD",
+      "nome": "Congo - Kinshasa",
+      "ddi": 243,
+      "bandeira": "🇨🇩"
+    },
+    {
+      "iso": "KP",
+      "nome": "Coreia do Norte",
+      "ddi": 850,
+      "bandeira": "🇰🇵"
+    },
+    {
+      "iso": "KR",
+      "nome": "Coreia do Sul",
+      "ddi": 82,
+      "bandeira": "🇰🇷"
+    },
+    {
+      "iso": "CI",
+      "nome": "Costa do Marfim",
+      "ddi": 225,
+      "bandeira": "🇨🇮"
+    },
+    {
+      "iso": "CR",
+      "nome": "Costa Rica",
+      "ddi": 506,
+      "bandeira": "🇨🇷"
+    },
+    {
+      "iso": "HR",
+      "nome": "Croácia",
+      "ddi": 385,
+      "bandeira": "🇭🇷"
+    },
+    {
+      "iso": "CU",
+      "nome": "Cuba",
+      "ddi": 53,
+      "bandeira": "🇨🇺"
+    },
+    {
+      "iso": "CW",
+      "nome": "Curaçao",
+      "ddi": 599,
+      "bandeira": "🇨🇼"
+    },
+    {
+      "iso": "DK",
+      "nome": "Dinamarca",
+      "ddi": 45,
+      "bandeira": "🇩🇰"
+    },
+    {
+      "iso": "DJ",
+      "nome": "Djibuti",
+      "ddi": 253,
+      "bandeira": "🇩🇯"
+    },
+    {
+      "iso": "DM",
+      "nome": "Dominica",
+      "ddi": 1,
+      "bandeira": "🇩🇲"
+    },
+    {
+      "iso": "EG",
+      "nome": "Egito",
+      "ddi": 20,
+      "bandeira": "🇪🇬"
+    },
+    {
+      "iso": "SV",
+      "nome": "El Salvador",
+      "ddi": 503,
+      "bandeira": "🇸🇻"
+    },
+    {
+      "iso": "AE",
+      "nome": "Emirados Árabes Unidos",
+      "ddi": 971,
+      "bandeira": "🇦🇪"
+    },
+    {
+      "iso": "EC",
+      "nome": "Equador",
+      "ddi": 593,
+      "bandeira": "🇪🇨"
+    },
+    {
+      "iso": "ER",
+      "nome": "Eritreia",
+      "ddi": 291,
+      "bandeira": "🇪🇷"
+    },
+    {
+      "iso": "SK",
+      "nome": "Eslováquia",
+      "ddi": 421,
+      "bandeira": "🇸🇰"
+    },
+    {
+      "iso": "SI",
+      "nome": "Eslovênia",
+      "ddi": 386,
+      "bandeira": "🇸🇮"
+    },
+    {
+      "iso": "ES",
+      "nome": "Espanha",
+      "ddi": 34,
+      "bandeira": "🇪🇸"
+    },
+    {
+      "iso": "SZ",
+      "nome": "Essuatíni",
+      "ddi": 268,
+      "bandeira": "🇸🇿"
+    },
+    {
+      "iso": "US",
+      "nome": "Estados Unidos",
+      "ddi": 1,
+      "bandeira": "🇺🇸"
+    },
+    {
+      "iso": "EE",
+      "nome": "Estônia",
+      "ddi": 372,
+      "bandeira": "🇪🇪"
+    },
+    {
+      "iso": "ET",
+      "nome": "Etiópia",
+      "ddi": 251,
+      "bandeira": "🇪🇹"
+    },
+    {
+      "iso": "FJ",
+      "nome": "Fiji",
+      "ddi": 679,
+      "bandeira": "🇫🇯"
+    },
+    {
+      "iso": "PH",
+      "nome": "Filipinas",
+      "ddi": 63,
+      "bandeira": "🇵🇭"
+    },
+    {
+      "iso": "FI",
+      "nome": "Finlândia",
+      "ddi": 358,
+      "bandeira": "🇫🇮"
+    },
+    {
+      "iso": "FR",
+      "nome": "França",
+      "ddi": 33,
+      "bandeira": "🇫🇷"
+    },
+    {
+      "iso": "GA",
+      "nome": "Gabão",
+      "ddi": 241,
+      "bandeira": "🇬🇦"
+    },
+    {
+      "iso": "GM",
+      "nome": "Gâmbia",
+      "ddi": 220,
+      "bandeira": "🇬🇲"
+    },
+    {
+      "iso": "GH",
+      "nome": "Gana",
+      "ddi": 233,
+      "bandeira": "🇬🇭"
+    },
+    {
+      "iso": "GE",
+      "nome": "Geórgia",
+      "ddi": 995,
+      "bandeira": "🇬🇪"
+    },
+    {
+      "iso": "GI",
+      "nome": "Gibraltar",
+      "ddi": 350,
+      "bandeira": "🇬🇮"
+    },
+    {
+      "iso": "GD",
+      "nome": "Granada",
+      "ddi": 1,
+      "bandeira": "🇬🇩"
+    },
+    {
+      "iso": "GR",
+      "nome": "Grécia",
+      "ddi": 30,
+      "bandeira": "🇬🇷"
+    },
+    {
+      "iso": "GL",
+      "nome": "Groenlândia",
+      "ddi": 299,
+      "bandeira": "🇬🇱"
+    },
+    {
+      "iso": "GP",
+      "nome": "Guadalupe",
+      "ddi": 590,
+      "bandeira": "🇬🇵"
+    },
+    {
+      "iso": "GU",
+      "nome": "Guam",
+      "ddi": 1,
+      "bandeira": "🇬🇺"
+    },
+    {
+      "iso": "GT",
+      "nome": "Guatemala",
+      "ddi": 502,
+      "bandeira": "🇬🇹"
+    },
+    {
+      "iso": "GG",
+      "nome": "Guernsey",
+      "ddi": 44,
+      "bandeira": "🇬🇬"
+    },
+    {
+      "iso": "GY",
+      "nome": "Guiana",
+      "ddi": 592,
+      "bandeira": "🇬🇾"
+    },
+    {
+      "iso": "GF",
+      "nome": "Guiana Francesa",
+      "ddi": 594,
+      "bandeira": "🇬🇫"
+    },
+    {
+      "iso": "GN",
+      "nome": "Guiné",
+      "ddi": 224,
+      "bandeira": "🇬🇳"
+    },
+    {
+      "iso": "GQ",
+      "nome": "Guiné Equatorial",
+      "ddi": 240,
+      "bandeira": "🇬🇶"
+    },
+    {
+      "iso": "GW",
+      "nome": "Guiné-Bissau",
+      "ddi": 245,
+      "bandeira": "🇬🇼"
+    },
+    {
+      "iso": "HT",
+      "nome": "Haiti",
+      "ddi": 509,
+      "bandeira": "🇭🇹"
+    },
+    {
+      "iso": "HN",
+      "nome": "Honduras",
+      "ddi": 504,
+      "bandeira": "🇭🇳"
+    },
+    {
+      "iso": "HK",
+      "nome": "Hong Kong, RAE da China",
+      "ddi": 852,
+      "bandeira": "🇭🇰"
+    },
+    {
+      "iso": "HU",
+      "nome": "Hungria",
+      "ddi": 36,
+      "bandeira": "🇭🇺"
+    },
+    {
+      "iso": "YE",
+      "nome": "Iêmen",
+      "ddi": 967,
+      "bandeira": "🇾🇪"
+    },
+    {
+      "iso": "CX",
+      "nome": "Ilha Christmas",
+      "ddi": 61,
+      "bandeira": "🇨🇽"
+    },
+    {
+      "iso": "AC",
+      "nome": "Ilha de Ascensão",
+      "ddi": 247,
+      "bandeira": "🇦🇨"
+    },
+    {
+      "iso": "IM",
+      "nome": "Ilha de Man",
+      "ddi": 44,
+      "bandeira": "🇮🇲"
+    },
+    {
+      "iso": "NF",
+      "nome": "Ilha Norfolk",
+      "ddi": 672,
+      "bandeira": "🇳🇫"
+    },
+    {
+      "iso": "AX",
+      "nome": "Ilhas Aland",
+      "ddi": 358,
+      "bandeira": "🇦🇽"
+    },
+    {
+      "iso": "KY",
+      "nome": "Ilhas Cayman",
+      "ddi": 1,
+      "bandeira": "🇰🇾"
+    },
+    {
+      "iso": "CC",
+      "nome": "Ilhas Cocos (Keeling)",
+      "ddi": 61,
+      "bandeira": "🇨🇨"
+    },
+    {
+      "iso": "CK",
+      "nome": "Ilhas Cook",
+      "ddi": 682,
+      "bandeira": "🇨🇰"
+    },
+    {
+      "iso": "FO",
+      "nome": "Ilhas Faroé",
+      "ddi": 298,
+      "bandeira": "🇫🇴"
+    },
+    {
+      "iso": "FK",
+      "nome": "Ilhas Malvinas",
+      "ddi": 500,
+      "bandeira": "🇫🇰"
+    },
+    {
+      "iso": "MP",
+      "nome": "Ilhas Marianas do Norte",
+      "ddi": 1,
+      "bandeira": "🇲🇵"
+    },
+    {
+      "iso": "MH",
+      "nome": "Ilhas Marshall",
+      "ddi": 692,
+      "bandeira": "🇲🇭"
+    },
+    {
+      "iso": "SB",
+      "nome": "Ilhas Salomão",
+      "ddi": 677,
+      "bandeira": "🇸🇧"
+    },
+    {
+      "iso": "TC",
+      "nome": "Ilhas Turcas e Caicos",
+      "ddi": 1,
+      "bandeira": "🇹🇨"
+    },
+    {
+      "iso": "VI",
+      "nome": "Ilhas Virgens Americanas",
+      "ddi": 1,
+      "bandeira": "🇻🇮"
+    },
+    {
+      "iso": "VG",
+      "nome": "Ilhas Virgens Britânicas",
+      "ddi": 1,
+      "bandeira": "🇻🇬"
+    },
+    {
+      "iso": "IN",
+      "nome": "Índia",
+      "ddi": 91,
+      "bandeira": "🇮🇳"
+    },
+    {
+      "iso": "ID",
+      "nome": "Indonésia",
+      "ddi": 62,
+      "bandeira": "🇮🇩"
+    },
+    {
+      "iso": "IR",
+      "nome": "Irã",
+      "ddi": 98,
+      "bandeira": "🇮🇷"
+    },
+    {
+      "iso": "IQ",
+      "nome": "Iraque",
+      "ddi": 964,
+      "bandeira": "🇮🇶"
+    },
+    {
+      "iso": "IE",
+      "nome": "Irlanda",
+      "ddi": 353,
+      "bandeira": "🇮🇪"
+    },
+    {
+      "iso": "IS",
+      "nome": "Islândia",
+      "ddi": 354,
+      "bandeira": "🇮🇸"
+    },
+    {
+      "iso": "IL",
+      "nome": "Israel",
+      "ddi": 972,
+      "bandeira": "🇮🇱"
+    },
+    {
+      "iso": "IT",
+      "nome": "Itália",
+      "ddi": 39,
+      "bandeira": "🇮🇹"
+    },
+    {
+      "iso": "JM",
+      "nome": "Jamaica",
+      "ddi": 1,
+      "bandeira": "🇯🇲"
+    },
+    {
+      "iso": "JP",
+      "nome": "Japão",
+      "ddi": 81,
+      "bandeira": "🇯🇵"
+    },
+    {
+      "iso": "JE",
+      "nome": "Jersey",
+      "ddi": 44,
+      "bandeira": "🇯🇪"
+    },
+    {
+      "iso": "JO",
+      "nome": "Jordânia",
+      "ddi": 962,
+      "bandeira": "🇯🇴"
+    },
+    {
+      "iso": "XK",
+      "nome": "Kosovo",
+      "ddi": 383,
+      "bandeira": "🇽🇰"
+    },
+    {
+      "iso": "KW",
+      "nome": "Kuwait",
+      "ddi": 965,
+      "bandeira": "🇰🇼"
+    },
+    {
+      "iso": "LA",
+      "nome": "Laos",
+      "ddi": 856,
+      "bandeira": "🇱🇦"
+    },
+    {
+      "iso": "LS",
+      "nome": "Lesoto",
+      "ddi": 266,
+      "bandeira": "🇱🇸"
+    },
+    {
+      "iso": "LV",
+      "nome": "Letônia",
+      "ddi": 371,
+      "bandeira": "🇱🇻"
+    },
+    {
+      "iso": "LB",
+      "nome": "Líbano",
+      "ddi": 961,
+      "bandeira": "🇱🇧"
+    },
+    {
+      "iso": "LR",
+      "nome": "Libéria",
+      "ddi": 231,
+      "bandeira": "🇱🇷"
+    },
+    {
+      "iso": "LY",
+      "nome": "Líbia",
+      "ddi": 218,
+      "bandeira": "🇱🇾"
+    },
+    {
+      "iso": "LI",
+      "nome": "Liechtenstein",
+      "ddi": 423,
+      "bandeira": "🇱🇮"
+    },
+    {
+      "iso": "LT",
+      "nome": "Lituânia",
+      "ddi": 370,
+      "bandeira": "🇱🇹"
+    },
+    {
+      "iso": "LU",
+      "nome": "Luxemburgo",
+      "ddi": 352,
+      "bandeira": "🇱🇺"
+    },
+    {
+      "iso": "MO",
+      "nome": "Macau, RAE da China",
+      "ddi": 853,
+      "bandeira": "🇲🇴"
+    },
+    {
+      "iso": "MK",
+      "nome": "Macedônia do Norte",
+      "ddi": 389,
+      "bandeira": "🇲🇰"
+    },
+    {
+      "iso": "MG",
+      "nome": "Madagascar",
+      "ddi": 261,
+      "bandeira": "🇲🇬"
+    },
+    {
+      "iso": "MY",
+      "nome": "Malásia",
+      "ddi": 60,
+      "bandeira": "🇲🇾"
+    },
+    {
+      "iso": "MW",
+      "nome": "Malaui",
+      "ddi": 265,
+      "bandeira": "🇲🇼"
+    },
+    {
+      "iso": "MV",
+      "nome": "Maldivas",
+      "ddi": 960,
+      "bandeira": "🇲🇻"
+    },
+    {
+      "iso": "ML",
+      "nome": "Mali",
+      "ddi": 223,
+      "bandeira": "🇲🇱"
+    },
+    {
+      "iso": "MT",
+      "nome": "Malta",
+      "ddi": 356,
+      "bandeira": "🇲🇹"
+    },
+    {
+      "iso": "MA",
+      "nome": "Marrocos",
+      "ddi": 212,
+      "bandeira": "🇲🇦"
+    },
+    {
+      "iso": "MQ",
+      "nome": "Martinica",
+      "ddi": 596,
+      "bandeira": "🇲🇶"
+    },
+    {
+      "iso": "MU",
+      "nome": "Maurício",
+      "ddi": 230,
+      "bandeira": "🇲🇺"
+    },
+    {
+      "iso": "MR",
+      "nome": "Mauritânia",
+      "ddi": 222,
+      "bandeira": "🇲🇷"
+    },
+    {
+      "iso": "YT",
+      "nome": "Mayotte",
+      "ddi": 262,
+      "bandeira": "🇾🇹"
+    },
+    {
+      "iso": "MX",
+      "nome": "México",
+      "ddi": 52,
+      "bandeira": "🇲🇽"
+    },
+    {
+      "iso": "MM",
+      "nome": "Mianmar (Birmânia)",
+      "ddi": 95,
+      "bandeira": "🇲🇲"
+    },
+    {
+      "iso": "FM",
+      "nome": "Micronésia",
+      "ddi": 691,
+      "bandeira": "🇫🇲"
+    },
+    {
+      "iso": "MZ",
+      "nome": "Moçambique",
+      "ddi": 258,
+      "bandeira": "🇲🇿"
+    },
+    {
+      "iso": "MD",
+      "nome": "Moldávia",
+      "ddi": 373,
+      "bandeira": "🇲🇩"
+    },
+    {
+      "iso": "MC",
+      "nome": "Mônaco",
+      "ddi": 377,
+      "bandeira": "🇲🇨"
+    },
+    {
+      "iso": "MN",
+      "nome": "Mongólia",
+      "ddi": 976,
+      "bandeira": "🇲🇳"
+    },
+    {
+      "iso": "ME",
+      "nome": "Montenegro",
+      "ddi": 382,
+      "bandeira": "🇲🇪"
+    },
+    {
+      "iso": "MS",
+      "nome": "Montserrat",
+      "ddi": 1,
+      "bandeira": "🇲🇸"
+    },
+    {
+      "iso": "NA",
+      "nome": "Namíbia",
+      "ddi": 264,
+      "bandeira": "🇳🇦"
+    },
+    {
+      "iso": "NR",
+      "nome": "Nauru",
+      "ddi": 674,
+      "bandeira": "🇳🇷"
+    },
+    {
+      "iso": "NP",
+      "nome": "Nepal",
+      "ddi": 977,
+      "bandeira": "🇳🇵"
+    },
+    {
+      "iso": "NI",
+      "nome": "Nicarágua",
+      "ddi": 505,
+      "bandeira": "🇳🇮"
+    },
+    {
+      "iso": "NE",
+      "nome": "Níger",
+      "ddi": 227,
+      "bandeira": "🇳🇪"
+    },
+    {
+      "iso": "NG",
+      "nome": "Nigéria",
+      "ddi": 234,
+      "bandeira": "🇳🇬"
+    },
+    {
+      "iso": "NU",
+      "nome": "Niue",
+      "ddi": 683,
+      "bandeira": "🇳🇺"
+    },
+    {
+      "iso": "NO",
+      "nome": "Noruega",
+      "ddi": 47,
+      "bandeira": "🇳🇴"
+    },
+    {
+      "iso": "NC",
+      "nome": "Nova Caledônia",
+      "ddi": 687,
+      "bandeira": "🇳🇨"
+    },
+    {
+      "iso": "NZ",
+      "nome": "Nova Zelândia",
+      "ddi": 64,
+      "bandeira": "🇳🇿"
+    },
+    {
+      "iso": "OM",
+      "nome": "Omã",
+      "ddi": 968,
+      "bandeira": "🇴🇲"
+    },
+    {
+      "iso": "NL",
+      "nome": "Países Baixos",
+      "ddi": 31,
+      "bandeira": "🇳🇱"
+    },
+    {
+      "iso": "BQ",
+      "nome": "Países Baixos Caribenhos",
+      "ddi": 599,
+      "bandeira": "🇧🇶"
+    },
+    {
+      "iso": "PW",
+      "nome": "Palau",
+      "ddi": 680,
+      "bandeira": "🇵🇼"
+    },
+    {
+      "iso": "PA",
+      "nome": "Panamá",
+      "ddi": 507,
+      "bandeira": "🇵🇦"
+    },
+    {
+      "iso": "PG",
+      "nome": "Papua-Nova Guiné",
+      "ddi": 675,
+      "bandeira": "🇵🇬"
+    },
+    {
+      "iso": "PK",
+      "nome": "Paquistão",
+      "ddi": 92,
+      "bandeira": "🇵🇰"
+    },
+    {
+      "iso": "PY",
+      "nome": "Paraguai",
+      "ddi": 595,
+      "bandeira": "🇵🇾"
+    },
+    {
+      "iso": "PE",
+      "nome": "Peru",
+      "ddi": 51,
+      "bandeira": "🇵🇪"
+    },
+    {
+      "iso": "PF",
+      "nome": "Polinésia Francesa",
+      "ddi": 689,
+      "bandeira": "🇵🇫"
+    },
+    {
+      "iso": "PL",
+      "nome": "Polônia",
+      "ddi": 48,
+      "bandeira": "🇵🇱"
+    },
+    {
+      "iso": "PR",
+      "nome": "Porto Rico",
+      "ddi": 1,
+      "bandeira": "🇵🇷"
+    },
+    {
+      "iso": "PT",
+      "nome": "Portugal",
+      "ddi": 351,
+      "bandeira": "🇵🇹"
+    },
+    {
+      "iso": "KE",
+      "nome": "Quênia",
+      "ddi": 254,
+      "bandeira": "🇰🇪"
+    },
+    {
+      "iso": "KG",
+      "nome": "Quirguistão",
+      "ddi": 996,
+      "bandeira": "🇰🇬"
+    },
+    {
+      "iso": "KI",
+      "nome": "Quiribati",
+      "ddi": 686,
+      "bandeira": "🇰🇮"
+    },
+    {
+      "iso": "GB",
+      "nome": "Reino Unido",
+      "ddi": 44,
+      "bandeira": "🇬🇧"
+    },
+    {
+      "iso": "CF",
+      "nome": "República Centro-Africana",
+      "ddi": 236,
+      "bandeira": "🇨🇫"
+    },
+    {
+      "iso": "CG",
+      "nome": "República do Congo",
+      "ddi": 242,
+      "bandeira": "🇨🇬"
+    },
+    {
+      "iso": "DO",
+      "nome": "República Dominicana",
+      "ddi": 1,
+      "bandeira": "🇩🇴"
+    },
+    {
+      "iso": "RE",
+      "nome": "Reunião",
+      "ddi": 262,
+      "bandeira": "🇷🇪"
+    },
+    {
+      "iso": "RO",
+      "nome": "Romênia",
+      "ddi": 40,
+      "bandeira": "🇷🇴"
+    },
+    {
+      "iso": "RW",
+      "nome": "Ruanda",
+      "ddi": 250,
+      "bandeira": "🇷🇼"
+    },
+    {
+      "iso": "RU",
+      "nome": "Rússia",
+      "ddi": 7,
+      "bandeira": "🇷🇺"
+    },
+    {
+      "iso": "EH",
+      "nome": "Saara Ocidental",
+      "ddi": 212,
+      "bandeira": "🇪🇭"
+    },
+    {
+      "iso": "WS",
+      "nome": "Samoa",
+      "ddi": 685,
+      "bandeira": "🇼🇸"
+    },
+    {
+      "iso": "AS",
+      "nome": "Samoa Americana",
+      "ddi": 1,
+      "bandeira": "🇦🇸"
+    },
+    {
+      "iso": "SM",
+      "nome": "San Marino",
+      "ddi": 378,
+      "bandeira": "🇸🇲"
+    },
+    {
+      "iso": "SH",
+      "nome": "Santa Helena",
+      "ddi": 290,
+      "bandeira": "🇸🇭"
+    },
+    {
+      "iso": "LC",
+      "nome": "Santa Lúcia",
+      "ddi": 1,
+      "bandeira": "🇱🇨"
+    },
+    {
+      "iso": "BL",
+      "nome": "São Bartolomeu",
+      "ddi": 590,
+      "bandeira": "🇧🇱"
+    },
+    {
+      "iso": "KN",
+      "nome": "São Cristóvão e Névis",
+      "ddi": 1,
+      "bandeira": "🇰🇳"
+    },
+    {
+      "iso": "MF",
+      "nome": "São Martinho",
+      "ddi": 590,
+      "bandeira": "🇲🇫"
+    },
+    {
+      "iso": "PM",
+      "nome": "São Pedro e Miquelão",
+      "ddi": 508,
+      "bandeira": "🇵🇲"
+    },
+    {
+      "iso": "ST",
+      "nome": "São Tomé e Príncipe",
+      "ddi": 239,
+      "bandeira": "🇸🇹"
+    },
+    {
+      "iso": "VC",
+      "nome": "São Vicente e Granadinas",
+      "ddi": 1,
+      "bandeira": "🇻🇨"
+    },
+    {
+      "iso": "SC",
+      "nome": "Seicheles",
+      "ddi": 248,
+      "bandeira": "🇸🇨"
+    },
+    {
+      "iso": "SN",
+      "nome": "Senegal",
+      "ddi": 221,
+      "bandeira": "🇸🇳"
+    },
+    {
+      "iso": "SL",
+      "nome": "Serra Leoa",
+      "ddi": 232,
+      "bandeira": "🇸🇱"
+    },
+    {
+      "iso": "RS",
+      "nome": "Sérvia",
+      "ddi": 381,
+      "bandeira": "🇷🇸"
+    },
+    {
+      "iso": "SG",
+      "nome": "Singapura",
+      "ddi": 65,
+      "bandeira": "🇸🇬"
+    },
+    {
+      "iso": "SX",
+      "nome": "Sint Maarten",
+      "ddi": 1,
+      "bandeira": "🇸🇽"
+    },
+    {
+      "iso": "SY",
+      "nome": "Síria",
+      "ddi": 963,
+      "bandeira": "🇸🇾"
+    },
+    {
+      "iso": "SO",
+      "nome": "Somália",
+      "ddi": 252,
+      "bandeira": "🇸🇴"
+    },
+    {
+      "iso": "LK",
+      "nome": "Sri Lanka",
+      "ddi": 94,
+      "bandeira": "🇱🇰"
+    },
+    {
+      "iso": "SD",
+      "nome": "Sudão",
+      "ddi": 249,
+      "bandeira": "🇸🇩"
+    },
+    {
+      "iso": "SS",
+      "nome": "Sudão do Sul",
+      "ddi": 211,
+      "bandeira": "🇸🇸"
+    },
+    {
+      "iso": "SE",
+      "nome": "Suécia",
+      "ddi": 46,
+      "bandeira": "🇸🇪"
+    },
+    {
+      "iso": "CH",
+      "nome": "Suíça",
+      "ddi": 41,
+      "bandeira": "🇨🇭"
+    },
+    {
+      "iso": "SR",
+      "nome": "Suriname",
+      "ddi": 597,
+      "bandeira": "🇸🇷"
+    },
+    {
+      "iso": "SJ",
+      "nome": "Svalbard e Jan Mayen",
+      "ddi": 47,
+      "bandeira": "🇸🇯"
+    },
+    {
+      "iso": "TJ",
+      "nome": "Tadjiquistão",
+      "ddi": 992,
+      "bandeira": "🇹🇯"
+    },
+    {
+      "iso": "TH",
+      "nome": "Tailândia",
+      "ddi": 66,
+      "bandeira": "🇹🇭"
+    },
+    {
+      "iso": "TW",
+      "nome": "Taiwan",
+      "ddi": 886,
+      "bandeira": "🇹🇼"
+    },
+    {
+      "iso": "TZ",
+      "nome": "Tanzânia",
+      "ddi": 255,
+      "bandeira": "🇹🇿"
+    },
+    {
+      "iso": "CZ",
+      "nome": "Tchéquia",
+      "ddi": 420,
+      "bandeira": "🇨🇿"
+    },
+    {
+      "iso": "IO",
+      "nome": "Território Britânico do Oceano Índico",
+      "ddi": 246,
+      "bandeira": "🇮🇴"
+    },
+    {
+      "iso": "PS",
+      "nome": "Territórios palestinos",
+      "ddi": 970,
+      "bandeira": "🇵🇸"
+    },
+    {
+      "iso": "TL",
+      "nome": "Timor-Leste",
+      "ddi": 670,
+      "bandeira": "🇹🇱"
+    },
+    {
+      "iso": "TG",
+      "nome": "Togo",
+      "ddi": 228,
+      "bandeira": "🇹🇬"
+    },
+    {
+      "iso": "TK",
+      "nome": "Tokelau",
+      "ddi": 690,
+      "bandeira": "🇹🇰"
+    },
+    {
+      "iso": "TO",
+      "nome": "Tonga",
+      "ddi": 676,
+      "bandeira": "🇹🇴"
+    },
+    {
+      "iso": "TT",
+      "nome": "Trinidad e Tobago",
+      "ddi": 1,
+      "bandeira": "🇹🇹"
+    },
+    {
+      "iso": "TA",
+      "nome": "Tristão da Cunha",
+      "ddi": 290,
+      "bandeira": "🇹🇦"
+    },
+    {
+      "iso": "TN",
+      "nome": "Tunísia",
+      "ddi": 216,
+      "bandeira": "🇹🇳"
+    },
+    {
+      "iso": "TM",
+      "nome": "Turcomenistão",
+      "ddi": 993,
+      "bandeira": "🇹🇲"
+    },
+    {
+      "iso": "TR",
+      "nome": "Turquia",
+      "ddi": 90,
+      "bandeira": "🇹🇷"
+    },
+    {
+      "iso": "TV",
+      "nome": "Tuvalu",
+      "ddi": 688,
+      "bandeira": "🇹🇻"
+    },
+    {
+      "iso": "UA",
+      "nome": "Ucrânia",
+      "ddi": 380,
+      "bandeira": "🇺🇦"
+    },
+    {
+      "iso": "UG",
+      "nome": "Uganda",
+      "ddi": 256,
+      "bandeira": "🇺🇬"
+    },
+    {
+      "iso": "UY",
+      "nome": "Uruguai",
+      "ddi": 598,
+      "bandeira": "🇺🇾"
+    },
+    {
+      "iso": "UZ",
+      "nome": "Uzbequistão",
+      "ddi": 998,
+      "bandeira": "🇺🇿"
+    },
+    {
+      "iso": "VU",
+      "nome": "Vanuatu",
+      "ddi": 678,
+      "bandeira": "🇻🇺"
+    },
+    {
+      "iso": "VE",
+      "nome": "Venezuela",
+      "ddi": 58,
+      "bandeira": "🇻🇪"
+    },
+    {
+      "iso": "VN",
+      "nome": "Vietnã",
+      "ddi": 84,
+      "bandeira": "🇻🇳"
+    },
+    {
+      "iso": "WF",
+      "nome": "Wallis e Futuna",
+      "ddi": 681,
+      "bandeira": "🇼🇫"
+    },
+    {
+      "iso": "ZM",
+      "nome": "Zâmbia",
+      "ddi": 260,
+      "bandeira": "🇿🇲"
+    },
+    {
+      "iso": "ZW",
+      "nome": "Zimbábue",
+      "ddi": 263,
+      "bandeira": "🇿🇼"
+    }
+  ]
+}
