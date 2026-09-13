@@ -1,6 +1,6 @@
 import pytest
 
-from dominio.validacao import campos_obrigatorios_faltantes, cep_valido, data_iso_valida
+from dominio.validacao import campos_obrigatorios_faltantes, cep_valido, data_iso_valida, normalizar_cep
 
 
 @pytest.mark.parametrize(
@@ -12,10 +12,32 @@ from dominio.validacao import campos_obrigatorios_faltantes, cep_valido, data_is
         ("abcde-123", False),
         (None, False),
         ("", False),
+        # issue #68, achado de mutação M4: mudar _CEP_RE para aceitar 4 dígitos antes do hífen
+        # (formato errado) ficava verde — nenhum teste usava CEP de 7 dígitos.
+        ("1234567", False),
+        ("123456789", False),
+        ("abc", False),
     ],
 )
 def test_cep_valido(cep, esperado):
     assert cep_valido(cep) is esperado
+
+
+@pytest.mark.parametrize(
+    "cep,esperado",
+    [
+        ("01310-100", "01310-100"),
+        ("01310100", "01310-100"),  # issue #68: dono único do formato normalizado (LEI 11)
+        ("  01310-100  ", "01310-100"),
+        ("1234567", None),
+        ("123456789", None),
+        ("abc", None),
+        (None, None),
+        ("", None),
+    ],
+)
+def test_normalizar_cep(cep, esperado):
+    assert normalizar_cep(cep) == esperado
 
 
 @pytest.mark.parametrize(

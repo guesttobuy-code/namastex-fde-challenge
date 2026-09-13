@@ -5,6 +5,8 @@ regex tem que ser `(?i)`. Casos com dado real do dataset (`dataset/sample.jsonl`
 manuais dos formatos alternativos depois, para o limite ficar declarado, não escondido.
 """
 
+import pytest
+
 from dominio.redator_pii import extrair_cep, redigir_texto
 
 # Linhas reais de `dataset/sample.jsonl`, coladas — não reformatadas — para provar que o teste mede
@@ -70,6 +72,28 @@ def test_telefone_sem_ddi_fixture_manual():
 def test_cep_com_espaco_fixture_manual():
     saida = redigir_texto("o cep aqui de casa e 26703 384")
     assert "26703 384" not in saida
+
+
+def test_cep_sem_separador_rotulado_e_mascarado():
+    """issue #68: medido ao vivo que `01310100` (8 dígitos sem hífen) passava intacto — mesmo
+    exemplo do achado ("meu cep e 01310100 ok")."""
+    saida = redigir_texto("meu cep e 01310100 ok")
+    assert "01310100" not in saida
+
+
+@pytest.mark.parametrize(
+    "texto",
+    ["cep=01310100", "cep: 01310100", "cep 01310100", "cep-01310100"],
+)
+def test_cep_sem_separador_rotulado_variacoes_de_pontuacao(texto):
+    assert "01310100" not in redigir_texto(texto)
+
+
+def test_numero_de_8_digitos_sem_rotulo_cep_nao_e_mascarado():
+    """Contraprova (issue #68, condição da coordenação): o padrão é RÓTULADO de propósito — 8
+    dígitos soltos, sem a palavra "cep" por perto, não podem virar mascaramento de telefone/id."""
+    saida = redigir_texto("o id do plano e 01310100")
+    assert "01310100" in saida
 
 
 def test_placa_padrao_antigo_fixture_manual():
