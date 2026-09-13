@@ -114,3 +114,18 @@ uma frase de injeção de prompt fez o modelo ecoar o texto inteiro do ataque de
 sinalizador para o operador revisar, não um vazamento, DESDE QUE este campo nunca vire texto ao
 lead (I-10). Se uma frente futura expuser `ambiguidades` numa tela de operador, tratar como
 conteúdo NÃO CONFIÁVEL (mesma régua do texto bruto do lead).
+
+---
+
+## Seção F13/#43 — `FichaDeObjecao` (append, R2/#16)
+
+**Dono:** `src/dominio/ficha_objecao.py`.
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-11 | `dominio` não lê o relógio do sistema: `FichaDeObjecao.publicar` recebe `instante` como parâmetro obrigatório, nunca chama `datetime.now` internamente — quem chama (`aplicacao.servico_conhecimento`) fornece | `tests/dominio/test_ficha_objecao.py::test_publicar_recebe_instante_como_parametro_nunca_le_o_relogio` e `test_publicar_exige_instante_explicito_sem_default` |
+
+**Origem (achado #53, auditoria de arquitetura #49):** antes desta seção, `publicar()` chamava
+`datetime.now(timezone.utc)` direto, violando a doutrina do roadmap #3 §4 ("dominio/ regras puras,
+sem IO"). Correção é o parâmetro `instante`, sem porta `Relogio` formal (decisão da coordenação,
+#53: porta completa fica fora de escopo).
