@@ -1,6 +1,6 @@
 # ADR-0005 — Estado da conversa em memória, painel regenerado por evento, contato fora do git
 
-- **Status:** proposta
+- **Status:** aceita
 - **Data:** 2026-09-13
 - **Issue/PR:** #46
 
