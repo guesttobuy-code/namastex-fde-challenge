@@ -32,12 +32,24 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 
 | Rota | O que é | Estado |
 |---|---|---|
-| `/` | tela "Conversas" — hoje é um **placeholder honesto**, sem formulário nem chat funcional: o texto da própria tela diz que o chat chega "no próximo PR desta frente (issue #46)" (`src/interfaces/servidor.py:90-105`); esse PR é o [#62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (`Closes #46`), pronto mas ainda não mergeado | `[PENDENTE: #62]` |
+| `/` | **chat guiado e determinístico** (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado. Sem LLM de propósito (decisão da coordenação: quem avalia não tem chave) | funcional |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
-| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)), servido estático — gerado em build-time, nunca em runtime | funcional |
+| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
 
-**Para ter uma conversa de ponta a ponta hoje** (enquanto o `/` do app é só o placeholder acima), o
-caminho que funciona é a CLI, direto no terminal — o mesmo agente, a mesma trilha, a mesma `/quote`:
+Pelo chat: aviso de privacidade antes das perguntas, nome + WhatsApp obrigatórios (e-mail opcional),
+idade (menor de 18 não cota — ver [limite conhecido](#10-limites-conhecidos)), veículo, **CEP
+obrigatório** (decisão do dono, 13/09 — o cálculo da `/quote` cobre até 30% a menos sem ele, em
+silêncio, e o protótipo original que sugeria "pode pular" nunca tinha conferido essa regra), plano
+em cards com coberturas/franquia lidas de `GET /api/planos` (nunca escritas à mão na tela) e resumo
+final editável. "Quero contratar" e "Falar com um corretor" caem no mesmo endpoint
+(`POST /api/chat/contratar`) — hoje o domínio só tem um sinal de escalonamento explícito do lead
+(`Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, incondicional,
+[§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável)); a tela não decide nada, só chama
+o mesmo caso de uso. Detalhe completo (as 5 rotas, o contrato, os achados da auditoria) no
+`CHANGELOG.md`.
+
+**A CLI continua funcionando** como caminho alternativo de terminal — o mesmo agente, a mesma
+trilha, a mesma `/quote`:
 
 ```bash
 # macOS/Linux (bash/zsh):
@@ -249,6 +261,13 @@ os dois são commitados num repo público.
 Limite conhecido e declarado, não escondido: a extração não usa NER — um nome que não esteja na lista
 de nomes conhecidos passa intacto. Detalhe completo em [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md).
 
+**O contato do lead (nome, WhatsApp, e-mail) nunca entra no git nem na trilha.** Um arquivo por lead
+em `contato/leads/<conversation_id>.json` (`.gitignore`, volume próprio no `docker-compose.yml`),
+lido só pela Fila humana — dado operacional que o corretor precisa ver de verdade, dono diferente do
+histórico/trilha (LEI 11). Decisão e alternativas descartadas em
+[`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md#contato-do-lead-fora-do-git-nunca-na-trilha-issue-46-adr-0005)
+e [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md).
+
 **Gap declarado, ainda sem conserto:** quando a coleta por texto livre está ligada
 ([§1](#1-em-uma-frase-e-como-rodar)), o CEP é extraído do texto **bruto** antes do mascaramento e
 enviado à `/quote` (a API precisa dele) — mas o restante da mensagem do lead viaja mascarado até o
@@ -327,7 +346,6 @@ não tem:
 
 | Ficou de fora | Estado | Issue |
 |---|---|---|
-| Chat centralizado ligado ao agente real (`/` deixa de ser placeholder) | `[PENDENTE: #62]` — PR aberto, pronto, não mergeado (fecha #46); traz também privacidade do contato do lead (ADR-0005) | [#62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) |
 | IA respondendo o lead usando a base de conhecimento (hoje o `/conhecimento` só edita; nada ainda consome as fichas numa conversa) | `[PENDENTE: #58]` — sem PR ainda | [#58](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/58) |
 | `interfaces` falando com `infra` fora das raízes de composição (`painel/tela_regras.py`); CLI orquestrando a trilha | `[PENDENTE: #55]` — violação de arquitetura declarada, sem PR ainda (P7 do roadmap #3) | [#55](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/55) |
 | Coleta padrão (sem LLM) não grava cada pergunta/resposta na trilha com id e status | `[PENDENTE: #51]` — sem PR ainda (P2) | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
@@ -352,11 +370,27 @@ PLANO antes do código. 28 dos 29 checks daquele PR passaram (o único vermelho 
 - **O mascaramento de PII não usa NER** — só redige nomes de uma lista conhecida; um nome fora dela passa intacto (`docs/PRIVACIDADE.md`).
 - **Sem projeto Python instalável** (sem `pip install -e .`) — decisão deliberadamente adiada (nota R9/#16); por isso rodar exige `PYTHONPATH=src`, documentado no comando acima.
 - **`.arch-layers.json` não existe** — a fronteira de camadas é cobrada de verdade pelo `.importlinter` no CI, mas o guard `docs-required` do kit ainda não confere essa fronteira automaticamente (nota registrada no `CHANGELOG.md`).
-- **Menor de 18 anos: a recusa é só do lado do cliente.** O protótipo de chat bloqueia visualmente
-  (`docs/design/prototipo-conversas-v2/index.html`); não existe nenhuma checagem de idade em
-  `src/dominio/` nem em nenhum módulo de backend — se o cliente for contornado (chamada direta à
-  API), nada no servidor recusa um lead menor de idade hoje. Conserto real chega com o
-  [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62) (ainda não mergeado).
+- **Menor de 18 anos: a recusa é só do lado do cliente.** `src/interfaces/chat/_corpo.html:288`
+  (`if (n < 18) return menorDeIdade();`) bloqueia na tela, com mensagem acolhedora — mas nem
+  `dominio.validacao` nem `aplicacao.servico_conversa` repetem a regra no servidor. Um
+  `POST /api/chat/cotar` direto, fora da tela, com `idade < 18`, não é recusado por essa camada —
+  limite declarado pelo próprio PR #62 (LEI 9 — sinalizar, não consertar de passagem).
+- **As rotas de operação não têm autenticação nenhuma, na mesma porta do chat.** `/painel/`,
+  `/conhecimento` e `/api/configuracao-comercial` respondem pra qualquer um em `:8080`, sem login,
+  sem token — `src/interfaces/servidor.py` não tem nenhuma checagem de `Authorization`/senha/token
+  em lugar nenhum (conferido: zero ocorrências dessas palavras no arquivo inteiro). Aceitável para
+  uma demonstração local; um deploy real precisaria de autenticação nessas três rotas antes de
+  qualquer outra coisa.
+- **O servidor atende uma requisição HTTP por vez.** `wsgiref.simple_server` (stdlib, decisão do
+  ADR-0004 — zero dependência nova) é single-threaded por padrão; duas pessoas cotando ao mesmo
+  tempo esperam uma pela outra. Sem medição de quanto isso custa em latência sob carga — não é o
+  cenário desta entrega (`src/interfaces/servidor.py:1`, `make_server` em
+  `src/interfaces/servidor.py:573`).
+- **Estado da conversa em memória, sem expiração.** `_ESTADOS_EM_MEMORIA`
+  (`src/interfaces/servidor.py:91`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
+  e nunca limpo (uma conversa abandonada fica ocupando memória para sempre). Limite aceito e
+  declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
+  deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
 - **Não há fichas de exemplo na base de conhecimento** — `conhecimento/` só tem `.gitkeep`
   versionado; `conhecimento/objecoes/` nem existe ainda, nasce em runtime quando a primeira ficha é
   salva pela tela. Quem abrir `/conhecimento` num clone limpo vê a tela sem nenhuma objeção

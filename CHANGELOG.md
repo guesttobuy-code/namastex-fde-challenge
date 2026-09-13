@@ -7,6 +7,19 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **README atualizado com o chat real do PR #62 (issue #15):** a rota `/` deixa de ser citada como
+  placeholder — vira "chat guiado e determinístico" com as 5 rotas novas (`/api/planos`,
+  `/api/chat/contato`, `/api/chat/cotar`, `/api/chat/contratar`, `/docs/design/paises.json`), o
+  painel passa a "regenerado a cada cotação/handoff, sem reiniciar" ([ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md)
+  decisão 2), e o contato do lead ganha nota em §6 (fora do git, `contato/leads/`, decisão 3 do
+  ADR-0005). Quatro limites novos em §10, cada um com fonte real conferida na `main` pós-merge, não
+  no rascunho pré-merge: menor de 18 só no cliente (`_corpo.html:288`, linha reconferida — o
+  rascunho tinha uma divergência de 7 linhas com o comentário de auditoria), rotas de operação sem
+  autenticação nenhuma na mesma porta (`servidor.py` conferido: zero menção a
+  Authorization/senha/token), `wsgiref` atende uma requisição por vez (decisão do ADR-0004, sem
+  medição de custo sob carga), estado da conversa em memória sem expiração
+  (`_ESTADOS_EM_MEMORIA`, `servidor.py:91`, decisão 1 do ADR-0005). Removida do "o que ficou de
+  fora" a linha do #62, que já não é verdade
 - **README reconciliado com o estado real da `main` (issue #15) — 6 achados da auditoria adversarial
   do `1573759`, consertados no mesmo push:** rótulo `(padrão)` estava no valor errado de
   `encaminhar_lead_fora_do_padrao` (era `False`, é `True` — o próprio parágrafo seguinte já dizia
