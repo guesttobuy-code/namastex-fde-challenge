@@ -237,6 +237,44 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
     )
 
 
+def registrar_pergunta_de_coleta(
+    trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str, *,
+    origem_do_texto: str, regra_aplicada: str = "coleta:pergunta",
+) -> None:
+    """Grava a pergunta que o agente fez durante a coleta (campo a campo ou texto livre) — pela
+    aplicacao, nunca da interface direto (issue #51/#55: dono único da escrita da trilha).
+
+    `regra_aplicada` tem default para o caminho campo a campo (pergunta fixa, sem regra por trás);
+    o caminho texto livre passa a sua própria (`portal_de_linguagem:extrair`, preservando o valor
+    que a trilha já gravava antes desta função existir)."""
+    trilha.registrar_evento(
+        MensagemEnviada(
+            evento="mensagem_enviada",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_enviada",
+            instante=_agora_iso(),
+            texto=texto,
+            decisao_id=f"dec_coleta_{indice}",
+            regra_aplicada=regra_aplicada,
+            origem_do_texto=origem_do_texto,
+        )
+    )
+
+
+def registrar_resposta_de_coleta(trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str) -> None:
+    """Grava a resposta que o lead deu durante a coleta — o texto REAL que ele escreveu, nunca um
+    resumo sintético (issue #51: hoje só o caminho texto-livre grava isto; campo a campo não grava nada)."""
+    trilha.registrar_evento(
+        MensagemRecebida(
+            evento="mensagem_recebida",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_recebida",
+            instante=_agora_iso(),
+            texto=texto,
+        )
+    )
+
+
 def _regra_aplicada(decisao: Decisao, resultado: ResultadoDaCotacao | None) -> str:
     origem = resultado.status.value.upper() if resultado is not None else "SEM_TENTATIVA"
     return f"politica.decidir:{origem}->{decisao.tipo.value.upper()}"
@@ -305,6 +343,7 @@ def conduzir_conversa(
                     f"idade={estado.idade}; veiculo_ano={estado.veiculo_ano}; cep={estado.cep}; "
                     f"plano_id={estado.plano_id}; data_inicio={estado.data_inicio}"
                 ),
+                sender_role="sistema",
             )
         )
 

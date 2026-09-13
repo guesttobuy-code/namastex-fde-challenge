@@ -1,27 +1,26 @@
-"""Tela Regras e política (escopo #13, regra 3) — nada aqui é redigitado. Os planos vêm de um
-`GET /planos` ao vivo no serviço de cotação (buraco se o serviço não estiver de pé); o vocabulário
-de handoff vem do Enum `MotivoHandoff` do domínio; a política de retry vem das constantes reais de
-`src/infra/cliente_quote.py` (PR #35, mergeado em 2026-09-12) — nenhum número é redigitado aqui.
+"""Tela Regras e política (escopo #13, regra 3) — nada aqui é redigitado. Os planos e a política de
+retry chegam prontos por parâmetro (issue #51/#55: só `painel/gerar.py`, raiz de composição, importa
+`infra` — esta tela nunca importa `infra` direto); o vocabulário de handoff vem do Enum
+`MotivoHandoff` do domínio.
 """
 
 from __future__ import annotations
 
 from dominio.decisao import MotivoHandoff
-from infra.cliente_quote import (
-    ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
-    MAX_TENTATIVAS,
-    ORCAMENTO_TOTAL_SEGUNDOS,
-    TIMEOUT_POR_TENTATIVA_SEGUNDOS,
-)
-from infra.planos_http import buscar_planos
 
 from interfaces.painel.campos import buraco, esc
 from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
-def render(*, base_url_quote_service: str | None = None, caminho_ui_css=None) -> str:
-    planos = buscar_planos(base_url_quote_service)
-
+def render(
+    *,
+    planos: dict | None = None,
+    orcamento_total_segundos: float | None = None,
+    timeout_por_tentativa_segundos: float | None = None,
+    max_tentativas: int | None = None,
+    esperas_entre_tentativas_segundos: tuple[float, ...] = (),
+    caminho_ui_css=None,
+) -> str:
     corpo = f"""
 <div class="cabecalho">
   <div>
@@ -33,7 +32,7 @@ def render(*, base_url_quote_service: str | None = None, caminho_ui_css=None) ->
 </div>
 {_secao_planos(planos)}
 {_secao_motivos_handoff()}
-{_secao_retry()}
+{_secao_retry(orcamento_total_segundos, timeout_por_tentativa_segundos, max_tentativas, esperas_entre_tentativas_segundos)}
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Esta tela não guarda número em memória —
   cada valor é lido do código ou do serviço no momento da geração.</p>
 """
@@ -101,15 +100,30 @@ def _secao_motivos_handoff() -> str:
     </section>"""
 
 
-def _secao_retry() -> str:
-    esperas = " · ".join(f"{e:.1f}s".replace(".0s", "s") for e in ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS)
+def _secao_retry(
+    orcamento_total_segundos: float | None,
+    timeout_por_tentativa_segundos: float | None,
+    max_tentativas: int | None,
+    esperas_entre_tentativas_segundos: tuple[float, ...],
+) -> str:
+    orcamento = f"{orcamento_total_segundos:.0f} s" if orcamento_total_segundos is not None else buraco("orcamento_total_segundos")
+    timeout = (
+        f"min({timeout_por_tentativa_segundos:.0f} s, tempo restante)"
+        if timeout_por_tentativa_segundos is not None
+        else buraco("timeout_por_tentativa_segundos")
+    )
+    tentativas = f"até {max_tentativas}" if max_tentativas is not None else buraco("max_tentativas")
+    if esperas_entre_tentativas_segundos:
+        esperas = esc(" · ".join(f"{e:.1f}s".replace(".0s", "s") for e in esperas_entre_tentativas_segundos))
+    else:
+        esperas = buraco("esperas_entre_tentativas_segundos")
     return f"""<section class="painel"><header><h2>Política de tentativas</h2><span class="aux">src/infra/cliente_quote.py</span></header>
       <table>
         <tbody>
-          <tr><td>Orçamento total</td><td class="num">{ORCAMENTO_TOTAL_SEGUNDOS:.0f} s</td></tr>
-          <tr><td>Timeout por tentativa</td><td class="num">min({TIMEOUT_POR_TENTATIVA_SEGUNDOS:.0f} s, tempo restante)</td></tr>
-          <tr><td>Tentativas</td><td class="num">até {MAX_TENTATIVAS}</td></tr>
-          <tr><td>Espera entre elas</td><td class="num">{esc(esperas)}</td></tr>
+          <tr><td>Orçamento total</td><td class="num">{orcamento}</td></tr>
+          <tr><td>Timeout por tentativa</td><td class="num">{timeout}</td></tr>
+          <tr><td>Tentativas</td><td class="num">{tentativas}</td></tr>
+          <tr><td>Espera entre elas</td><td class="num">{esperas}</td></tr>
         </tbody>
       </table>
     </section>"""
