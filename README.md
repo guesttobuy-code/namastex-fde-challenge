@@ -437,21 +437,23 @@ PLANO antes do código. 28 dos 29 checks daquele PR passaram (o único vermelho 
   declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
   deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
 - **A IA que responde objeção de preço tem 3 limites conhecidos, medidos com o LLM real** (issue
-  #58/#70, PR #75/#77 — ver [§1](#1-em-uma-frase-e-como-rodar)):
+  #58/#70/#78, PR #75/#77/#82 — ver [§1](#1-em-uma-frase-e-como-rodar)):
   - **Latência de 6,4s a 13,6s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`,
     3 chamadas reais) — bem acima da extração de intenção isolada (~4,2s, ver acima). Sem cache nem
     streaming; o lead vê "Só um instante…" até 13,6s numa conversa real
     ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
-  - **A ficha `caro-com-carencia` nunca é usada:** a frase "pago e ainda tenho que esperar pra ter
-    cobertura" — uma das frases da PRÓPRIA ficha — é classificada `quer_falar_com_humano` em vez de
-    `objecao_de_preco`, porque `_PROMPT_SISTEMA` (`src/infra/adaptador_de_linguagem.py`) não
-    descreve carência como exemplo de objeção de preço. Defeito do prompt de extração da #58, não
-    da ficha em si — [issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78),
-    enquanto não mergear.
+  - **Intermitência medida no reconhecimento de "quero falar com um humano":** numa bateria de 4
+    execuções da mesma frase ("pode me passar pra uma pessoa de verdade?"), 1 delas voltou sem
+    intenção nenhuma (o modelo não classificou) — o lead recebe "Não entendi — pode reformular?" em
+    vez do encaminhamento; nas outras 3 (e nas duas variações testadas junto, 3/3 cada), classificou
+    certo. Não é falso positivo (não vira outra intenção, nem objeção) — é o modelo às vezes não
+    responder no formato esperado. Sem apuração de taxa em volume maior; sem issue dedicada ainda —
+    fonte: [auditoria do PR #82](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/82#issuecomment-5657685213).
   - **`conhecimento/objecoes/` agora tem as 4 fichas de preço aprovadas pelo dono**, publicadas
-    pela API (PR #77, commit `071f0e1`) — não fica mais vazio num clone limpo. Continua sem ficha
-    de nenhum outro tipo de objeção/pergunta de produto (guincho, carro reserva...), fora do escopo
-    aprovado da #70.
+    pela API (PR #77, commit `071f0e1`), e as 4 já são reconhecidas pelo prompt de extração v3
+    (`caro-com-carencia` incluída, corrigida pela #78/PR #82) — não fica mais vazio, nem com uma
+    ficha inacessível, num clone limpo. Continua sem ficha de nenhum outro tipo de
+    objeção/pergunta de produto (guincho, carro reserva...), fora do escopo aprovado da #70.
 - **No Windows, `/quote` recusando conexão em `localhost` pode virar `timeout` em vez de
   `indisponivel` na trilha** — a recusa de conexão às vezes passa dos 3s do orçamento por
   tentativa, e o árbitro de prazo (`_chamar_com_prazo_de_parede`,

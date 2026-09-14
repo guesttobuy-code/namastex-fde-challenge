@@ -7,6 +7,11 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **README atualizado com o conserto da #78 (PR #82) — issue #15:** o limite "ficha
+  `caro-com-carencia` nunca é usada" saiu de §10 (corrigido, prompt v3); entrou no lugar a
+  intermitência medida na auditoria do PR #82 — "pode me passar pra uma pessoa de verdade?" deu
+  `None` em 1 de 4 execuções (não é falso positivo, é falta de classificação), sem issue dedicada
+  ainda. §1 e o bloco das 4 fichas em §10 passam a citar #82/PR #82 junto de #58/#70
 - **README reconciliado com a IA de objeção de preço mergeada (#58/#70, PR #75/#77) — issue #15:**
   a linha "ficou de fora" da #58 saiu (entregue) e virou a linha do #81 (docker compose oficial não
   repassa a chave do LLM ao `app` — `servidor.py` nunca chama `carregar_dotenv_no_ambiente()`); a
