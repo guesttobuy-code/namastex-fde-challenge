@@ -10,6 +10,7 @@ from dominio.decisao import MotivoHandoff
 
 from interfaces.painel.campos import buraco, esc
 from interfaces.painel.layout import css_extra_da_tela, pagina
+from interfaces.painel.motivos import descricao_do_motivo
 
 
 def render(
@@ -87,8 +88,16 @@ def _linhas_do_fator(nome_fator: str, faixas: list[dict], chave_min: str, chave_
 
 
 def _secao_motivos_handoff() -> str:
+    """Catálogo de referência de TODO `MotivoHandoff`, com descrição em linguagem simples — issue
+    #57 (P14, PR 2 de 2): migrado de `tela_fila_humana.py` (removida) na pré-auditoria do PR #87,
+    depois que a página antiga deixou de ter link direto no menu (S10) mas ainda era a única a
+    mostrar essa lista. `interfaces.painel.motivos.descricao_do_motivo` é o dono único (LEI 11) da
+    descrição — usada também por `tela_conversas` (S12, motivo DA conversa aberta, não o catálogo)."""
     motivos = list(MotivoHandoff)
-    linhas = "".join(f'<div class="regra"><code>{esc(m.value)}</code></div>' for m in motivos)
+    linhas = "".join(
+        f'<div class="regra"><code>{esc(m.value)}</code><p>{esc(descricao_do_motivo(m.value))}</p></div>'
+        for m in motivos
+    )
     return f"""<section class="painel" style="margin-bottom:18px">
       <header><h2>Motivos de handoff</h2><span class="aux">dominio.decisao.MotivoHandoff — {len(motivos)} implementado(s)</span></header>
       <div style="padding:14px 16px"><div class="regras">{linhas}</div>

@@ -326,3 +326,61 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 - 2026-09-13 — decisão da coordenação sobre o ponto em aberto da Análise de impacto (#68): "as
   duas coisas" — normalizar na fronteira (aqui) E manter a rede de segurança rotulada no redator
   (`dominio/CONTRACT.md`), para cobrir texto livre do lead que este ponto não alcança.
+
+---
+
+## Seção da issue #57 (P14, PR 2 de 2) — status da conversa (append)
+
+### O que esta frente acrescenta
+
+- `aplicacao.servico_status_conversa.registrar_mudanca_de_status(trilha, conversation_id,
+  novo_status, *, origem)` é o dono único (LEI 11) de COMO um `MudancaDeStatus` é gravado na
+  trilha — `de` é sempre lido da PRÓPRIA trilha (`status_atual_da_conversa`), nunca recebido por
+  parâmetro, para nunca haver dois lugares decidindo "qual era o status anterior". Três chamadores:
+  `aplicacao.servico_conversa.registrar_status_do_turno` (via `conduzir_conversa`, `origem=
+  "automatico"`), `aplicacao.servico_resposta_orientada.processar_mensagem_livre` (S8 da issue #58
+  — fluxo que NÃO passa por `conduzir_conversa`, `origem="automatico"`) e `assumir`/`encerrar`
+  (botões manuais, `origem="manual"`).
+- `assumir(conversation_id, trilha)`/`encerrar(conversation_id, trilha)` validam a transição contra
+  `dominio.status_conversa.pode_assumir`/`pode_encerrar` ANTES de gravar — nunca gravam uma
+  transição que a tabela do domínio recusaria; levantam `TransicaoDeStatusInvalida` (a rota HTTP
+  decide o 409, esta camada não engole a exceção).
+- `ServicoDeTrilha.eventos_da_conversa(conversation_id)` (passthrough de leitura) — os três
+  chamadores acima precisam saber o status ATUAL antes de decidir/gravar o próximo.
+- Item 6 da issue #58 ("tentativas antes do corretor" da ficha — decisão registrada no PR #75):
+  `montar_e_responder` ganha `tentativas_ja_feitas`; esgotado o `tentativas_antes_do_corretor` da
+  ficha, encaminha sem chamar o LLM. `processar_mensagem_livre` conta, na trilha, quantos turnos já
+  responderam objeção de preço. Limite conhecido (LEI 2, sinalizado no código): o LLM recebe todas
+  as fichas publicadas juntas e escreve texto livre — não há como saber com certeza qual ficha
+  embasou a resposta, então a contagem usa o MENOR `tentativas_antes_do_corretor` entre as fichas
+  do contexto (leitura conservadora, nunca deixa passar do limite mais apertado).
+
+### INVARIANTES acrescentadas
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-12 | `registrar_mudanca_de_status` é o único lugar que escreve `MudancaDeStatus` — `registrar_status_do_turno`, `processar_mensagem_livre` e `assumir`/`encerrar` nunca constroem o evento por conta própria | `tests/aplicacao/test_servico_status_conversa.py`, `tests/aplicacao/test_servico_conversa.py::test_registrar_status_do_turno_grava_status_alterado_automatico_com_de_e_para`, `tests/aplicacao/test_servico_resposta_orientada_status.py::test_trilha_grava_status_alterado_aguardando_corretor_quando_encaminha_ao_corretor` |
+| I-13 | `assumir`/`encerrar` nunca gravam quando a transição não é permitida pelo domínio — `TransicaoDeStatusInvalida` sobe, nada é gravado | `tests/aplicacao/test_servico_status_conversa.py::test_assumir_fora_de_aguardando_corretor_e_recusado` (confere `repositorio.gravados` inalterado) |
+| I-14 | `registrar_mudanca_de_status` aplica `dominio.status_conversa.transicao_permitida` na GRAVAÇÃO (não só no domínio isolado) — automática fora da tabela não grava e não levanta erro; manual fora da tabela levanta `TransicaoDeStatusInvalida`; `de == para` nunca grava (achado B1 da pré-auditoria do PR #87) | `tests/aplicacao/test_servico_status_conversa.py::test_registrar_mudanca_de_status_*`, `tests/interfaces/test_rotas_status_conversa.py::test_conversa_encerrada_nao_reabre_com_um_turno_de_cotar_seguinte`, `test_dois_turnos_de_coleta_seguidos_gravam_um_unico_status_alterado` |
+
+### Entradas e saídas públicas acrescentadas
+
+- `aplicacao.servico_status_conversa.registrar_mudanca_de_status(trilha: ServicoDeTrilha, conversation_id: str, novo_status: StatusDaConversa, *, origem: str, eventos_anteriores: list[dict] | None = None) -> None`.
+- `aplicacao.servico_status_conversa.assumir(conversation_id: str, trilha: ServicoDeTrilha) -> StatusDaConversa` / `.encerrar(...)` — levantam `TransicaoDeStatusInvalida`.
+- `aplicacao.servico_conversa.registrar_status_do_turno(trilha, conversation_id, decisao, resultado, *, eventos_anteriores=None) -> StatusDaConversa`.
+- `aplicacao.servico_trilha.ServicoDeTrilha.eventos_da_conversa(conversation_id: str) -> list[dict]`.
+
+### O que NÃO é responsabilidade desta seção
+
+- Decidir QUAL status vem a seguir — isso é 100% de `dominio.status_conversa` (`proxima_transicao_
+  automatica`/`pode_assumir`/`pode_encerrar`); esta seção só sabe COMO gravar.
+- A linha de integração em `conduzir_conversa` continuar chamando `registrar_status_do_turno` —
+  isso é `aplicacao.servico_conversa`, já documentado na seção principal deste arquivo.
+
+### Decisões registradas
+
+- 2026-09-13/14 — issue #57 (P14, PR 2 de 2), achado ao integrar com a #58: `processar_mensagem_
+  livre` não passa por `conduzir_conversa` e não constrói `dominio.decisao.Decisao` — por isso
+  `registrar_mudanca_de_status` recebe o `StatusDaConversa` já decidido, em vez de receber uma
+  `Decisao` e decidir por dentro (o que exigiria uma `Decisao` falsa nesse fluxo). Decisão da
+  coordenação: a gravação mora na `aplicacao` (não no domínio), que continua puro/sem I/O.

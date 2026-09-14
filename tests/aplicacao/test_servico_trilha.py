@@ -53,6 +53,26 @@ def test_registrar_evento_preserva_campos_nao_textuais():
     assert gravado["id"] == "msg_01"
 
 
+def test_eventos_da_conversa_e_passthrough_para_o_repositorio():
+    repositorio = _RepositorioEspiao()
+    servico = ServicoDeTrilha(repositorio)
+    servico.registrar_evento(_evento_com_cpf())
+    servico.registrar_evento(
+        MensagemRecebida(
+            evento="mensagem_recebida",
+            conversation_id="conv_outra",
+            id="msg_99",
+            instante="2026-09-12T11:00:00",
+            texto="oi",
+        )
+    )
+
+    eventos = servico.eventos_da_conversa("conv_00000")
+
+    assert len(eventos) == 1
+    assert eventos[0]["conversation_id"] == "conv_00000"
+
+
 def test_registrar_evento_redige_nomes_conhecidos():
     repositorio = _RepositorioEspiao()
     servico = ServicoDeTrilha(repositorio)

@@ -31,3 +31,8 @@ class ServicoDeTrilha:
         bruto = evento.to_dict()
         redigido = {chave: _redigir_valor(valor, nomes_conhecidos) for chave, valor in bruto.items()}
         self._repositorio.registrar(redigido)
+
+    def eventos_da_conversa(self, conversation_id: str) -> list[dict]:
+        """Passthrough de leitura (issue #57, P14) — os eventos já foram redigidos na escrita
+        (`registrar_evento` acima); reler não precisa redigir de novo."""
+        return self._repositorio.eventos_da_conversa(conversation_id)

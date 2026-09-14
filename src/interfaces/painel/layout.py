@@ -27,10 +27,31 @@ _CSS_BURACO_VISIVEL = ".falta{color:var(--alerta)}"
 # desabilitados — o atributo HTML sozinho, sem isto, não basta em todo navegador.
 _CSS_BOTAO_DESABILITADO = "button[disabled]{opacity:.45;cursor:not-allowed}"
 
+# UI-B1 (achado da pré-auditoria em navegador do PR #87): nenhum mock em docs/design/ jamais usou o
+# atributo `hidden` — a tela de conversas (S13, issue #57) é a primeira a depender dele pra mostrar
+# uma conversa por vez —, então nenhuma folha carregada tem esta regra; sem ela `hidden` fica só um
+# atributo inerte no HTML, o navegador continua desenhando o elemento.
+_CSS_HIDDEN_FUNCIONA = "[hidden]{display:none!important}"
+
+# UI-B2 (mesma pré-auditoria): `.botao`/`.botao.principal` também são novos desta tela — nenhum mock
+# tinha botão de ação real (só pareciam clicáveis). Reaproveita as cores do tema; `.principal` usa o
+# magenta da identidade, o secundário fica neutro. `button[disabled]` acima já cobre o apagado.
+_CSS_BOTAO = (
+    ".botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);"
+    "border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}"
+    ".botao:hover:not([disabled]){border-color:var(--magenta)}"
+    ".botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}"
+    ".botao.principal:hover:not([disabled]){background:#e600e6}"
+)
+
 _ITENS_MENU = (
     ("Atendimento", (
         ("/", "💬", "Conversas", None),
-        ("/painel/handoffs.html", "🙋", "Fila humana", "fila"),
+        # issue #57 (P14, S10 do roteiro de aceite): "Fila humana" deixa de ser página própria e
+        # vira atalho — mesmo rótulo/ícone, só o destino muda (decisão do dono: "não some, vira
+        # atalho"). Filtra o Histórico de atendimentos pelo status oficial equivalente
+        # (`interfaces.painel.tela_conversas`, JS lê `?status=` no carregamento da página).
+        ("/painel/index.html?status=aguardando_corretor", "🙋", "Fila humana", "fila"),
     )),
     ("Observabilidade", (
         ("/painel/rastreio.html", "🧭", "Rastreio", None),
@@ -95,6 +116,8 @@ def pagina(
 {css_embutido(caminho_ui_css)}
 {_CSS_BURACO_VISIVEL}
 {_CSS_BOTAO_DESABILITADO}
+{_CSS_HIDDEN_FUNCIONA}
+{_CSS_BOTAO}
 {css_extra}
 </style>
 </head>
