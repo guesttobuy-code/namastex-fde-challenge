@@ -36,7 +36,6 @@ import dataclasses
 import json
 import mimetypes
 import os
-import re
 from pathlib import Path
 from wsgiref.simple_server import make_server
 
@@ -64,44 +63,23 @@ from infra.repositorio_contato_json import RepositorioDeContatoJSON, Repositorio
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces import rotas_resposta_orientada
 from interfaces.chat import tela_chat
+from interfaces.chat_mensagem import responder_chat_mensagem
 from interfaces.conhecimento import tela_edicao
+from interfaces.http_comum import CONVERSATION_ID_VALIDO as _CONVERSATION_ID_VALIDO
+from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
+from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
+from interfaces.http_comum import json_resposta as _json
+from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 from interfaces.painel.gerar import gerar_paineis
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _PAISES_JSON = _RAIZ / "docs" / "design" / "paises.json"
-
-# Achado de segurança (revisão automática, 13/09/2026): `conversation_id` chega pelo corpo do POST
-# — HTTP, não confiável — e vira nome de arquivo da trilha em `_responder_chat_cotar`/`_contratar`
-# (`trilha_dir / f"trilha_{conversation_id}.jsonl"`). Sem validar o formato, um `conversation_id`
-# tipo "../../etc/cron.d/x" escreve/lê fora de `trilha_dir` (path traversal). Mesmo regex de
-# `infra.repositorio_contato_json._CONVERSATION_ID_VALIDO` (LEI 11: mesma técnica de validação de
-# nome de arquivo, dono duplicado de propósito nas 3 bordas que recebem o id — mesmo raciocínio já
-# registrado ali, não uma regra de negócio nova).
-_CONVERSATION_ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-
-
-def _conversation_id_ou_400(dados: dict) -> tuple[str, None] | tuple[None, tuple]:
-    """`(conversation_id, None)` se válido; `(None, resposta_400)` se ausente ou fora do formato
-    seguro — quem chama devolve a resposta direto (`return resposta` quando o segundo item não é
-    `None`)."""
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return None, _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
-    if not _CONVERSATION_ID_VALIDO.match(conversation_id):
-        return None, _json("400 Bad Request", {"erro": "conversation_id fora do formato seguro"})
-    return conversation_id, None
 
 # ADR-0005, decisão 1 (ver docstring do módulo): estado da conversa entre turnos, chave
 # `conversation_id`, em memória do PROCESSO — não é um singleton escondido, é este dict, explícito.
 _ESTADOS_EM_MEMORIA: dict[str, EstadoDaConversa] = {}
 # Issue #58: último `PrecoCotado` de sucesso por conversa (mesmo padrão de `_ESTADOS_EM_MEMORIA`).
 _PRECOS_EM_MEMORIA: dict[str, PrecoCotado] = {}
-
-
-def _json(status: str, corpo: dict | list) -> tuple[str, list[tuple[str, str]], list[bytes]]:
-    dados = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
-    cabecalhos = [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(dados)))]
-    return status, cabecalhos, [dados]
 
 
 def _html(status: str, texto: str) -> tuple[str, list[tuple[str, str]], list[bytes]]:
@@ -133,19 +111,6 @@ def _servir_painel(painel_dir: Path, subcaminho: str) -> tuple[str, list[tuple[s
     if not alvo.is_file():
         return _json("404 Not Found", {"erro": "painel ainda não gerado"})
     return _arquivo_estatico(alvo)
-
-
-_METODO_NAO_SUPORTADO = ("405 Method Not Allowed", {"erro": "método não suportado"})
-
-
-def _ler_corpo_json(environ) -> dict | None:
-    """`None` quando o corpo não é JSON válido — quem chama decide o 400."""
-    try:
-        tamanho = int(environ.get("CONTENT_LENGTH") or 0)
-        bruto = environ["wsgi.input"].read(tamanho)
-        return json.loads(bruto or b"{}")
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return None
 
 
 def _responder_raiz(metodo: str):
@@ -475,6 +440,8 @@ def _rotear_chat(
         return _responder_paises(metodo)
     if caminho == "/api/chat/contato":
         return _responder_chat_contato(servico_contato, environ, metodo)
+    if caminho == "/api/chat/mensagem":
+        return responder_chat_mensagem(trilha_dir=trilha_dir, environ=environ, metodo=metodo)
     if caminho == "/api/chat/cotar":
         return _responder_chat_cotar(
             painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,

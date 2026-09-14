@@ -242,8 +242,10 @@ def processar_mensagem_livre(
             configuracao=configuracao,
             texto_do_lead=texto_mascarado,
         )
+        regra_aplicada = "resposta_orientada:objecao_de_preco"
     else:
         texto, origem, motivo_handoff, dados_usados = _TEXTO_FORA_DE_ESCOPO, ORIGEM_TEXTO_FORA_DE_ESCOPO, None, ()
+        regra_aplicada = "resposta_orientada:fora_de_escopo"
 
     if trilha is not None:
         trilha.registrar_evento(
@@ -256,7 +258,7 @@ def processar_mensagem_livre(
                 # Sem `Decisao` formal aqui (este fluxo não passa por `dominio.politica.decidir`) —
                 # id próprio só para correlação na trilha, nunca confundido com um id de decisão.
                 decisao_id=_novo_id("resposta_orientada"),
-                regra_aplicada="resposta_orientada:objecao_de_preco",
+                regra_aplicada=regra_aplicada,
                 origem_do_texto=origem,
                 dados_usados=dados_usados,
                 quote_attempt_id=preco_atual.quote_attempt_id if preco_atual is not None else None,

@@ -143,7 +143,6 @@ _FRASES_OBJECAO_DE_PRECO = [
 ]
 
 _FRASES_CONTROLE_OBJECAO_DE_PRECO = [
-    pytest.param("tenho 35 anos", "informar_dados", id="controle_idade_nao_e_objecao"),
     pytest.param("quero contratar", "quer_contratar", id="controle_contratar_nao_e_objecao"),
     pytest.param("quero falar com um atendente", "quer_falar_com_humano", id="controle_humano_nao_e_objecao"),
     pytest.param("tem guincho?", None, id="controle_guincho_nao_e_objecao"),
@@ -165,3 +164,17 @@ def test_extracao_real_objecao_de_preco_e_controle_de_falsos_positivos(texto, in
 
     print(f"\n[prova-real-objecao] texto={texto!r} intent_extraido={saida.intent!r} esperado={intent_esperado!r}")
     assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"
+
+
+def test_extracao_real_idade_isolada_nunca_vira_objecao_de_preco():
+    """Achado da re-auditoria do PR #75: "tenho 35 anos" sozinho, sem contexto de conversa, é
+    ambíguo de verdade — o modelo real devolveu `intent=None` (campo de idade sem intenção clara
+    no texto), não `informar_dados`. O controle correto não é a igualdade exata (rígida demais),
+    é que NUNCA virou o falso positivo que este teste existe para vigiar: `objecao_de_preco`."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    estado = EstadoDaConversa(conversation_id="conv-prova-real-objecao-idade")
+
+    saida = adaptador.extrair("tenho 35 anos", estado)
+
+    print(f"\n[prova-real-objecao] texto='tenho 35 anos' intent_extraido={saida.intent!r}")
+    assert saida.intent != "objecao_de_preco", f"saida={saida!r}"

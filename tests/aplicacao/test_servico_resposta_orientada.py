@@ -499,6 +499,28 @@ def test_trilha_grava_mensagem_enviada_com_origem_do_texto():
     assert enviada["origem_do_texto"] == "llm_resposta:fake@v1"
 
 
+def test_trilha_grava_regra_aplicada_fora_de_escopo_quando_nao_e_objecao():
+    """Achado da re-auditoria do PR #75: `regra_aplicada` continuava fixa em
+    `resposta_orientada:objecao_de_preco` mesmo no caminho de fora de escopo (B3) — a trilha
+    dizia que uma regra rodou que não rodou."""
+    repositorio_trilha = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio_trilha)
+    processar_mensagem_livre(
+        portal_de_linguagem=_PortalDeLinguagemComIntent("informar_dados"),
+        portal_de_resposta=_PortalFixo("não deveria ser chamado"),
+        texto_bruto="tenho 35 anos",
+        estado=_estado(),
+        preco_atual=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+        trilha=trilha,
+    )
+    eventos = repositorio_trilha.eventos_da_conversa("conv-1")
+    enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
+    assert enviada["regra_aplicada"] == "resposta_orientada:fora_de_escopo"
+
+
 def test_trilha_grava_dados_usados_com_id_e_versao_da_ficha():
     """Bloqueante B5 do veredito da auditoria do PR #75: a trilha precisa registrar quais peças da
     base de conhecimento alimentaram a resposta, não só que "algum LLM respondeu"."""

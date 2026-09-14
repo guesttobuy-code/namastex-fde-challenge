@@ -5,16 +5,13 @@ aplicação de sempre, nenhuma decisão nova. Módulo próprio (não dentro de `
 `interfaces.servidor` segue sendo dono das rotas `/api/chat/cotar`/`/api/chat/contratar`, que
 outras frentes tocam em paralelo (não duplicadas aqui, só a nova).
 
-`_json`/`_METODO_NAO_SUPORTADO`/`_ler_corpo_json`/`_conversation_id_ou_400` são cópias triviais dos
-mesmos utilitários de `interfaces.servidor` (LEI 11 — técnica de borda HTTP, não regra de negócio;
-mesmo raciocínio já usado para `_CONVERSATION_ID_VALIDO` duplicado nas 3 bordas que recebem o id) —
-importar de `interfaces.servidor` criaria import circular, porque é `servidor.py` quem chama esta
-função."""
+Utilitários de borda HTTP (`_json`/`_METODO_NAO_SUPORTADO`/`_ler_corpo_json`/
+`_conversation_id_ou_400`) importados de `interfaces.http_comum` (issue #51 parte 2, PR #76 — LEI
+11, dono único: antes eram cópias triviais aqui, `interfaces.servidor` extraiu o módulo comum
+porque o próprio `servidor.py` já ia estourar o `file-loc-ceiling` com mais uma frente duplicando)."""
 
 from __future__ import annotations
 
-import json
-import re
 from pathlib import Path
 
 from aplicacao.servico_conhecimento import ServicoDeConhecimento
@@ -24,33 +21,10 @@ from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.preco_cotado import PrecoCotado
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
-
-_CONVERSATION_ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-_METODO_NAO_SUPORTADO = ("405 Method Not Allowed", {"erro": "método não suportado"})
-
-
-def _json(status: str, corpo: dict | list) -> tuple[str, list[tuple[str, str]], list[bytes]]:
-    dados = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
-    cabecalhos = [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(dados)))]
-    return status, cabecalhos, [dados]
-
-
-def _ler_corpo_json(environ) -> dict | None:
-    try:
-        tamanho = int(environ.get("CONTENT_LENGTH") or 0)
-        bruto = environ["wsgi.input"].read(tamanho)
-        return json.loads(bruto or b"{}")
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return None
-
-
-def _conversation_id_ou_400(dados: dict) -> tuple[str, None] | tuple[None, tuple]:
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return None, _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
-    if not _CONVERSATION_ID_VALIDO.match(conversation_id):
-        return None, _json("400 Bad Request", {"erro": "conversation_id fora do formato seguro"})
-    return conversation_id, None
+from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
+from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
+from interfaces.http_comum import json_resposta as _json
+from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 
 
 def responder_chat_responder(
