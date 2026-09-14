@@ -119,14 +119,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
   <nav class="menu">
     <div class="grupo">Atendimento</div>
-    <a href="index.html"><span class="ic">💬</span> Conversas </a>
-    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/"><span class="ic">💬</span> Conversas </a>
+    <a href="/painel/handoffs.html"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
-    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio </a>
-    <a href="cotacoes.html"><span class="ic">📈</span> Cotações </a>
-    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
+    <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
+    <a href="/painel/avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/index.html"><span class="ic">📚</span> Histórico de atendimentos </a>
     <div class="grupo">Configuração</div>
-    <a href="regras.html" aria-current="page"><span class="ic">⚖️</span> Regras e política </a>
+    <a href="/painel/regras.html" aria-current="page"><span class="ic">⚖️</span> Regras e política </a>
+    <div class="grupo">Insumos</div>
+    <a href="/conhecimento"><span class="ic">🧠</span> Base de conhecimento </a>
   </nav>
   <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
 </aside>
@@ -162,10 +165,10 @@ button[disabled]{opacity:.45;cursor:not-allowed}
       </table>
     </section>
 <section class="painel" style="margin-bottom:18px">
-      <header><h2>Motivos de handoff</h2><span class="aux">dominio.decisao.MotivoHandoff — 3 implementado(s)</span></header>
-      <div style="padding:14px 16px"><div class="regras"><div class="regra"><code>quote_indisponivel</code></div><div class="regra"><code>quote_timeout</code></div><div class="regra"><code>quote_erro_de_payload</code></div></div>
+      <header><h2>Motivos de handoff</h2><span class="aux">dominio.decisao.MotivoHandoff — 7 implementado(s)</span></header>
+      <div style="padding:14px 16px"><div class="regras"><div class="regra"><code>quote_indisponivel</code></div><div class="regra"><code>quote_timeout</code></div><div class="regra"><code>quote_erro_de_payload</code></div><div class="regra"><code>recusa_regra_de_aceitacao</code></div><div class="regra"><code>lead_quer_contratar</code></div><div class="regra"><code>lead_pediu_humano</code></div><div class="regra"><code>resposta_orientada_indisponivel</code></div></div>
         <p style="color:var(--texto-fraco);font-size:12.5px;margin:10px 0 0">
-          O vocabulário fechado do domínio hoje tem 3 motivo(s). Um desenho anterior chegou a prever
+          O vocabulário fechado do domínio hoje tem 7 motivo(s). Um desenho anterior chegou a prever
           mais categorias (pedido explícito do lead, exceção comercial, dado ambíguo); elas dependem de capacidade
           que o agente ainda não tem e não estão implementadas — esta tela mostra o Enum real, não a intenção.</p>
       </div>

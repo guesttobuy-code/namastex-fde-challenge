@@ -116,14 +116,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
   <nav class="menu">
     <div class="grupo">Atendimento</div>
-    <a href="index.html"><span class="ic">💬</span> Conversas </a>
-    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/"><span class="ic">💬</span> Conversas </a>
+    <a href="/painel/handoffs.html"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
-    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio </a>
-    <a href="cotacoes.html" aria-current="page"><span class="ic">📈</span> Cotações </a>
-    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
+    <a href="/painel/cotacoes.html" aria-current="page"><span class="ic">📈</span> Cotações </a>
+    <a href="/painel/avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/index.html"><span class="ic">📚</span> Histórico de atendimentos </a>
     <div class="grupo">Configuração</div>
-    <a href="regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <a href="/painel/regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <div class="grupo">Insumos</div>
+    <a href="/conhecimento"><span class="ic">🧠</span> Base de conhecimento </a>
   </nav>
   <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
 </aside>
@@ -138,68 +141,54 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <span class="chip neutra mono">fonte: trilha JSONL</span>
 </div>
 <div class="kpis">
-      <div class="kpi"><div class="rotulo">Sucesso</div><div class="valor">66.7%</div>
-        <div class="nota">2 de 3 cotações</div></div>
-      <div class="kpi"><div class="rotulo">Latência (mediana)</div><div class="valor">265 ms</div>
-        <div class="nota">máx 2795 ms</div></div>
+      <div class="kpi"><div class="rotulo">Sucesso</div><div class="valor">33.3%</div>
+        <div class="nota">1 de 3 cotações</div></div>
+      <div class="kpi"><div class="rotulo">Latência (mediana)</div><div class="valor">2028 ms</div>
+        <div class="nota">máx 2054 ms</div></div>
       <div class="kpi"><div class="rotulo">Chamadas por cotação</div>
-        <div class="valor">2.33</div></div>
-      <div class="kpi perigo"><div class="rotulo">Absorvidas por retry</div><div class="valor">40.0%</div>
-        <div class="nota">2 de 5 falhas</div></div>
+        <div class="valor">1.67</div></div>
+      <div class="kpi perigo"><div class="rotulo">Absorvidas por retry</div><div class="valor">0.0%</div>
+        <div class="nota">0 de 4 falhas</div></div>
     </div>
 <section class="painel">
-  <header><h2>Tentativas</h2><span class="aux">7 tentativa(s) em 3 cotação(ões)</span></header>
+  <header><h2>Tentativas</h2><span class="aux">5 tentativa(s) em 3 cotação(ões)</span></header>
   <table>
       <thead><tr><th>Classificação</th><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Latência</th><th class="num">Orçamento</th></tr></thead>
       <tbody><tr>
-          <td><span class="chip ok">sucesso</span></td>
-          <td class="mono">ab8aa6bb963e4d459e4f80bd8885a755·1</td>
-          <td class="mono">conv-4e14f305</td>
-          <td class="mono">200</td>
-          <td class="num">232 ms</td>
-          <td class="num">9768 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">8f2c166db5c54e35b3aed43df6386aa1·1</td>
-          <td class="mono">conv-9a861a37</td>
-          <td class="mono">500</td>
-          <td class="num">2795 ms</td>
-          <td class="num">7205 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">fbf91b739a3b41458f442f25c4a83dcc·2</td>
-          <td class="mono">conv-9a861a37</td>
-          <td class="mono">500</td>
-          <td class="num">265 ms</td>
-          <td class="num">6504 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">ad56798311df4383aaf99ec965fa8fd5·3</td>
-          <td class="mono">conv-9a861a37</td>
-          <td class="mono">500</td>
-          <td class="num">401 ms</td>
-          <td class="num">5301 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">7fbbeb74e02c48c9a06372b5c3ba223c·1</td>
-          <td class="mono">conv-d656ea8c</td>
-          <td class="mono">502</td>
-          <td class="num">336 ms</td>
-          <td class="num">9664 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">823684e27a394f798f82dff1ee44c5c0·2</td>
-          <td class="mono">conv-d656ea8c</td>
-          <td class="mono">502</td>
-          <td class="num">58 ms</td>
-          <td class="num">9203 ms restantes</td>
+          <td><span class="chip falha">recusa_de_negocio</span></td>
+          <td class="mono">275ca98323b948d1b2bc2b24d839e00b·1</td>
+          <td class="mono">conv-198a633b</td>
+          <td class="mono">422</td>
+          <td class="num">31 ms</td>
+          <td class="num">9969 ms restantes</td>
         </tr><tr>
           <td><span class="chip ok">sucesso</span></td>
-          <td class="mono">8011f68ed6604071b5224ba436c21801·3</td>
-          <td class="mono">conv-d656ea8c</td>
+          <td class="mono">0d0e1bb0be90443c93c0c48fe48958d8·1</td>
+          <td class="mono">conv-2bdc86e8</td>
           <td class="mono">200</td>
-          <td class="num">38 ms</td>
-          <td class="num">8364 ms restantes</td>
+          <td class="num">125 ms</td>
+          <td class="num">9875 ms restantes</td>
+        </tr><tr>
+          <td><span class="chip falha">indisponivel</span></td>
+          <td class="mono">5f0a0420c9314897b37a7562d70040b2·1</td>
+          <td class="mono">conv-c254c560</td>
+          <td class="mono">sem resposta (indisponivel)</td>
+          <td class="num">2054 ms</td>
+          <td class="num">7946 ms restantes</td>
+        </tr><tr>
+          <td><span class="chip falha">indisponivel</span></td>
+          <td class="mono">050d0684f42d4b2d8489a8029086329f·2</td>
+          <td class="mono">conv-c254c560</td>
+          <td class="mono">sem resposta (indisponivel)</td>
+          <td class="num">2028 ms</td>
+          <td class="num">5517 ms restantes</td>
+        </tr><tr>
+          <td><span class="chip falha">indisponivel</span></td>
+          <td class="mono">c00b07bec3a9401ca34fb184dfe996ed·3</td>
+          <td class="mono">conv-c254c560</td>
+          <td class="mono">sem resposta (indisponivel)</td>
+          <td class="num">2041 ms</td>
+          <td class="num">2674 ms restantes</td>
         </tr></tbody>
     </table>
 </section>

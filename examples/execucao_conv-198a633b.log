@@ -1,0 +1,18 @@
+=== Agente de cotação — conversa conv-198a633b ===
+iniciado em 2026-09-14T02:51:44.066627+00:00
+
+Qual a sua idade?
+> 80
+Ano do veículo?
+> 2020
+Qual o seu CEP? (formato 00000-000)
+> [REDIGIDO]
+Qual plano? (essencial/completo/premium — Enter para essencial)
+> (em branco)
+Data de início? (AAAA-MM-DD — Enter para não informar)
+> (em branco)
+
+Consultando a /quote...
+
+decisão: encaminhar (reason_code=recusa_regra_de_aceitacao)
+agente: Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.

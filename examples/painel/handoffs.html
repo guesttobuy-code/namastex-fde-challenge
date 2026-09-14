@@ -128,14 +128,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
   <nav class="menu">
     <div class="grupo">Atendimento</div>
-    <a href="index.html"><span class="ic">💬</span> Conversas </a>
-    <a href="handoffs.html" aria-current="page"><span class="ic">🙋</span> Fila humana <span class="cont">1</span></a>
+    <a href="/"><span class="ic">💬</span> Conversas </a>
+    <a href="/painel/handoffs.html" aria-current="page"><span class="ic">🙋</span> Fila humana <span class="cont">2</span></a>
     <div class="grupo">Observabilidade</div>
-    <a href="rastreio.html"><span class="ic">🧭</span> Rastreio </a>
-    <a href="cotacoes.html"><span class="ic">📈</span> Cotações </a>
-    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
+    <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
+    <a href="/painel/avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/index.html"><span class="ic">📚</span> Histórico de atendimentos </a>
     <div class="grupo">Configuração</div>
-    <a href="regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <a href="/painel/regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <div class="grupo">Insumos</div>
+    <a href="/conhecimento"><span class="ic">🧠</span> Base de conhecimento </a>
   </nav>
   <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
 </aside>
@@ -146,12 +149,26 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     <h1>Fila humana</h1>
     <p>Toda conversa encaminhada chega aqui com o motivo escrito e o contexto já coletado.</p>
   </div>
-  <span class="chip alerta">1 encaminhada(s) na trilha</span>
+  <span class="chip alerta">2 encaminhada(s) na trilha</span>
 </div>
 <section class="cartao">
-      <div class="topo-c"><h3>conv-9a861a37</h3><span class="chip alerta">2026-09-12T19:47:48.766714+00:00</span></div>
+      <div class="topo-c"><h3>conv-198a633b</h3><span class="chip alerta">2026-09-14T02:51:44.105084+00:00</span></div>
+      <div class="motivo">reason_code: recusa_regra_de_aceitacao</div>
+      <div class="contato"><b>Nome:</b> não informado<br>
+        <b>WhatsApp:</b> não informado</div>
+      <div class="contexto"><b>Já coletado:</b> idade: 80, veiculo_ano: 2020, cep: [REDIGIDO], plano_id: <span class="falta">⚠ ausente na trilha: plano_id</span>, data_inicio: <span class="falta">⚠ ausente na trilha: data_inicio</span>, veiculo_modelo: <span class="falta">⚠ ausente na trilha: veiculo_modelo</span><br>
+        <b>Última mensagem ao lead:</b> "Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato."</div>
+      <div class="acoes">
+        <button class="botao" disabled title="requer servidor — fora do escopo desta frente">Assumir atendimento</button>
+        <button class="botao" disabled title="requer servidor — fora do escopo desta frente">Tentar cotar de novo</button>
+      </div>
+    </section>
+<section class="cartao">
+      <div class="topo-c"><h3>conv-c254c560</h3><span class="chip alerta">2026-09-14T02:51:44.063801+00:00</span></div>
       <div class="motivo">reason_code: quote_indisponivel</div>
-      <div class="contexto"><b>Já coletado:</b> idade: 30, veiculo_ano: 2020, cep: [REDIGIDO], plano_id: completo, data_inicio: 2026-10-15<br>
+      <div class="contato"><b>Nome:</b> não informado<br>
+        <b>WhatsApp:</b> não informado</div>
+      <div class="contexto"><b>Já coletado:</b> idade: 35, veiculo_ano: 2020, cep: [REDIGIDO], plano_id: <span class="falta">⚠ ausente na trilha: plano_id</span>, data_inicio: <span class="falta">⚠ ausente na trilha: data_inicio</span>, veiculo_modelo: <span class="falta">⚠ ausente na trilha: veiculo_modelo</span><br>
         <b>Última mensagem ao lead:</b> "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."</div>
       <div class="acoes">
         <button class="botao" disabled title="requer servidor — fora do escopo desta frente">Assumir atendimento</button>
@@ -159,10 +176,14 @@ button[disabled]{opacity:.45;cursor:not-allowed}
       </div>
     </section>
 <section class="painel" style="margin-top:20px">
-  <header><h2>Quando o agente encaminha</h2><span class="aux">MotivoHandoff — 3 motivo(s) implementado(s)</span></header>
+  <header><h2>Quando o agente encaminha</h2><span class="aux">MotivoHandoff — 7 motivo(s) implementado(s)</span></header>
   <div style="padding:14px 16px"><div class="regras"><div class="regra"><code>quote_indisponivel</code><p>Cotação indisponível: o serviço de cotação falhou de forma persistente.</p></div>
 <div class="regra"><code>quote_timeout</code><p>Cotação expirou: orçamento de tempo esgotado sem resposta.</p></div>
-<div class="regra"><code>quote_erro_de_payload</code><p>Erro de payload nosso (400) — não repete, registra e passa adiante.</p></div></div></div>
+<div class="regra"><code>quote_erro_de_payload</code><p>Erro de payload nosso (400) — não repete, registra e passa adiante.</p></div>
+<div class="regra"><code>recusa_regra_de_aceitacao</code><p>A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.</p></div>
+<div class="regra"><code>lead_quer_contratar</code><p>O lead pediu para contratar: o fechamento é feito por um corretor.</p></div>
+<div class="regra"><code>lead_pediu_humano</code><p>O lead pediu para falar com uma pessoa.</p></div>
+<div class="regra"><code>resposta_orientada_indisponivel</code><p>A IA não conseguiu responder a objeção de preço com segurança (sem chave, sem ficha publicada, ou a geração reprovou a validação de marcador): encaminhado ao corretor.</p></div></div></div>
 </section>
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Botões de ação exigem servidor, fora do escopo desta
   frente — aparecem desabilitados, com o motivo ao lado, em vez de prometer o que não existe (ESPECIFICACAO.md §3).</p>
