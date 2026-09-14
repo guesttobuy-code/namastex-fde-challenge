@@ -1,0 +1,19 @@
+{
+  "argumentos_permitidos": [
+    "franquia_por_plano",
+    "comparacao_entre_planos"
+  ],
+  "atualizado_em": "2026-09-14T00:46:37.882239+00:00",
+  "frases_do_lead": [
+    "a franquia tá alta",
+    "essa franquia é um absurdo",
+    "por que eu pago seguro e ainda pago franquia",
+    "dá pra baixar a franquia"
+  ],
+  "id": "franquia-alta",
+  "nome": "A franquia tá alta",
+  "resposta_orientada": "Boa pergunta, a franquia confunde muita gente. Ela é a parte que você paga quando precisa usar o seguro para um conserto, e a seguradora cobre o restante.\n\nFranquia e mensalidade andam em sentidos opostos: quanto menor a franquia, maior a mensalidade. Nos nossos planos, a franquia é de {{franquia_essencial}} no Essencial, {{franquia_completo}} no Completo e {{franquia_premium}} no Premium. Hoje você está vendo o {{plano_nome}}, com franquia de {{franquia}}.\n\nSe uma franquia menor faz mais sentido para você, toque em \"Ver outro plano\" para comparar. Eu não consigo alterar a franquia de um plano, mas um corretor pode tirar qualquer dúvida sobre isso.",
+  "status": "publicado",
+  "tentativas_antes_do_corretor": 2,
+  "versao": 1
+}
