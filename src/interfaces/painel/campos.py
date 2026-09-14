@@ -11,9 +11,14 @@ from __future__ import annotations
 
 import html
 from collections.abc import Iterable
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 MARCADOR_AUSENTE = "ausente na trilha"
+
+# issue #93 (polimento pós-#94/#99): Brasil não tem horário de verão desde 2019 (decisão do
+# governo federal), então `-03:00` fixo é correto o ano inteiro, sem tabela de exceção sazonal.
+_FUSO_BRASILIA = timezone(timedelta(hours=-3))
 
 
 def esc(valor: Any) -> str:
@@ -79,3 +84,22 @@ def lista(valores: Iterable[Any] | None, vazio_e_buraco: bool = True) -> str:
     if not itens:
         return buraco("lista vazia") if vazio_e_buraco else ""
     return ", ".join(esc(item) for item in itens)
+
+
+def data_br(instante_iso: str | None) -> str | None:
+    """`"2026-09-14T04:04:19.989289+00:00"` → `"14/09/2026 01:04"` (UTC → Brasília,
+    `_FUSO_BRASILIA`) — dono único da conversão (issue #93, polimento pós-#94/#99; movida de
+    `tela_relatorio._data_br` pra ser compartilhada com `tela_rastreio`, LEI 11 — nunca copie esta
+    função, importe daqui). Instante SEM offset (só acontece em fixture de teste — a trilha real
+    sempre grava com `+00:00`) é tratado como já sendo UTC, nunca como hora local da máquina que
+    roda o painel. Instante ausente devolve `None` (vira buraco/traço no chamador, nunca uma data
+    inventada); instante que não é ISO válido devolve o valor original, sem inventar."""
+    if not instante_iso:
+        return None
+    try:
+        instante = datetime.fromisoformat(instante_iso)
+    except ValueError:
+        return instante_iso
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=timezone.utc)
+    return instante.astimezone(_FUSO_BRASILIA).strftime("%d/%m/%Y %H:%M")

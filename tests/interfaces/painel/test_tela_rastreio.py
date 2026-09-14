@@ -20,6 +20,36 @@ def test_mensagem_do_lead_com_script_nao_executa_no_html():
     assert "&lt;img src=x onerror=alert(1)&gt;" in html
 
 
+def test_instante_do_evento_aparece_em_brasilia():
+    """issue #93 (polimento pós-#94/#99): o instante gravado é UTC — o corretor lê a tela no
+    Brasil. Mesma conversão de `tela_relatorio` (`campos.data_br`, dono único, LEI 11)."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv_x", "id": "msg_01",
+        "instante": "2026-09-14T04:04:19.989289+00:00", "texto": "oi",
+    }]
+
+    html = _html(eventos)
+
+    assert "14/09/2026 01:04" in html
+    assert "2026-09-14T04:04:19.989289+00:00" not in html
+
+
+def test_chip_do_nav_mostra_o_rotulo_do_estado_nao_o_valor_cru():
+    """issue #93 (polimento pós-#99): o chip da lista de conversas mostrava o valor cru
+    (`aguardando_corretor`) em vez do rótulo (`agrupar.rotulo_de_exibicao`, dono único desde o
+    #57 PR 2) — mesma tela, mesma regra."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_x", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+    }]
+
+    html = _html(eventos)
+
+    assert "Aguardando corretor" in html
+    assert ">aguardando_corretor<" not in html
+
+
 def test_regra_aplicada_ausente_vira_buraco_visivel_nao_string_vazia():
     eventos = [{
         "evento": "mensagem_enviada", "conversation_id": "conv_x", "id": "msg_02",
