@@ -103,6 +103,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
   CEP e CPF com pontuação — a checagem final voltou a zero depois. Ensaiado contra as 43 transcrições
   reais (18 sessões, principal + subagentes) em `_local/` (nunca commitado): e-mail, CPF, CEP e
   caminho do usuário zerados; nenhum padrão de segredo sobrou
+- **Objeção de carência classificada como pedido de humano — a ficha `caro-com-carencia` (#70) nunca era usada (issue #78):** `_PROMPT_SISTEMA` de extração (v3) passa a descrever reclamação de carência ("pago e ainda tenho que esperar pra ter cobertura") como `objecao_de_preco` — medido na auditoria da #70: essa frase virava `quer_falar_com_humano`. `VERSAO_DO_PROMPT` vai para `v3`. Prova real: as 3 `frases_do_lead` da ficha chegam a `objecao_de_preco`; a resposta final vem dessa ficha com `{{carencia_dias}}` resolvido para 30; regra geral nova (`test_extracao_real_toda_ficha_publicada_tem_frase_que_chega_a_objecao_de_preco`) — cada ficha publicada em `conhecimento/objecoes/*.json` precisa ter ao menos uma frase reconhecida, `skip` com motivo quando a pasta não existir (antes do merge da #70).
 - **Os 5 bloqueantes do veredito da auditoria do PR #75 (issue #58):** (B1) `_PROMPT_SISTEMA` de
   extração passa a descrever `objecao_de_preco` com exemplos — medido antes: 1 de 5 objeções reais
   reconhecidas; `VERSAO_DO_PROMPT` vai para `v2`. (B2) `montar_contexto` ganha `texto_do_lead`

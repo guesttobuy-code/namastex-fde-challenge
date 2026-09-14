@@ -85,7 +85,10 @@ _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODELO_PADRAO = "deepseek/deepseek-chat-v3.1"
 # v2 (issue #58, veredito da auditoria do PR #75, bloqueante B1): prompt passou a descrever
 # "objecao_de_preco" — na v1 o modelo não reconhecia 1 de 5 objeções reais.
-VERSAO_DO_PROMPT = "v2"
+# v3 (issue #78): "objecao_de_preco" passou a incluir reclamação de carência (paga e ainda tem
+# que esperar pra ter cobertura) — a ficha `caro-com-carencia` (#70) nunca era usada porque o
+# modelo classificava essas frases como `quer_falar_com_humano`.
+VERSAO_DO_PROMPT = "v3"
 # Medido ao vivo (2026-09-12, 20 chamadas reais): latência máxima observada 11.314ms, mediana
 # ~5.9s. Um timeout de 10s cortaria uma resposta correta que só chegou em 11.3s como se fosse
 # timeout — por isso 15s, com folga sobre o pior caso medido, não um número redondo arbitrário.
@@ -102,11 +105,14 @@ _PROMPT_SISTEMA = (
     "para contratar, fechar ou avançar com a compra, e \"quer_falar_com_humano\" quando o lead pede "
     "explicitamente para falar com um atendente, corretor ou pessoa de verdade (ex.: \"quero falar "
     "com um atendente\", \"me passa pra uma pessoa\", \"tem alguém aí?\") sem mencionar contratar, "
-    "e \"objecao_de_preco\" quando o lead reclama do valor da cotação — acha caro, diz que viu "
-    "mais barato em outra seguradora, reclama da franquia alta, ou pede desconto (ex.: \"achei "
-    "caro\", \"achei caro pra esse carro\", \"o preço tá salgado\", \"vi mais barato na "
-    "concorrente\", \"a franquia tá alta\", \"tem como dar um desconto?\") sem pedir para falar "
-    "com humano nem para contratar; null se nenhum dos quatro se aplicar."
+    "e \"objecao_de_preco\" quando o lead reclama do valor da cotação ou do que recebe por esse "
+    "valor — acha caro, diz que viu mais barato em outra seguradora, reclama da franquia alta, "
+    "pede desconto, OU reclama que paga e ainda tem que esperar (carência) para ter cobertura "
+    "(ex.: \"achei caro\", \"achei caro pra esse carro\", \"o preço tá salgado\", \"vi mais "
+    "barato na concorrente\", \"a franquia tá alta\", \"tem como dar um desconto?\", \"pago e "
+    "ainda tenho que esperar pra ter cobertura\", \"por que roubo só depois de um tempo\", \"se "
+    "roubarem amanhã não cobre\") sem pedir para falar com humano nem para contratar; null se "
+    "nenhum dos quatro se aplicar."
 )
 
 # issue #42, veredito da auditoria do PR #44: `intent` como string livre (sem lista fechada) fez o

@@ -13,6 +13,12 @@ lead reclamando da franquia recebe uma resposta baseada na ficha de franquia, n�
 primeira (bloqueante B2 — medido antes: 4 de 4 respostas idênticas); (C4) mesmo com uma ficha
 publicada sugerindo a promessa proibida ("Posso ajustar a franquia para {{franquia}}"), a saída ao
 lead nunca contém a promessa (bloqueante B4).
+
+Issue #78: a ficha `caro-com-carencia` (#70) nunca era usada porque o prompt de extração v2 não
+reconhecia reclamação de carência como `objecao_de_preco` — corrigido no prompt v3
+(`infra.adaptador_de_linguagem._PROMPT_SISTEMA`, testado em `test_adaptador_de_linguagem_real.py`)
+e provado aqui de ponta a ponta: a resposta final vem dessa ficha, com `{{carencia_dias}}`
+resolvido para 30.
 """
 
 from __future__ import annotations
@@ -220,4 +226,68 @@ def test_llm_real_c4_nunca_promete_mesmo_com_ficha_adversarial_sugerindo():
     assert "{{" not in texto
     validar_frases_proibidas(texto)  # levanta MarcadorInvalido se alguma promessa vazou
     if motivo_handoff is not None:
+        assert texto == "Logo um corretor vai entrar em contato para te dar todo o suporte."
+
+
+def _preco_com_carencia() -> PrecoCotado:
+    return PrecoCotado(
+        quote_attempt_id="qa_real_carencia", conversation_id="conv-prova-real-78", plano_id="completo",
+        plano_nome="Completo", premio_mensal=241.38, franquia=3000.0,
+        coberturas=("colisao", "roubo", "furto"), moeda="BRL", carencia={"dias": 30},
+    )
+
+
+def _servico_com_ficha_de_carencia() -> ServicoDeConhecimento:
+    """Fixture de teste com o id e as `frases_do_lead` reais da ficha `caro-com-carencia` (#70,
+    branch `claude/fichas-objecao`, ainda não mergeada) — texto próprio desta prova."""
+    repositorio = RepositorioDeConhecimentoMemoria()
+    repositorio.salvar_objecao(
+        "caro-com-carencia",
+        {
+            "id": "caro-com-carencia",
+            "nome": "Caro e ainda tem carência",
+            "frases_do_lead": [
+                "pago e ainda tenho que esperar pra ter cobertura",
+                "por que roubo só depois de um tempo",
+                "se roubarem amanhã não cobre",
+            ],
+            "resposta_orientada": (
+                "Entendo a preocupação. No plano {{plano_nome}}, a carência de {{carencia_dias}} "
+                "dias vale só para roubo e furto. Colisão e as demais coberturas do plano não têm "
+                "essa espera."
+            ),
+            "argumentos_permitidos": ["carencia", "coberturas"],
+            "tentativas_antes_do_corretor": 1,
+            "status": "publicado",
+            "versao": 1,
+            "atualizado_em": "2026-09-14T00:46:39.951396+00:00",
+        },
+    )
+    return ServicoDeConhecimento(repositorio)
+
+
+def test_llm_real_objecao_de_carencia_usa_a_ficha_certa_com_carencia_dias_preenchido():
+    """Roteiro de aceite da #78: a resposta a "pago e ainda tenho que esperar pra ter cobertura"
+    precisa vir da ficha `caro-com-carencia`, com `{{carencia_dias}}` resolvido para 30 — antes do
+    prompt v3, essa frase nem chegava a `objecao_de_preco` (virava `quer_falar_com_humano`), então
+    a ficha nunca era usada."""
+    adaptador = criar_adaptador_de_resposta_orientada(provedor="openrouter")
+
+    texto, origem, motivo_handoff, dados_usados = montar_e_responder(
+        portal=adaptador,
+        preco=_preco_com_carencia(),
+        planos=[{"id": "completo", "nome": "Completo", "franquia": 3000.0}],
+        servico_conhecimento=_servico_com_ficha_de_carencia(),
+        configuracao=ConfiguracaoComercial(),
+        texto_do_lead="pago e ainda tenho que esperar pra ter cobertura",
+    )
+    print(f"\n[prova-real-78] texto={texto!r} origem={origem!r} motivo={motivo_handoff!r} dados_usados={dados_usados!r}")
+
+    assert "{{" not in texto
+    validar_frases_proibidas(texto)
+    if motivo_handoff is None:
+        assert "30" in texto, f"esperava {{{{carencia_dias}}}} resolvido para 30 no texto: {texto!r}"
+        assert dados_usados == ("ficha:caro-com-carencia@1",)
+        assert origem.startswith("llm_resposta:")
+    else:
         assert texto == "Logo um corretor vai entrar em contato para te dar todo o suporte."
