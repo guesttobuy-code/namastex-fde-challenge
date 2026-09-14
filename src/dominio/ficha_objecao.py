@@ -22,6 +22,7 @@ planos. Publicar exige pelo menos um argumento dessa lista.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
@@ -53,7 +54,10 @@ _TENTATIVAS_MAX = 5
 
 
 class MarcadorInvalido(ValueError):
-    """Dígito fora de `{{...}}`, ou marcador fora do vocabulário conhecido."""
+    """Dígito fora de `{{...}}`, marcador fora do vocabulário conhecido, (issue #58) marcador
+    presente no texto sem valor correspondente para preencher, ou (issue #58, veredito da
+    auditoria do PR #75) frase proibida — promessa de desconto/ajuste/urgência fora do que a
+    ficha e a cotação sustentam."""
 
 
 def vocabulario_de_marcadores(ids_dos_planos: Iterable[str] = ()) -> frozenset[str]:
@@ -77,6 +81,63 @@ def validar_resposta_orientada(texto: str, marcadores_conhecidos: frozenset[str]
             raise MarcadorInvalido(
                 f"O marcador {{{{{nome}}}}} não é reconhecido. Marcadores permitidos: {permitidos}."
             )
+
+
+# issue #58, veredito da auditoria do PR #75: a resposta gerada pelo LLM prometeu ajustar franquia
+# e ofereceu desconto por conta própria (a demonstração do próprio PR publicou uma ficha com "Posso
+# ajustar a franquia para {{franquia}}" — o antiexemplo do histórico) e escreveu como se fosse um
+# corretor humano. Lista curta, aprovada implicitamente pela mesma disciplina de
+# ARGUMENTOS_PERMITIDOS (fechada, cresce só por decisão explícita) — comparada sem acento/caixa.
+FRASES_PROIBIDAS = frozenset(
+    {
+        "desconto",
+        "ajustar a franquia",
+        "ajusto a franquia",
+        "rever o valor",
+        "cobrir a oferta",
+        "so hoje",
+        "sou corretor",
+        "sou humano",
+    }
+)
+
+
+def _normalizar_para_comparacao(texto: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return sem_acento.lower()
+
+
+def validar_frases_proibidas(texto: str, proibidas: frozenset[str] = FRASES_PROIBIDAS) -> None:
+    """Recusa (`MarcadorInvalido`) se o texto contiver uma promessa/frase fora do que a ficha e a
+    cotação sustentam — mesmo caminho de retentativa/encaminhamento do dígito solto (issue #58,
+    veredito da auditoria do PR #75, bloqueante B4). Comparação sem acento e sem caixa, para não
+    deixar passar "Desconto" ou "só hoje" por diferença de grafia."""
+    normalizado = _normalizar_para_comparacao(texto)
+    for frase in proibidas:
+        if frase in normalizado:
+            raise MarcadorInvalido(
+                f"O texto contém uma promessa não autorizada (\"{frase}\"). Reescreva sem prometer "
+                "desconto, ajuste de franquia/valor ou urgência — só o que a ficha e a cotação já "
+                "garantem."
+            )
+
+
+def preencher_marcadores(texto: str, valores: dict[str, str]) -> str:
+    """Substitui cada `{{marcador}}` pelo valor correspondente em `valores` (issue #58) — quem
+    chama já formatou o valor como string (moeda em formato BR, por exemplo); este módulo só
+    substitui, nunca formata número. Chama primeiro `validar_resposta_orientada` (responsabilidade
+    de quem orquestra, não desta função) para garantir que só marcadores do vocabulário chegam
+    aqui. Marcador sem valor correspondente em `valores` é `MarcadorInvalido` — nunca deixa
+    `{{...}}` literal escapar para o texto que o lead lê (pior que um número fabricado: um
+    placeholder visível, LEI 2)."""
+
+    def _substituir(encontrado: re.Match[str]) -> str:
+        nome = encontrado.group(1)
+        if nome not in valores:
+            raise MarcadorInvalido(f"Não há valor para preencher o marcador {{{{{nome}}}}}.")
+        return valores[nome]
+
+    return _MARCADOR_RE.sub(_substituir, texto)
 
 
 def validar_argumentos_permitidos(argumentos: Iterable[str]) -> None:

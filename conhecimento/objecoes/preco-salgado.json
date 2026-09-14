@@ -1,0 +1,22 @@
+{
+  "argumentos_permitidos": [
+    "coberturas",
+    "comparacao_entre_planos",
+    "franquia_por_plano"
+  ],
+  "atualizado_em": "2026-09-14T00:46:33.762575+00:00",
+  "frases_do_lead": [
+    "o preço tá salgado",
+    "achei caro",
+    "tá muito caro",
+    "não cabe no meu orçamento",
+    "achei caro pra esse carro",
+    "tá puxado esse valor"
+  ],
+  "id": "preco-salgado",
+  "nome": "Preço tá salgado",
+  "resposta_orientada": "Entendo, faz todo sentido olhar com cuidado para o valor. Posso te perguntar uma coisa para te ajudar melhor: caro em relação a quê? Você comparou com outra cotação ou esperava pagar menos?\n\nNo plano {{plano_nome}}, os {{premio_mensal}} por mês incluem {{coberturas}}, com franquia de {{franquia}}.\n\nSe o orçamento é o ponto principal, o plano Essencial tem mensalidade menor e cobre colisão, roubo e furto, com franquia de {{franquia_essencial}}. É só tocar em \"Ver outro plano\" para ver o valor para o seu perfil. E, se preferir, um corretor pode conversar com você sobre as opções.",
+  "status": "publicado",
+  "tentativas_antes_do_corretor": 2,
+  "versao": 1
+}

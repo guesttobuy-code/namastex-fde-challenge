@@ -104,16 +104,17 @@ def extrair_dados_da_mensagem(
         data_inicio=data_inicio,
         campos_faltantes=validacao.campos_obrigatorios_faltantes(dados),
         ambiguidades=saida.ambiguidades,
-        ultimo_intent=_intencao_reconhecida(saida.intent) or estado_atual.ultimo_intent,
+        ultimo_intent=intencao_reconhecida(saida.intent) or estado_atual.ultimo_intent,
         status=estado_atual.status,
     )
 
 
-def _intencao_reconhecida(valor: str | None) -> Intencao | None:
+def intencao_reconhecida(valor: str | None) -> Intencao | None:
     """Converte a string livre que o `PortalDeLinguagem` extrai (issue #9, F6, fora da fronteira
     desta frente) para o Enum fechado `Intencao` (issue #42). Valor que não bate com nenhum membro
     é descartado em silêncio de campo — mesmo padrão de `idade`/`veiculo_ano` nesta função —, nunca
-    vira `ValueError` que travaria a conversa."""
+    vira `ValueError` que travaria a conversa. Pública (issue #58, LEI 11): dono único da conversão
+    string->Enum, reaproveitada por quem classifica mensagem livre fora do fluxo de coleta."""
     if valor is None:
         return None
     try:
@@ -153,8 +154,10 @@ def _motivo_da_recusa_traduzido(motivo: str) -> str:
 
 # issue #57 (P9), decisão da coordenação (13/09/2026): "quero contratar" e "quero falar com um
 # atendente" mostram o MESMO texto ao lead — texto novo exigiria aprovação do dono, que não estava
-# disponível. Uma única constante para os dois `case` abaixo (LEI 11 — nunca duas strings iguais
-# copiadas à mão, que divergiriam no primeiro ajuste feito só numa delas).
+# disponível. Uma única constante para os `case` que precisam dela (LEI 11 — nunca duas strings
+# iguais copiadas à mão, que divergiriam no primeiro ajuste feito só numa delas). Também
+# reaproveitada por `aplicacao.servico_resposta_orientada` (issue #58) quando a IA não consegue
+# responder uma objeção de preço com segurança — mesmo texto de encaminhamento ao corretor.
 _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR = "Logo um corretor vai entrar em contato para te dar todo o suporte."
 
 

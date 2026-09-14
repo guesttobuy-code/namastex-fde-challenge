@@ -35,6 +35,26 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
   que ainda falta)
 
 ### Adicionado
+- **4 fichas de objeção publicadas na Base de conhecimento (issue #70, parte 1 — F1 a F3):**
+  `preco-salgado`, `mais-barato-na-concorrente`, `franquia-alta` e `caro-com-carencia`, texto
+  oficial aprovado pelo dono (comentário "APROVADO PELO DONO" na #70), copiado literalmente.
+  Publicadas pelo caminho do sistema — `PUT /api/objecoes/<id>` com `status: "publicado"`, servidor
+  da própria worktree numa porta livre (18082), sem chave — nenhum JSON escrito à mão. As 4 passam
+  em `validar_resposta_orientada` e `validar_frases_proibidas` (PR #75), `versao=1` em todas.
+  Antes desta frente, `conhecimento/objecoes/` estava vazia na `main` — quem avaliasse com chave da
+  IA (PR #75) sempre veria "vou encaminhar para um corretor" para qualquer objeção de preço, porque
+  não havia nenhuma ficha cadastrada. Parte 2 (prova com o LLM real pela tela) fica com a
+  coordenação, depois do merge
+- **`tests/infra/test_fichas_publicadas.py` (achado da pré-auditoria do PR, issue #70):** o teste de
+  fumaça das 4 fichas acima tinha rodado à mão, sem ficar commitado — não protegia contra alguém
+  editar uma ficha depois. Novo teste lê `conhecimento/objecoes/*.json` do disco e afirma: são as 4
+  esperadas, todas `status == "publicado"` com `versao >= 1`, todas passam em
+  `validar_resposta_orientada` e `validar_frases_proibidas`; mais uma mutação colada (dígito solto
+  fora de marcador numa cópia em memória da resposta) provando que a rede realmente pega o defeito,
+  não só "passou por acaso"
+
+### Adicionado
+- **Agente de IA respondendo objeção de preço com a base de conhecimento (issue #58, frente `ia-responde`):** `Intencao.OBJECAO_DE_PRECO` (aditivo); `dominio.ficha_objecao.preencher_marcadores` (a IA escreve com `{{marcador}}`, o domínio resolve com o valor real de `PrecoCotado`); porta `PortalDeRespostaOrientada` + adaptadores `AdaptadorDeRespostaOrientadaDeterministico` (sem chave, sempre indisponível — gerar resposta sem LLM não é seguro) e `AdaptadorDeRespostaOrientadaOpenRouter` (reaproveita o cliente HTTP de `AdaptadorDeLinguagemOpenRouter`, LEI 11); `aplicacao.servico_resposta_orientada.montar_e_responder`/`processar_mensagem_livre` (classifica a mensagem livre, monta contexto sem PII, valida marcador, 2 tentativas, encaminha ao corretor — `MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL`, aditivo — quando não há ficha publicada ou as tentativas reprovam); rota `POST /api/chat/responder` em `interfaces.rotas_resposta_orientada` (módulo próprio — extraído de `interfaces.servidor` para não estourar o `file-loc-ceiling`; `servidor.py` só tem a linha de roteamento, fora de `_rotear_chat` de propósito para não colidir com quem edita aquela função em paralelo); campo opcional de texto livre no chat, depois do card de preço (`habilitarCampoDeObjecao`, função própria em `_corpo.html`, texto exato aprovado pelo dono), reusando `passoAtual`/`mostrarDoca` do fluxo guiado existente — sem tocar `cotar()`/`contratar()` além de uma linha de chamada. `governance/IMPACT_MATRIX.md` ganha a linha `resposta-orientada`; `tests/infra/test_adaptador_de_resposta_orientada_real.py` (marcado `llm_real`, mesma disciplina de `test_adaptador_de_linguagem_real.py`/#9 — nunca lê nem imprime a chave) prova com o OpenRouter de verdade que o texto sai com marcador, nunca número solto.
 - **`POST /api/chat/mensagem` — trilha da coleta guiada do chat também grava pergunta/resposta (issue #51, parte 2):** os 9 passos do fluxo guiado (`_corpo.html`) agora chamam a rota nova a cada pergunta feita e resposta dada, pelas MESMAS `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/`registrar_resposta_de_coleta` que `interfaces.cli` já usa — dono único da escrita da trilha (LEI 11); nunca chama `gerar_paineis` (mesmo padrão mais leve de `/api/chat/contato`). O campo obrigatório `campo` (um dos 9 nomes de passo) decide, no SERVIDOR — nunca no cliente —, se o texto vira `[contato registrado fora da trilha]` antes de gravar: nome/whatsapp/email nunca chegam como texto real na trilha, incondicional ao que o JS mandou. Achado durante a prova do roteiro de aceite: CEP sem hífen (`"01310100"`) batia em `dominio.validacao.cep_valido` mas não em nenhum padrão de `dominio.redator_pii` (issue #68) e chegaria em claro na trilha — `chat_mensagem.responder_chat_mensagem` normaliza com `dominio.validacao.normalizar_cep` (dono único, issue #68) antes de gravar a resposta do campo `cep`, mesma disciplina que já existia para `/api/chat/cotar`. **Extraído por teto de linhas, sem mudança de comportamento:** `interfaces/http_comum.py` (novo) reúne os utilitários de borda HTTP (`json_resposta`, `ler_corpo_json`, `conversation_id_ou_400`, `METODO_NAO_SUPORTADO`, `CONVERSATION_ID_VALIDO`) que moravam só em `servidor.py` — extraído porque o merge com outras frentes (#67-#69/#72) levou `servidor.py` a 603 linhas, acima do teto de 600 do `file-loc-ceiling`; mesmas assinaturas, mesmos status, mesmas mensagens (contagem de testes inalterada, `rg` confirma cópia única).
 - **Pedido explícito de humano encaminha para um corretor (issue #57, P9, decisão do dono):** nova intenção `dominio.intencao.Intencao.QUER_FALAR_COM_HUMANO` e novo motivo `dominio.decisao.MotivoHandoff.LEAD_PEDIU_HUMANO` — `dominio.politica.decidir` encaminha incondicionalmente, mesmo grau de `QUER_CONTRATAR` (issue #42), sem reaproveitar o motivo de "quero contratar" (são pedidos diferentes do lead). Texto ao lead reusa a mesma frase já aprovada para `LEAD_QUER_CONTRATAR` (decisão da coordenação: texto novo exigiria aprovação do dono, indisponível no momento desta frente) — os dois `case` de `aplicacao.servico_conversa._texto_da_decisao` apontam para uma única constante (LEI 11). `interfaces.painel.tela_fila_humana._DESCRICAO_MOTIVO` ganha a entrada correspondente (consequência mecânica do Enum, cobrada por `test_todo_motivohandoff_tem_descricao_registrada`). Nova invariante I-12 em `dominio/CONTRACT.md`. PR 1 de 2 da frente `status-conversa`; o PR 2 troca o botão "Falar com um corretor" do chat (issue #46/#62) para usar o motivo novo (#57)
 
@@ -74,6 +94,21 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
   CEP e CPF com pontuação — a checagem final voltou a zero depois. Ensaiado contra as 43 transcrições
   reais (18 sessões, principal + subagentes) em `_local/` (nunca commitado): e-mail, CPF, CEP e
   caminho do usuário zerados; nenhum padrão de segredo sobrou
+- **Os 5 bloqueantes do veredito da auditoria do PR #75 (issue #58):** (B1) `_PROMPT_SISTEMA` de
+  extração passa a descrever `objecao_de_preco` com exemplos — medido antes: 1 de 5 objeções reais
+  reconhecidas; `VERSAO_DO_PROMPT` vai para `v2`. (B2) `montar_contexto` ganha `texto_do_lead`
+  (mascarado) e o prompt de resposta escolhe a ficha pelas `frases_do_lead` mais próximas — medido
+  antes: 4 de 4 respostas idênticas, sempre a primeira ficha publicada. (B3)
+  `processar_mensagem_livre` nunca mais devolve `None`: qualquer mensagem que não seja objeção de
+  preço reconhecida (ou sem cotação ainda) recebe o texto fixo aprovado pelo dono — antes o lead
+  ficava sem NENHUMA resposta na tela, sempre acontecia sem chave real; `habilitarCampoDeObjecao`
+  em `_corpo.html` passa a checar `resposta.ok` antes de `.json()`, para um 400/500 não deixar "Só
+  um instante…" pendurado. (B4) `dominio.ficha_objecao.validar_frases_proibidas` (nova, mesmo
+  caminho de retentativa/encaminhamento do dígito solto) recusa promessa de desconto, ajuste de
+  franquia/valor ou urgência na resposta gerada; `_PROMPT_SISTEMA_RESPOSTA` deixa de mandar
+  escrever "a resposta de um corretor" e passa a proibir essas promessas e falar de concorrente
+  explicitamente; `VERSAO_DO_PROMPT_RESPOSTA` vai para `v2`. (B5) `MensagemEnviada.dados_usados`
+  passa a registrar `id`/`versao` de cada ficha publicada que entrou no contexto da resposta.
 - **Trilha da coleta padrão sem LLM não gravava pergunta/resposta com id e status (issue #51); `interfaces.cli` gravava a trilha do caminho texto-livre direto, fora da `aplicacao` (issue #55, parte 1):** `coletar_dados` (campo a campo) não gravava evento nenhum; `coletar_dados_por_texto_livre` chamava `trilha.registrar_evento` direto, importando `dominio.eventos_trilha` na interface. Duas funções novas em `aplicacao.servico_conversa` (`registrar_pergunta_de_coleta`/`registrar_resposta_de_coleta`, dono único da escrita da trilha — LEI 11) passam a ser usadas pelos dois caminhos; `cli.py` não importa mais `dominio.eventos_trilha`.
 - **`aplicacao.servico_conversa.conduzir_conversa` gravava o estado consolidado como se fosse fala do lead (issue #39):** o evento `mensagem_recebida` sintético (`"idade=...; veiculo_ano=...; ..."`) agora marca `sender_role="sistema"` (campo já existente no dataclass, nunca lido até esta frente) — a trilha deixa de apresentar um resumo de estado como se o lead tivesse escrito aquilo.
 - **CLI redigia o próprio placeholder do prompt de CEP no log de execução (issue #38):** `_Transcricao.emitir` ganha `redigir: bool = True` por linha; o prompt ("Qual o seu CEP? (formato 00000-000)") é emitido com `redigir=False` — é texto do sistema, nunca dado do lead —, a resposta do lead continua sempre mascarada.

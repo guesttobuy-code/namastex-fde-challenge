@@ -32,8 +32,36 @@ def test_render_le_o_fragmento_do_chat_do_disco_com_o_script_intacto():
     assert "/api/chat/cotar" in html
     assert "/api/chat/contato" in html
     assert "/api/chat/contratar" in html
+    assert "/api/chat/responder" in html
     assert "/api/planos" in html
     assert "/docs/design/paises.json" in html
+
+
+def test_render_tem_o_campo_de_objecao_de_preco_com_o_texto_exato_aprovado():
+    """Issue #58: texto aprovado pelo dono para o campo de objeção depois do card de preço — não
+    pode ser redigitado."""
+    html = tela_chat.render()
+    assert "Ficou com alguma dúvida sobre o preço? Pode escrever aqui." in html
+    assert "habilitarCampoDeObjecao" in html
+
+
+def test_c9_campo_de_objecao_so_e_chamado_depois_do_card_de_preco():
+    """C9 do roteiro de aceite da #58: `habilitarCampoDeObjecao()` só pode ser chamado depois do
+    `mostrarDoca` do card de preço em `cotar()`, nunca antes — o campo não pode aparecer antes de
+    haver uma cotação para explicar."""
+    html = tela_chat.render()
+    posicao_card_de_preco = html.index('rotulo: "Ver outro plano"')
+    posicao_primeira_chamada = html.index("habilitarCampoDeObjecao();")
+    assert posicao_primeira_chamada > posicao_card_de_preco
+
+
+def test_c8_erro_http_na_resposta_de_objecao_mostra_texto_fixo_nunca_fica_pendurado():
+    """C8 do roteiro de aceite (bloqueante B3): um 400/500 na rota `/api/chat/responder` não pode
+    deixar "Só um instante…" pendurado pra sempre — o front precisa checar `resposta.ok` antes de
+    `resposta.json()` e mostrar um texto fixo, com o campo continuando disponível."""
+    html = tela_chat.render()
+    assert "if (!resposta.ok)" in html
+    assert 'Não consegui responder agora. Toque em "Falar com um corretor"' in html
 
 
 def test_render_tem_os_textos_exatos_aprovados_pela_issue_46():
