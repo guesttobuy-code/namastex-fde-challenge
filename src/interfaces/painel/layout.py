@@ -1,4 +1,4 @@
-"""Casca HTML compartilhada pelas seis telas — menu lateral + CSS embutido, fiel ao desenho
+"""Casca HTML compartilhada pelas telas — menu lateral + CSS embutido, fiel ao desenho
 aprovado em `docs/design/`. O CSS embutido é o `docs/design/ui.css` real, lido do disco
 (`css_embutido`), mais o segundo bloco `<style>` PRÓPRIO de cada mock (`css_extra_da_tela`) — cada
 `docs/design/<tela>.html` tem componentes que não estão no `ui.css` compartilhado (a timeline do

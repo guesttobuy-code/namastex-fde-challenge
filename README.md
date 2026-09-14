@@ -629,22 +629,28 @@ PLANO), não por escolha da frente. Aprovado assim mesmo, com a ressalva registr
   em lugar nenhum (conferido: zero ocorrências dessas palavras no arquivo inteiro). Aceitável para
   uma demonstração local; um deploy real precisaria de autenticação nessas três rotas antes de
   qualquer outra coisa.
-- **O servidor atende uma requisição HTTP por vez.** `wsgiref.simple_server` (stdlib, decisão do
-  ADR-0004 — zero dependência nova) é single-threaded por padrão; duas pessoas cotando ao mesmo
-  tempo esperam uma pela outra. Sem medição de quanto isso custa em latência sob carga — não é o
-  cenário desta entrega (`src/interfaces/servidor.py:1`, `make_server` em
-  `src/interfaces/servidor.py:584`).
+- **O servidor atende pedidos concorrentes, com 3 limites conhecidos (issue #110; pontas na
+  [#114](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/114)).**
+  `ServidorHTTPConcorrente` (`src/infra/servidor_http_concorrente.py:14`, thread por pedido via
+  `ThreadingMixIn`; `make_server` em `src/interfaces/servidor.py:585`) tirou o travamento de thread
+  única que uma conexão parada derrubava por inteiro. Ficam: (1) a fila só é DENTRO da mesma
+  conversa (`src/infra/trava_por_conversa.py`) — duas pessoas em conversas diferentes não esperam
+  uma pela outra; (2) a geração do painel roda uma por vez, relendo todas as trilhas
+  (`_TRAVA_DA_GERACAO`, `src/interfaces/painel/gerar.py`) — medido 5,17s com 11.923 linhas; (3) uma
+  rajada acima de 5 conexões simultâneas pode perder conexão (`request_queue_size`, padrão herdado
+  do `socketserver`, não sobrescrito no projeto). Sem medição de latência sob carga real — não é o
+  cenário desta entrega.
 - **Estado da conversa em memória, sem expiração.** `_ESTADOS_EM_MEMORIA`
-  (`src/interfaces/servidor.py:83`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
+  (`src/interfaces/servidor.py:86`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
   e nunca limpo (uma conversa abandonada fica ocupando memória para sempre). Limite aceito e
   declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
   deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
 - **A IA que responde objeção de preço tem 3 limites conhecidos, medidos com o LLM real** (issue
   #58/#70/#78, PR #75/#77/#82 — ver [§1](#1-em-uma-frase-e-como-rodar)):
-  - **Latência de 6,4s a 13,6s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`,
-    3 chamadas reais) — bem acima da extração de intenção isolada (~4,2s, ver acima). Sem cache nem
-    streaming; o lead vê "Só um instante…" até 13,6s numa conversa real
-    ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
+  - **Latência de 9,8s a 26s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`
+    real: 9,8s/14,4s/23,6s pela API; 24s/26s pela tela, 14/09) — bem acima da extração de intenção
+    isolada (~4,2s, ver acima). Sem cache nem streaming; o lead vê "Só um instante…" até 26s numa
+    conversa real ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
   - **Intermitência medida no reconhecimento de "quero falar com um humano":** numa bateria de 4
     execuções da mesma frase ("pode me passar pra uma pessoa de verdade?"), 1 delas voltou sem
     intenção nenhuma (o modelo não classificou) — o lead recebe "Não entendi — pode reformular?" em

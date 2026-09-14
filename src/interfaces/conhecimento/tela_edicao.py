@@ -2,7 +2,7 @@
 antes vivia sozinho em `/`, com uma casca visual PRÓPRIA (CSS embutido, paleta diferente de
 `docs/design/ui.css`). Esta frente ELIMINA a segunda casca (LEI 11 — dono único do menu/CSS) e
 serve o mesmo editor — campos, ids e `<script>` intactos (fora de escopo redesenhar a UX interna,
-ver PLANO item 5) — dentro de `layout.pagina()`, igual às seis telas do painel.
+ver PLANO item 5) — dentro de `layout.pagina()`, igual às cinco telas do painel.
 
 `_corpo.html` é o fragmento estático (formulário + `<script>` que faz `fetch` para
 `/api/objecoes*` e `/api/configuracao-comercial` — rotas que não mudam nesta PR): lido do disco,

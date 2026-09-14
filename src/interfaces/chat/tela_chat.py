@@ -12,7 +12,7 @@ só num dos dois lugares.
 Sem `css_extra_da_tela`/mock novo em `docs/design/` (decisão desta frente, documentada no relatório
 do PR): o fragmento usa só o `ui.css` compartilhado mais um `<style>` inline pequeno dentro do
 próprio `_corpo.html`, para os componentes do chat (balão de mensagem, doca de resposta, cards de
-plano) que não têm equivalente nas seis telas do painel. Dado o prazo da entrega, criar um oitavo
+plano) que não têm equivalente nas cinco telas do painel. Dado o prazo da entrega, criar um sétimo
 mock estático só para extrair um segundo bloco `<style>` (o padrão que `css_extra_da_tela` espera)
 não paga o custo — o resultado visual é o mesmo, só o mecanismo de origem do CSS muda.
 """
