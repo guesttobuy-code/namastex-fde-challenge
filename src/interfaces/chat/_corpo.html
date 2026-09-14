@@ -552,14 +552,15 @@
         habilitarCampoDeObjecao();
         return;
       }
-      const dados = await resposta.json();
-      if (dados.tratado) {
-        status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(dados.texto)}`;
-      } else {
-        // Mensagem não era objeção de preço (ou não havia cotação ainda) — o back-end não decide
-        // nada aqui; o front só não mostra resposta nenhuma, o lead segue com os botões normais.
-        status.remove();
+      // issue #58, veredito da auditoria do PR #75 (bloqueante B3): um 400/500 aqui deixava "Só um
+      // instante…" pendurado pra sempre, porque só o catch de rede acima tratava erro.
+      if (!resposta.ok) {
+        status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui responder agora. Toque em "Falar com um corretor" se preferir.';
+        habilitarCampoDeObjecao();
+        return;
       }
+      const dados = await resposta.json();
+      status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(dados.texto)}`;
       habilitarCampoDeObjecao();
     };
     mostrarDoca({

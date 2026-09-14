@@ -69,7 +69,7 @@ def _app_com_cotacao_e_objecao(tmp_path, *, intent, texto_resposta):
 
 def test_chat_responder_objecao_de_preco_com_cotacao_devolve_texto_com_marcador_resolvido(tmp_path):
     app, _ = _app_com_cotacao_e_objecao(
-        tmp_path, intent="objecao_de_preco", texto_resposta="Posso ajustar a franquia para {{franquia}}."
+        tmp_path, intent="objecao_de_preco", texto_resposta="No plano Completo, a franquia é {{franquia}}."
     )
 
     status, _, corpo = _chamar(app, "POST", "/api/chat/responder", {
@@ -79,11 +79,14 @@ def test_chat_responder_objecao_de_preco_com_cotacao_devolve_texto_com_marcador_
     assert status == "200 OK"
     resposta = json.loads(corpo)
     assert resposta["tratado"] is True
-    assert resposta["texto"] == "Posso ajustar a franquia para R$ 3.000,00."
+    assert resposta["texto"] == "No plano Completo, a franquia é R$ 3.000,00."
     assert resposta["intent"] == "objecao_de_preco"
 
 
-def test_chat_responder_outra_intencao_devolve_tratado_false(tmp_path):
+def test_chat_responder_outra_intencao_devolve_texto_fixo_nunca_fica_mudo(tmp_path):
+    """Bloqueante B3 do veredito da auditoria do PR #75: antes devolvia `{"tratado": False}` e o
+    front apagava a bolha sem mostrar nada ao lead — acontecia SEMPRE sem chave real. Agora a
+    rota sempre devolve `tratado: true` com algum texto."""
     app, _ = _app_com_cotacao_e_objecao(
         tmp_path, intent="informar_dados", texto_resposta="não deveria ser chamado"
     )
@@ -93,7 +96,13 @@ def test_chat_responder_outra_intencao_devolve_tratado_false(tmp_path):
     })
 
     assert status == "200 OK"
-    assert json.loads(corpo) == {"tratado": False}
+    resposta = json.loads(corpo)
+    assert resposta["tratado"] is True
+    assert resposta["texto"] == (
+        'Por aqui eu consigo tirar dúvidas sobre o preço desta cotação. Para outras perguntas, '
+        'toque em "Falar com um corretor".'
+    )
+    assert resposta["intent"] == "informar_dados"
 
 
 def test_chat_responder_sem_texto_e_400(tmp_path):

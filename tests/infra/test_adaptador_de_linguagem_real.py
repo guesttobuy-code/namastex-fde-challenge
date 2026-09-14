@@ -127,3 +127,41 @@ def test_extracao_real_quer_falar_com_humano_e_controle_de_falsos_positivos(text
 
     print(f"\n[prova-real-humano] texto={texto!r} intent_extraido={saida.intent!r} esperado={intent_esperado!r}")
     assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"
+
+
+# issue #58, veredito da auditoria do PR #75, bloqueante B1: medido ao vivo (2026-09-13) 1 de 5
+# objeções de preço reconhecidas, porque o prompt só descrevia os 3 intents antigos. Mesmo molde
+# do roteiro de `quer_falar_com_humano` acima — as mesmas frases que a auditoria usou na sonda,
+# mais o controle "achei caro pra esse carro" que a ficha de exemplo já usa em `frases_do_lead`.
+_FRASES_OBJECAO_DE_PRECO = [
+    pytest.param("achei caro", "objecao_de_preco", id="achei_caro"),
+    pytest.param("achei caro pra esse carro", "objecao_de_preco", id="achei_caro_pra_esse_carro"),
+    pytest.param("o preço tá salgado", "objecao_de_preco", id="preco_salgado"),
+    pytest.param("vi mais barato na concorrente", "objecao_de_preco", id="vi_mais_barato"),
+    pytest.param("a franquia tá alta", "objecao_de_preco", id="franquia_alta"),
+    pytest.param("tem como dar um desconto?", "objecao_de_preco", id="pediu_desconto"),
+]
+
+_FRASES_CONTROLE_OBJECAO_DE_PRECO = [
+    pytest.param("tenho 35 anos", "informar_dados", id="controle_idade_nao_e_objecao"),
+    pytest.param("quero contratar", "quer_contratar", id="controle_contratar_nao_e_objecao"),
+    pytest.param("quero falar com um atendente", "quer_falar_com_humano", id="controle_humano_nao_e_objecao"),
+    pytest.param("tem guincho?", None, id="controle_guincho_nao_e_objecao"),
+    pytest.param("2019", None, id="controle_ano_isolado_nao_e_objecao"),
+]
+
+
+@pytest.mark.parametrize(
+    "texto,intent_esperado", _FRASES_OBJECAO_DE_PRECO + _FRASES_CONTROLE_OBJECAO_DE_PRECO
+)
+def test_extracao_real_objecao_de_preco_e_controle_de_falsos_positivos(texto, intent_esperado):
+    """Roteiro de aceite do bloqueante B1 (veredito da auditoria do PR #75): as mesmas 5 frases que
+    a sonda da auditoria usou (0 de 5 antes do conserto do prompt) mais "achei caro pra esse carro",
+    e 5 controles (não podem virar objecao_de_preco)."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    estado = EstadoDaConversa(conversation_id=f"conv-prova-real-objecao-{abs(hash(texto))}")
+
+    saida = adaptador.extrair(texto, estado)
+
+    print(f"\n[prova-real-objecao] texto={texto!r} intent_extraido={saida.intent!r} esperado={intent_esperado!r}")
+    assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"

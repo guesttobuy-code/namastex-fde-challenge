@@ -23,6 +23,10 @@ from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoMemoria
 from infra.trilha_jsonl import RepositorioDeTrilhaMemoria
 
 TEXTO_ENCAMINHAMENTO = "Logo um corretor vai entrar em contato para te dar todo o suporte."
+TEXTO_FORA_DE_ESCOPO = (
+    'Por aqui eu consigo tirar dúvidas sobre o preço desta cotação. Para outras perguntas, toque '
+    'em "Falar com um corretor".'
+)
 
 
 class _PortalDeLinguagemComIntent:
@@ -165,6 +169,14 @@ def test_montar_contexto_so_traz_fichas_publicadas_nunca_rascunho():
     assert ids == ["preco-alto"]
 
 
+def test_montar_contexto_inclui_texto_do_lead():
+    contexto = montar_contexto(
+        _preco(), [], _servico_com_ficha_publicada(), ConfiguracaoComercial(),
+        texto_do_lead="a franquia tá alta",
+    )
+    assert contexto["texto_do_lead"] == "a franquia tá alta"
+
+
 def test_montar_contexto_nunca_contem_nome_whatsapp_ou_email():
     """Mutação (se alguém um dia passar EstadoDaConversa inteiro para dentro do contexto): o
     contexto serializado como string não pode conter esses termos de jeito nenhum."""
@@ -180,22 +192,23 @@ def test_montar_contexto_nunca_contem_nome_whatsapp_ou_email():
 
 
 def test_resposta_valida_e_preenchida_com_o_valor_real():
-    portal = _PortalFixo("Posso ajustar a franquia para {{franquia}}.")
-    texto, origem, motivo = montar_e_responder(
+    portal = _PortalFixo("No plano Completo, a franquia é {{franquia}}.")
+    texto, origem, motivo, dados_usados = montar_e_responder(
         portal=portal,
         preco=_preco(),
         planos=[],
         servico_conhecimento=_servico_com_ficha_publicada(),
         configuracao=ConfiguracaoComercial(),
     )
-    assert texto == "Posso ajustar a franquia para R$ 3.000,00."
+    assert texto == "No plano Completo, a franquia é R$ 3.000,00."
     assert origem == "llm_resposta:fake@v1"
     assert motivo is None
+    assert dados_usados == ("ficha:preco-alto@1",)
 
 
 def test_resposta_com_franquia_de_outro_plano_resolve_pelo_catalogo():
     portal = _PortalFixo("O plano Essencial sai com franquia {{franquia_essencial}}.")
-    texto, _, motivo = montar_e_responder(
+    texto, _, motivo, _ = montar_e_responder(
         portal=portal,
         preco=_preco(),
         planos=[{"id": "essencial", "nome": "Essencial", "franquia": 4500}],
@@ -213,7 +226,7 @@ def test_digito_fora_de_marcador_na_primeira_tentativa_tenta_de_novo_e_aceita_a_
             "Sai por {{premio_mensal}}.",  # válido
         ]
     )
-    texto, _, motivo = montar_e_responder(
+    texto, _, motivo, _ = montar_e_responder(
         portal=portal,
         preco=_preco(),
         planos=[],
@@ -227,7 +240,7 @@ def test_digito_fora_de_marcador_na_primeira_tentativa_tenta_de_novo_e_aceita_a_
 
 def test_duas_tentativas_reprovadas_encaminha_ao_corretor_nunca_numero_fabricado():
     portal = _PortalPorTentativa(["Sai por 241 reais.", "Sai por 300 reais também."])
-    texto, origem, motivo = montar_e_responder(
+    texto, origem, motivo, dados_usados = montar_e_responder(
         portal=portal,
         preco=_preco(),
         planos=[],
@@ -237,6 +250,49 @@ def test_duas_tentativas_reprovadas_encaminha_ao_corretor_nunca_numero_fabricado
     assert texto == TEXTO_ENCAMINHAMENTO
     assert motivo == MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL
     assert portal.chamadas == 2
+    assert dados_usados == ("ficha:preco-alto@1",)  # o que estava no contexto, mesmo sem sucesso
+
+
+def test_frase_proibida_na_primeira_tentativa_tenta_de_novo_e_aceita_a_segunda():
+    """Bloqueante B4 do veredito da auditoria do PR #75: a ficha da demonstração ("Posso ajustar a
+    franquia para {{franquia}}") é exatamente o antiexemplo — marcador válido, mas promessa que a
+    IA nunca pode fazer por conta própria. Reprovado na validação de frase proibida, igual ao
+    dígito solto: tenta de novo, aceita a segunda se ela vier limpa."""
+    portal = _PortalPorTentativa(
+        [
+            "Posso ajustar a franquia para {{franquia}} se você fechar hoje.",  # promessa — reprovado
+            "No plano Completo, a franquia é {{franquia}}.",  # sem promessa — válido
+        ]
+    )
+    texto, _, motivo, _ = montar_e_responder(
+        portal=portal,
+        preco=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+    )
+    assert texto == "No plano Completo, a franquia é R$ 3.000,00."
+    assert portal.chamadas == 2
+    assert motivo is None
+
+
+def test_frase_proibida_nas_duas_tentativas_encaminha_nunca_promete_desconto():
+    portal = _PortalPorTentativa(
+        [
+            "Posso ajustar a franquia para {{franquia}}.",
+            "Consigo um desconto especial pra você.",
+        ]
+    )
+    texto, _, motivo, _ = montar_e_responder(
+        portal=portal,
+        preco=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+    )
+    assert texto == TEXTO_ENCAMINHAMENTO
+    assert "ajustar" not in texto and "desconto" not in texto
+    assert motivo == MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL
 
 
 def test_marcador_reconhecido_mas_sem_valor_para_este_preco_encaminha():
@@ -246,7 +302,7 @@ def test_marcador_reconhecido_mas_sem_valor_para_este_preco_encaminha():
     `preencher_marcadores` recusa, e as 2 tentativas esgotam — nunca `{{carencia_dias}}` cru
     escapa para o texto que o lead lê."""
     portal = _PortalFixo("A carência é de {{carencia_dias}} dias.")
-    texto, _, motivo = montar_e_responder(
+    texto, _, motivo, _ = montar_e_responder(
         portal=portal,
         preco=_preco(),  # carencia=None por padrão
         planos=[],
@@ -259,7 +315,7 @@ def test_marcador_reconhecido_mas_sem_valor_para_este_preco_encaminha():
 
 
 def test_porta_indisponivel_rede_timeout_ou_sem_chave_encaminha_sem_travar():
-    texto, origem, motivo = montar_e_responder(
+    texto, origem, motivo, _ = montar_e_responder(
         portal=_PortalIndisponivel(),
         preco=_preco(),
         planos=[],
@@ -274,7 +330,7 @@ def test_sem_ficha_publicada_encaminha_sem_chamar_o_llm():
     """Decisão da coordenação: sem base de conhecimento para basear a resposta, nem vale a pena
     gastar uma chamada de LLM — encaminha direto."""
     portal = _PortalFixo("nunca deveria ser chamado")
-    texto, _, motivo = montar_e_responder(
+    texto, _, motivo, dados_usados = montar_e_responder(
         portal=portal,
         preco=_preco(),
         planos=[],
@@ -284,6 +340,23 @@ def test_sem_ficha_publicada_encaminha_sem_chamar_o_llm():
     assert texto == TEXTO_ENCAMINHAMENTO
     assert motivo == MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL
     assert portal.contextos_recebidos == []
+    assert dados_usados == ()
+
+
+def test_texto_do_lead_chega_no_contexto_da_resposta():
+    """Bloqueante B2 do veredito da auditoria do PR #75: sem o texto do lead no contexto, o LLM
+    não tinha como escolher a ficha certa — media 4 de 4 respostas idênticas, sempre a primeira
+    publicada, mesmo com a ficha certa disponível."""
+    portal = _PortalFixo("Posso ajustar a franquia para {{franquia}}.")
+    montar_e_responder(
+        portal=portal,
+        preco=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+        texto_do_lead="a franquia tá alta",
+    )
+    assert portal.contextos_recebidos[0]["texto_do_lead"] == "a franquia tá alta"
 
 
 # ── processar_mensagem_livre: classifica, desvia, grava a trilha ───────────
@@ -291,9 +364,9 @@ def test_sem_ficha_publicada_encaminha_sem_chamar_o_llm():
 
 def test_objecao_de_preco_com_cotacao_existente_desvia_para_resposta_orientada():
     portal_linguagem = _PortalDeLinguagemComIntent("objecao_de_preco")
-    resultado = processar_mensagem_livre(
+    texto, origem, intencao = processar_mensagem_livre(
         portal_de_linguagem=portal_linguagem,
-        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        portal_de_resposta=_PortalFixo("No plano Completo, a franquia é {{franquia}}."),
         texto_bruto="achei caro esse preço",
         estado=_estado(),
         preco_atual=_preco(),
@@ -301,18 +374,21 @@ def test_objecao_de_preco_com_cotacao_existente_desvia_para_resposta_orientada()
         servico_conhecimento=_servico_com_ficha_publicada(),
         configuracao=ConfiguracaoComercial(),
     )
-    assert resultado is not None
-    texto, origem, intencao = resultado
-    assert texto == "Posso ajustar a franquia para R$ 3.000,00."
+    assert texto == "No plano Completo, a franquia é R$ 3.000,00."
     assert origem == "llm_resposta:fake@v1"
     assert intencao.value == "objecao_de_preco"
 
 
-def test_outra_intencao_devolve_none_deixa_fluxo_guiado_decidir():
+def test_outra_intencao_devolve_texto_fixo_de_fora_de_escopo_nunca_fica_mudo():
+    """Bloqueante B3 do veredito da auditoria do PR #75: antes devolvia `None` e o lead ficava sem
+    NENHUMA resposta na tela (sempre acontecia sem chave, já que o extrator determinístico devolve
+    `informar_dados` fixo). Este campo é dedicado a dúvida de preço — "não responder nada" nunca
+    foi a opção certa."""
     portal_linguagem = _PortalDeLinguagemComIntent("informar_dados")
-    resultado = processar_mensagem_livre(
+    portal_resposta = _PortalFixo("não deveria ser chamado")
+    texto, origem, intencao = processar_mensagem_livre(
         portal_de_linguagem=portal_linguagem,
-        portal_de_resposta=_PortalFixo("não deveria ser chamado"),
+        portal_de_resposta=portal_resposta,
         texto_bruto="tenho 35 anos",
         estado=_estado(),
         preco_atual=_preco(),
@@ -320,16 +396,21 @@ def test_outra_intencao_devolve_none_deixa_fluxo_guiado_decidir():
         servico_conhecimento=_servico_com_ficha_publicada(),
         configuracao=ConfiguracaoComercial(),
     )
-    assert resultado is None
+    assert texto == TEXTO_FORA_DE_ESCOPO
+    assert origem == "texto_fixo:fora_do_escopo_resposta_orientada"
+    assert intencao.value == "informar_dados"
+    assert portal_resposta.contextos_recebidos == []  # não gasta LLM à toa
 
 
-def test_objecao_de_preco_sem_cotacao_ainda_devolve_none():
+def test_objecao_de_preco_sem_cotacao_ainda_devolve_texto_fixo_de_fora_de_escopo():
     """Sem `PrecoCotado`, não há valor real pra preencher marcador nenhum — melhor não chamar o
-    LLM do que arriscar um texto sem número, ou pior, inventar um."""
+    LLM do que arriscar um texto sem número, ou pior, inventar um. Mas o lead ainda precisa de
+    alguma resposta (B3), não silêncio."""
     portal_linguagem = _PortalDeLinguagemComIntent("objecao_de_preco")
-    resultado = processar_mensagem_livre(
+    portal_resposta = _PortalFixo("não deveria ser chamado")
+    texto, origem, intencao = processar_mensagem_livre(
         portal_de_linguagem=portal_linguagem,
-        portal_de_resposta=_PortalFixo("não deveria ser chamado"),
+        portal_de_resposta=portal_resposta,
         texto_bruto="achei caro",
         estado=_estado(),
         preco_atual=None,
@@ -337,7 +418,9 @@ def test_objecao_de_preco_sem_cotacao_ainda_devolve_none():
         servico_conhecimento=_servico_com_ficha_publicada(),
         configuracao=ConfiguracaoComercial(),
     )
-    assert resultado is None
+    assert texto == TEXTO_FORA_DE_ESCOPO
+    assert intencao.value == "objecao_de_preco"
+    assert portal_resposta.contextos_recebidos == []
 
 
 def test_texto_bruto_nunca_chega_cru_ao_portal_de_linguagem_cep_e_mascarado():
@@ -355,6 +438,26 @@ def test_texto_bruto_nunca_chega_cru_ao_portal_de_linguagem_cep_e_mascarado():
         configuracao=ConfiguracaoComercial(),
     )
     assert "01310-100" not in portal_linguagem.textos_recebidos[0]
+
+
+def test_c10_texto_do_lead_no_contexto_da_resposta_vai_mascarado():
+    """C10 do roteiro de aceite: o payload que chega ao portal de resposta (via `texto_do_lead`)
+    nunca contém dígitos de WhatsApp — mesma disciplina de `redigir_texto` já aplicada antes de
+    chamar o portal de linguagem."""
+    portal_resposta = _PortalFixo("Posso ajustar a franquia para {{franquia}}.")
+    processar_mensagem_livre(
+        portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
+        portal_de_resposta=portal_resposta,
+        texto_bruto="meu whatsapp é +55 11 97224-2584, achei caro",
+        estado=_estado(),
+        preco_atual=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+    )
+    texto_do_lead_no_contexto = portal_resposta.contextos_recebidos[0]["texto_do_lead"]
+    assert "97224-2584" not in texto_do_lead_no_contexto
+    assert "[REDIGIDO]" in texto_do_lead_no_contexto
 
 
 def test_trilha_grava_mensagem_recebida_mesmo_quando_intencao_nao_e_objecao():
@@ -382,7 +485,7 @@ def test_trilha_grava_mensagem_enviada_com_origem_do_texto():
     trilha = ServicoDeTrilha(repositorio_trilha)
     processar_mensagem_livre(
         portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
-        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        portal_de_resposta=_PortalFixo("No plano Completo, a franquia é {{franquia}}."),
         texto_bruto="achei caro",
         estado=_estado(),
         preco_atual=_preco(),
@@ -394,6 +497,27 @@ def test_trilha_grava_mensagem_enviada_com_origem_do_texto():
     eventos = repositorio_trilha.eventos_da_conversa("conv-1")
     enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
     assert enviada["origem_do_texto"] == "llm_resposta:fake@v1"
+
+
+def test_trilha_grava_dados_usados_com_id_e_versao_da_ficha():
+    """Bloqueante B5 do veredito da auditoria do PR #75: a trilha precisa registrar quais peças da
+    base de conhecimento alimentaram a resposta, não só que "algum LLM respondeu"."""
+    repositorio_trilha = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio_trilha)
+    processar_mensagem_livre(
+        portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
+        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        texto_bruto="achei caro",
+        estado=_estado(),
+        preco_atual=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+        trilha=trilha,
+    )
+    eventos = repositorio_trilha.eventos_da_conversa("conv-1")
+    enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
+    assert enviada["dados_usados"] == ("ficha:preco-alto@1",)
 
 
 def test_trilha_grava_handoff_quando_encaminha_ao_corretor():
@@ -420,7 +544,7 @@ def test_trilha_nunca_grava_handoff_quando_resposta_e_valida():
     trilha = ServicoDeTrilha(repositorio_trilha)
     processar_mensagem_livre(
         portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
-        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        portal_de_resposta=_PortalFixo("No plano Completo, a franquia é {{franquia}}."),
         texto_bruto="achei caro",
         estado=_estado(),
         preco_atual=_preco(),

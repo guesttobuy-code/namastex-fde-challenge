@@ -9,10 +9,12 @@ import pytest
 from dominio.ficha_objecao import (
     ARGUMENTOS_PERMITIDOS_CONHECIDOS,
     FichaDeObjecao,
+    FRASES_PROIBIDAS,
     MARCADORES_BASE,
     MarcadorInvalido,
     preencher_marcadores,
     validar_argumentos_permitidos,
+    validar_frases_proibidas,
     validar_resposta_orientada,
     vocabulario_de_marcadores,
 )
@@ -194,6 +196,26 @@ def test_preencher_marcadores_sem_marcador_no_texto_devolve_texto_intacto():
 def test_preencher_marcadores_com_marcador_sem_valor_correspondente_e_recusado():
     with pytest.raises(MarcadorInvalido, match=r"\{\{premio_mensal\}\}"):
         preencher_marcadores("Sai por {{premio_mensal}} por mês.", {"franquia": "R$ 3.000,00"})
+
+
+# ── #58, veredito da auditoria do PR #75 (B4): frase proibida na resposta gerada ────────────
+
+
+@pytest.mark.parametrize("frase", sorted(FRASES_PROIBIDAS))
+def test_validar_frases_proibidas_recusa_cada_frase_da_lista(frase):
+    with pytest.raises(MarcadorInvalido, match="promessa não autorizada"):
+        validar_frases_proibidas(f"Vou {frase} pra você, combinado?")
+
+
+def test_validar_frases_proibidas_ignora_acento_e_caixa():
+    with pytest.raises(MarcadorInvalido):
+        validar_frases_proibidas("Consigo um DESCONTO especial.")
+    with pytest.raises(MarcadorInvalido):
+        validar_frases_proibidas("Só hoje eu consigo isso pra você.")
+
+
+def test_validar_frases_proibidas_aceita_texto_limpo_com_marcador():
+    validar_frases_proibidas("No plano Completo, a franquia é {{franquia}}.")
 
 
 def test_preencher_marcadores_nunca_deixa_chave_dupla_escapar_no_resultado():

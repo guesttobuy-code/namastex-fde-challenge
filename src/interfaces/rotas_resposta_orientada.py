@@ -69,10 +69,11 @@ def responder_chat_responder(
     """`POST /api/chat/responder`: classifica uma mensagem LIVRE do lead (fora do fluxo
     estruturado de coleta) e, se for objeção de preço com uma cotação já feita
     (`precos_em_memoria`), responde com a base de conhecimento
-    (`aplicacao.servico_resposta_orientada.processar_mensagem_livre`). Qualquer outra intenção, ou
-    objeção sem cotação ainda: `tratado: false` — quem chama decide o que fazer (esta rota ainda
-    não está ligada a nenhuma tela; a decisão de onde entra o campo de texto é do dono, pendente —
-    ver comentário na #58).
+    (`aplicacao.servico_resposta_orientada.processar_mensagem_livre`). Ligada ao campo de texto
+    livre depois do card de preço (`habilitarCampoDeObjecao` em `interfaces.chat._corpo.html`).
+    Qualquer outra intenção, ou objeção sem cotação ainda: `processar_mensagem_livre` já devolve o
+    texto fixo de fora-de-escopo (issue #58, veredito da auditoria do PR #75, bloqueante B3) — esta
+    rota sempre devolve `tratado: true` com algum texto, nunca deixa o lead sem resposta.
 
     `estados_em_memoria`/`precos_em_memoria` são os MESMOS dicts de módulo de
     `interfaces.servidor` (ADR-0005, decisão 1) — passados por referência, nunca copiados, para
@@ -98,7 +99,7 @@ def responder_chat_responder(
     repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
     trilha = ServicoDeTrilha(repositorio_trilha)
 
-    resultado = processar_mensagem_livre(
+    texto_resposta, _origem_do_texto, intencao = processar_mensagem_livre(
         portal_de_linguagem=portal_de_linguagem,
         portal_de_resposta=portal_de_resposta_orientada,
         texto_bruto=texto,
@@ -109,8 +110,7 @@ def responder_chat_responder(
         configuracao=configuracao,
         trilha=trilha,
     )
-    if resultado is None:
-        return _json("200 OK", {"tratado": False})
-
-    texto_resposta, _origem_do_texto, intencao = resultado
-    return _json("200 OK", {"tratado": True, "texto": texto_resposta, "intent": intencao.value})
+    return _json(
+        "200 OK",
+        {"tratado": True, "texto": texto_resposta, "intent": intencao.value if intencao is not None else None},
+    )

@@ -30,6 +30,7 @@ from dominio.eventos_trilha import Handoff, MensagemEnviada, MensagemRecebida
 from dominio.ficha_objecao import (
     MarcadorInvalido,
     preencher_marcadores,
+    validar_frases_proibidas,
     validar_resposta_orientada,
     vocabulario_de_marcadores,
 )
@@ -43,6 +44,17 @@ from .portas.portal_de_resposta_orientada import PortalDeRespostaOrientada
 from .servico_conhecimento import ServicoDeConhecimento
 
 ORIGEM_TEXTO_FIXO = "texto_fixo:encaminhamento_resposta_orientada"
+
+# issue #58, veredito da auditoria do PR #75, bloqueante B3: antes, mensagem livre que não era
+# objeção de preço reconhecida (ou sem cotação ainda) devolvia `None` — o lead ficava sem NENHUMA
+# resposta na tela (`tratado: false` fazia o front apagar a bolha). Acontecia SEMPRE sem chave
+# (o extrator determinístico devolve `informar_dados` fixo) e em qualquer pergunta fora de escopo
+# com chave. Agora sempre responde algo, nunca deixa o campo mudo.
+_TEXTO_FORA_DE_ESCOPO = (
+    'Por aqui eu consigo tirar dúvidas sobre o preço desta cotação. Para outras perguntas, toque '
+    'em "Falar com um corretor".'
+)
+ORIGEM_TEXTO_FORA_DE_ESCOPO = "texto_fixo:fora_do_escopo_resposta_orientada"
 
 _MAX_TENTATIVAS = 2
 
@@ -99,10 +111,15 @@ def montar_contexto(
     planos: Iterable[dict],
     servico_conhecimento: ServicoDeConhecimento,
     configuracao: ConfiguracaoComercial,
+    texto_do_lead: str = "",
 ) -> dict:
     """Contexto que vai para o LLM. Fichas de objeção filtradas para só as PUBLICADAS (issue #43
     — rascunho nunca vira contexto de resposta ao lead) — filtro feito aqui, não reimplementado em
-    outro lugar."""
+    outro lugar. `texto_do_lead` (issue #58, veredito da auditoria do PR #75, bloqueante B2): quem
+    chama já passou por `redator_pii.redigir_texto` — este módulo nunca lê o texto bruto — e ele
+    entra no contexto como DADO (a mesma disciplina de `frases_do_lead`/`resposta_orientada` das
+    fichas, nunca como instrução); sem ele o LLM não tinha como escolher a ficha certa e sempre
+    respondia com a primeira publicada."""
     planos = list(planos)
     fichas_publicadas = [
         f for f in servico_conhecimento.listar_objecoes() if f.get("status") == "publicado"
@@ -113,10 +130,21 @@ def montar_contexto(
             {"id": p.get("id"), "nome": p.get("nome"), "franquia": p.get("franquia")} for p in planos
         ],
         "fichas_de_objecao": fichas_publicadas,
+        "texto_do_lead": texto_do_lead,
         "configuracao_comercial": {
             "encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao,
         },
     }
+
+
+def _dados_usados_das_fichas(contexto: dict) -> tuple[str, ...]:
+    """issue #58, veredito da auditoria do PR #75, bloqueante B5: a trilha precisa registrar quais
+    peças da base de conhecimento alimentaram a resposta. O LLM não devolve qual ficha escolheu
+    (a saída é texto livre, não um campo estruturado — mudar isso é escopo maior que o veredito
+    pede), então este módulo registra TODAS as fichas publicadas que entraram no contexto — o
+    mesmo padrão de `aplicacao.servico_conversa._dados_usados` (lista o que alimentou a decisão,
+    não só o que "venceu")."""
+    return tuple(f"ficha:{f.get('id')}@{f.get('versao')}" for f in contexto["fichas_de_objecao"])
 
 
 def montar_e_responder(
@@ -126,19 +154,24 @@ def montar_e_responder(
     planos: Iterable[dict] = (),
     servico_conhecimento: ServicoDeConhecimento,
     configuracao: ConfiguracaoComercial,
-) -> tuple[str, str, MotivoHandoff | None]:
-    """Devolve `(texto, origem_do_texto, motivo_handoff)`. `motivo_handoff` é `None` numa resposta
-    válida; `MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL` quando não há ficha publicada para
-    basear a resposta (nem chama o LLM à toa) ou quando as `_MAX_TENTATIVAS` reprovam na validação
-    de marcador ("Pronto quando" da #58) — nunca um número fabricado nem um `{{marcador}}` visível
-    ao lead; encaminha para o corretor em vez disso, mesmo texto de `LEAD_QUER_CONTRATAR`
-    (decisão da coordenação — reaproveita `_TEXTO_ENCAMINHAMENTO_PARA_CORRETOR`, LEI 11)."""
+    texto_do_lead: str = "",
+) -> tuple[str, str, MotivoHandoff | None, tuple[str, ...]]:
+    """Devolve `(texto, origem_do_texto, motivo_handoff, dados_usados)`. `motivo_handoff` é `None`
+    numa resposta válida; `MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL` quando não há ficha
+    publicada para basear a resposta (nem chama o LLM à toa) ou quando as `_MAX_TENTATIVAS`
+    reprovam na validação de marcador ou de frase proibida ("Pronto quando" da #58, bloqueante B4
+    do veredito da auditoria do PR #75) — nunca um número fabricado, nem um `{{marcador}}` visível
+    ao lead, nem uma promessa de desconto/ajuste/urgência; encaminha para o corretor em vez disso,
+    mesmo texto de `LEAD_QUER_CONTRATAR` (decisão da coordenação — reaproveita
+    `_TEXTO_ENCAMINHAMENTO_PARA_CORRETOR`, LEI 11). `texto_do_lead` (bloqueante B2) já vem
+    mascarado — só repassado para `montar_contexto`, nunca lido aqui."""
     planos = list(planos)
-    contexto = montar_contexto(preco, planos, servico_conhecimento, configuracao)
+    contexto = montar_contexto(preco, planos, servico_conhecimento, configuracao, texto_do_lead)
 
     if not contexto["fichas_de_objecao"]:
-        return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL
+        return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL, ()
 
+    dados_usados = _dados_usados_das_fichas(contexto)
     vocabulario = vocabulario_de_marcadores(p["id"] for p in planos if p.get("id"))
     valores = _valores_dos_marcadores(preco, planos)
 
@@ -148,11 +181,12 @@ def montar_e_responder(
             continue
         try:
             validar_resposta_orientada(bruto, vocabulario)
-            return preencher_marcadores(bruto, valores), portal.origem_do_texto, None
+            validar_frases_proibidas(bruto)
+            return preencher_marcadores(bruto, valores), portal.origem_do_texto, None, dados_usados
         except MarcadorInvalido:
             continue
 
-    return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL
+    return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL, dados_usados
 
 
 def processar_mensagem_livre(
@@ -166,20 +200,24 @@ def processar_mensagem_livre(
     servico_conhecimento: ServicoDeConhecimento,
     configuracao: ConfiguracaoComercial,
     trilha: ServicoDeTrilha | None = None,
-) -> tuple[str, str, Intencao] | None:
+) -> tuple[str, str, Intencao | None]:
     """Classifica uma mensagem livre do lead (fora do fluxo estruturado de coleta) e desvia para
     `montar_e_responder` quando a intenção reconhecida é `Intencao.OBJECAO_DE_PRECO` **e** já
-    existe uma cotação para explicar (`preco_atual`). Devolve `None` para qualquer outra
-    intenção/sem intenção reconhecida, ou objeção sem cotação ainda — quem chama decide o que
-    fazer (o fluxo guiado normal continua sendo a rota, este caso de uso é aditivo).
+    existe uma cotação para explicar (`preco_atual`). Para qualquer outra intenção, sem intenção
+    reconhecida, ou objeção sem cotação ainda: devolve o texto fixo `_TEXTO_FORA_DE_ESCOPO` (issue
+    #58, veredito da auditoria do PR #75, bloqueante B3 — antes devolvia `None` e o lead ficava
+    SEM NENHUMA resposta na tela; esta rota só é chamada pelo campo de objeção da tela, dedicado a
+    dúvida de preço, não pelo fluxo guiado normal, então "não responder nada" nunca foi a opção
+    certa aqui). Nunca devolve `None` — sempre há uma resposta para o front mostrar.
 
     Mesma disciplina de privacidade de `aplicacao.servico_conversa.extrair_dados_da_mensagem`:
     texto BRUTO nunca vai ao portal de linguagem sem passar por `redator_pii.redigir_texto`.
 
     `trilha`, se passado, grava `mensagem_recebida` (a pergunta do lead, mascarada), depois
-    `mensagem_enviada` (a resposta) e, quando a resposta é um encaminhamento, `handoff` — mesma
-    disciplina de `aplicacao.servico_conversa.conduzir_conversa` (trilha é responsabilidade de
-    QUEM ORQUESTRA, nunca da porta nem do adaptador)."""
+    `mensagem_enviada` (a resposta, com `dados_usados` — issue #58, bloqueante B5) e, quando a
+    resposta é um encaminhamento, `handoff` — mesma disciplina de
+    `aplicacao.servico_conversa.conduzir_conversa` (trilha é responsabilidade de QUEM ORQUESTRA,
+    nunca da porta nem do adaptador)."""
     if trilha is not None:
         trilha.registrar_evento(
             MensagemRecebida(
@@ -195,16 +233,17 @@ def processar_mensagem_livre(
     saida = portal_de_linguagem.extrair(texto_mascarado, estado)
     intencao = intencao_reconhecida(saida.intent)
 
-    if intencao != Intencao.OBJECAO_DE_PRECO or preco_atual is None:
-        return None
-
-    texto, origem, motivo_handoff = montar_e_responder(
-        portal=portal_de_resposta,
-        preco=preco_atual,
-        planos=planos,
-        servico_conhecimento=servico_conhecimento,
-        configuracao=configuracao,
-    )
+    if intencao == Intencao.OBJECAO_DE_PRECO and preco_atual is not None:
+        texto, origem, motivo_handoff, dados_usados = montar_e_responder(
+            portal=portal_de_resposta,
+            preco=preco_atual,
+            planos=planos,
+            servico_conhecimento=servico_conhecimento,
+            configuracao=configuracao,
+            texto_do_lead=texto_mascarado,
+        )
+    else:
+        texto, origem, motivo_handoff, dados_usados = _TEXTO_FORA_DE_ESCOPO, ORIGEM_TEXTO_FORA_DE_ESCOPO, None, ()
 
     if trilha is not None:
         trilha.registrar_evento(
@@ -219,7 +258,8 @@ def processar_mensagem_livre(
                 decisao_id=_novo_id("resposta_orientada"),
                 regra_aplicada="resposta_orientada:objecao_de_preco",
                 origem_do_texto=origem,
-                quote_attempt_id=preco_atual.quote_attempt_id,
+                dados_usados=dados_usados,
+                quote_attempt_id=preco_atual.quote_attempt_id if preco_atual is not None else None,
             )
         )
         if motivo_handoff is not None:

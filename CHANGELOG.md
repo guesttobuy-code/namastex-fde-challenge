@@ -14,6 +14,21 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **Pre-commit local enxuto: self-test dos guards e meta-guards saem do commit, ficam só no CI (issue #72, decisão do dono para reduzir burocracia de guards cosméticos):** `.githooks/pre-commit` chama o novo script `precommit-check` em vez de `full-check` — mesma lista de guards de produto (`secret-leak`, `import-boundaries`, `file-loc-ceiling`, `testes-catraca`, `changelog-update`, `docs-required`, `companion-red-green`, `python-check`, etc.), sem `guards:selftest:selftest`, `guards:selftest`, `guard-wiring`, `guards-catalog` e `guard-change-ritual`. `full-check` continua existindo (roda à mão e é exatamente o que o CI já roda, job a job); o CI (`esteira.yml`) não muda — já rodava cada guard como job próprio, nunca via hook.
 
 ### Corrigido
+- **Os 5 bloqueantes do veredito da auditoria do PR #75 (issue #58):** (B1) `_PROMPT_SISTEMA` de
+  extração passa a descrever `objecao_de_preco` com exemplos — medido antes: 1 de 5 objeções reais
+  reconhecidas; `VERSAO_DO_PROMPT` vai para `v2`. (B2) `montar_contexto` ganha `texto_do_lead`
+  (mascarado) e o prompt de resposta escolhe a ficha pelas `frases_do_lead` mais próximas — medido
+  antes: 4 de 4 respostas idênticas, sempre a primeira ficha publicada. (B3)
+  `processar_mensagem_livre` nunca mais devolve `None`: qualquer mensagem que não seja objeção de
+  preço reconhecida (ou sem cotação ainda) recebe o texto fixo aprovado pelo dono — antes o lead
+  ficava sem NENHUMA resposta na tela, sempre acontecia sem chave real; `habilitarCampoDeObjecao`
+  em `_corpo.html` passa a checar `resposta.ok` antes de `.json()`, para um 400/500 não deixar "Só
+  um instante…" pendurado. (B4) `dominio.ficha_objecao.validar_frases_proibidas` (nova, mesmo
+  caminho de retentativa/encaminhamento do dígito solto) recusa promessa de desconto, ajuste de
+  franquia/valor ou urgência na resposta gerada; `_PROMPT_SISTEMA_RESPOSTA` deixa de mandar
+  escrever "a resposta de um corretor" e passa a proibir essas promessas e falar de concorrente
+  explicitamente; `VERSAO_DO_PROMPT_RESPOSTA` vai para `v2`. (B5) `MensagemEnviada.dados_usados`
+  passa a registrar `id`/`versao` de cada ficha publicada que entrou no contexto da resposta.
 - **Trilha da coleta padrão sem LLM não gravava pergunta/resposta com id e status (issue #51); `interfaces.cli` gravava a trilha do caminho texto-livre direto, fora da `aplicacao` (issue #55, parte 1):** `coletar_dados` (campo a campo) não gravava evento nenhum; `coletar_dados_por_texto_livre` chamava `trilha.registrar_evento` direto, importando `dominio.eventos_trilha` na interface. Duas funções novas em `aplicacao.servico_conversa` (`registrar_pergunta_de_coleta`/`registrar_resposta_de_coleta`, dono único da escrita da trilha — LEI 11) passam a ser usadas pelos dois caminhos; `cli.py` não importa mais `dominio.eventos_trilha`.
 - **`aplicacao.servico_conversa.conduzir_conversa` gravava o estado consolidado como se fosse fala do lead (issue #39):** o evento `mensagem_recebida` sintético (`"idade=...; veiculo_ano=...; ..."`) agora marca `sender_role="sistema"` (campo já existente no dataclass, nunca lido até esta frente) — a trilha deixa de apresentar um resumo de estado como se o lead tivesse escrito aquilo.
 - **CLI redigia o próprio placeholder do prompt de CEP no log de execução (issue #38):** `_Transcricao.emitir` ganha `redigir: bool = True` por linha; o prompt ("Qual o seu CEP? (formato 00000-000)") é emitido com `redigir=False` — é texto do sistema, nunca dado do lead —, a resposta do lead continua sempre mascarada.
