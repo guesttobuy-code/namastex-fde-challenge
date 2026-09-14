@@ -195,3 +195,61 @@ def test_mensagem_de_lead_sem_sender_role_continua_balao_de_lead():
 
     assert 'class="msg lead"' in html
     assert "quero cotar" in html
+
+
+# ── UI-B5, efeito colateral do conserto do UI-B4 (achado da coordenação testando o PR #87): sem
+# fallback, a prévia da lista virava `⚠ ausente na trilha` pra TODA conversa do chat guiado, cuja
+# única `mensagem_recebida` é o resumo `sistema` (agora, corretamente, excluído da prévia).
+
+
+def test_previa_de_conversa_so_com_resumo_sistema_mostra_o_status_nao_o_buraco():
+    """Chat guiado: a única `mensagem_recebida` é o resumo sintético (issue #39) + o card de
+    handoff — nenhuma mensagem de verdade do lead, nenhuma `mensagem_enviada`. A prévia cai no
+    rótulo do status (`agrupar.rotulo_de_exibicao`), nunca no buraco técnico."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_guiado", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00",
+         "texto": "idade=35; veiculo_ano=2019; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-01",
+         "sender_role": "sistema"},
+        {"evento": "handoff", "conversation_id": "conv_guiado", "id": "ho_01",
+         "instante": "2026-09-13T10:00:01", "reason_code": "lead_pediu_humano",
+         "mensagem_ao_lead": "Vou te encaminhar para um corretor.", "contexto_coletado": {}},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa">Aguardando corretor</span>' in html
+
+
+def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
+    """Redator determinístico grava um formato estável — a prévia extrai plano e preço dali em vez
+    de cair direto no rótulo do status, quando a `mensagem_enviada` bate com esse formato."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_cotada", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "mensagem_enviada", "conversation_id": "conv_cotada", "id": "m_env",
+         "instante": "2026-09-13T10:00:01",
+         "texto": "Plano Completo: R$ 241,38/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
+         "decisao_id": "dec_01", "regra_aplicada": "explicar_cotacao", "origem_do_texto": "redator_deterministico:v1"},
+        {"evento": "decisao", "conversation_id": "conv_cotada", "id": "dec_01",
+         "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert "ausente na trilha" not in html
+    assert '<span class="previa">Completo · R$ 241,38/mês</span>' in html
+
+
+def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
+    """A conversa não tem `mensagem_recebida` NEM `mensagem_enviada` — isso é perda de dado de
+    verdade (falha de gravação), não falta de conteúdo pra resumir; o buraco técnico continua."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_so_handoff", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.", "contexto_coletado": {},
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa"><span class="falta">⚠ ausente na trilha: mensagem_recebida</span></span>' in html

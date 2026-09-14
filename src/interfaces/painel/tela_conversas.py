@@ -29,6 +29,8 @@ ser reescrita."""
 
 from __future__ import annotations
 
+import re
+
 from dominio.contato_lead import ContatoLead
 from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa, rotulo_de_exibicao
@@ -37,6 +39,12 @@ from interfaces.painel.layout import css_extra_da_tela, pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
 _EVENTOS_RELEVANTES = {"mensagem_recebida", "mensagem_enviada", "decisao"}
+
+# UI-B5 (achado da coordenação testando o conserto do UI-B4, PR #87): formato ESTÁVEL do redator
+# determinístico (`dominio.redator.montar_mensagem`, dono único, LEI 11) — "Plano X: R$ V/mês,
+# franquia ...". Só extrai resumo desse padrão exato; texto livre da IA (resposta orientada) não
+# tem formato garantido e não deve ser adivinhado.
+_PADRAO_RESUMO_COTACAO = re.compile(r"^Plano (.+?): R\$ ([\d.,]+)/mês")
 
 _OPCOES_FILTRO = (
     ("", "Todos os status"),
@@ -95,6 +103,41 @@ function transicaoDeStatus(conversationId, rota) {
 """
 
 
+def _resumo_da_ultima_cotacao(eventos_conversa: list[dict]) -> str | None:
+    """`None` quando não há `mensagem_enviada`, ou quando o texto não bate com o formato do
+    redator determinístico (resposta orientada por LLM, por exemplo) — quem chama cai pro rótulo
+    do status nesse caso, nunca inventa um resumo."""
+    enviadas = [e for e in eventos_conversa if e.get("evento") == "mensagem_enviada"]
+    if not enviadas:
+        return None
+    m = _PADRAO_RESUMO_COTACAO.match(enviadas[-1].get("texto") or "")
+    return f"{m.group(1)} · R$ {m.group(2)}/mês" if m else None
+
+
+def _previa_da_conversa(eventos_conversa: list[dict], estado: str) -> str:
+    """UI-B5 (achado da coordenação testando o conserto do UI-B4): sem fallback, toda conversa do
+    chat guiado (cuja única `mensagem_recebida` é o resumo `sistema`, issue #39) caía no buraco
+    técnico — a mesma marcação usada pra falha REAL de gravação. Prioridade: (1) última mensagem
+    de verdade do lead; (2) resumo da última cotação respondida (formato estável do redator); (3)
+    rótulo do status (dono único: `agrupar.rotulo_de_exibicao`); buraco só quando a conversa não
+    tem NENHUM evento de mensagem — aí sim é perda de dado, não falta de teor."""
+    mensagens_do_lead = [
+        e for e in eventos_conversa
+        if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema"
+    ]
+    if mensagens_do_lead:
+        return campo(mensagens_do_lead[-1], "texto")
+    resumo = _resumo_da_ultima_cotacao(eventos_conversa)
+    if resumo:
+        return esc(resumo)
+    tem_algum_evento_de_mensagem = any(
+        e.get("evento") in ("mensagem_recebida", "mensagem_enviada") for e in eventos_conversa
+    )
+    if tem_algum_evento_de_mensagem:
+        return esc(rotulo_de_exibicao(estado))
+    return buraco("mensagem_recebida")
+
+
 def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, ContatoLead] | None = None) -> str:
     por_conversa = agrupar_por_conversa(eventos)
     contatos = contatos or {}
@@ -109,15 +152,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, Cont
     for conversation_id, eventos_conversa in por_conversa.items():
         estado = estado_da_conversa(eventos_conversa)
         rotulo = rotulo_de_exibicao(estado)
-        # UI-B4 (mesmo achado da pré-auditoria do PR #87, mesma causa): a prévia da lista também não
-        # pode mostrar o resumo sintético (`sender_role="sistema"`) como se fosse a primeira coisa
-        # que o lead disse.
-        primeira_mensagem = next(
-            (e for e in eventos_conversa
-             if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema"),
-            None,
-        )
-        previa = campo(primeira_mensagem, "texto") if primeira_mensagem else buraco("mensagem_recebida")
+        previa = _previa_da_conversa(eventos_conversa, estado)
         classe_selecionado = " selecionado" if conversation_id == selecionada_inicial else ""
         nav_itens.append(f"""<button class="item{classe_selecionado}" data-status="{esc(estado)}" data-alvo="{esc(conversation_id)}" onclick="selecionarConversa('{esc(conversation_id)}')">
           <span class="l1"><span class="nome">{esc(conversation_id)}</span></span>
