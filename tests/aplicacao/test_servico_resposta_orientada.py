@@ -3,6 +3,11 @@
 lead, tenta de novo se a primeira resposta do LLM reprovar, e encaminha ao corretor (nunca inventa
 número) quando não há ficha publicada ou as tentativas se esgotam. `processar_mensagem_livre`
 classifica a mensagem livre e grava a trilha."""
+# catraca-reduz-de-proposito: issue #86 (PR a, atendimento contínuo) moveu
+# test_trilha_grava_sender_role_agente_quando_e_texto_fixo (e extraiu a asserção de sender_role="ia"
+# de test_trilha_grava_mensagem_enviada_com_origem_do_texto para um teste próprio) para
+# tests/aplicacao/test_servico_resposta_orientada_sender_role.py — arquivo bateu no teto de linhas
+# (600), nenhum caso foi apagado, só mudou de arquivo (mesmo padrão da #58/PR #75).
 
 from __future__ import annotations
 
@@ -497,27 +502,6 @@ def test_trilha_grava_mensagem_enviada_com_origem_do_texto():
     eventos = repositorio_trilha.eventos_da_conversa("conv-1")
     enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
     assert enviada["origem_do_texto"] == "llm_resposta:fake@v1"
-    assert enviada["sender_role"] == "ia"  # issue #86, I-16
-
-
-def test_trilha_grava_sender_role_agente_quando_e_texto_fixo():
-    # issue #86 (I-16): texto fixo (fora de escopo OU encaminhamento) nunca é "ia".
-    repositorio_trilha = RepositorioDeTrilhaMemoria()
-    trilha = ServicoDeTrilha(repositorio_trilha)
-    processar_mensagem_livre(
-        portal_de_linguagem=_PortalDeLinguagemComIntent("informar_dados"),
-        portal_de_resposta=_PortalFixo("não deveria ser chamado"),
-        texto_bruto="tenho 35 anos",
-        estado=_estado(),
-        preco_atual=_preco(),
-        planos=[],
-        servico_conhecimento=_servico_com_ficha_publicada(),
-        configuracao=ConfiguracaoComercial(),
-        trilha=trilha,
-    )
-    eventos = repositorio_trilha.eventos_da_conversa("conv-1")
-    enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
-    assert enviada["sender_role"] == "agente"
 
 
 def test_trilha_grava_regra_aplicada_fora_de_escopo_quando_nao_e_objecao():
