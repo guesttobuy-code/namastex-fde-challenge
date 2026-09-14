@@ -335,30 +335,29 @@ def test_previa_de_conversa_c254c560_indisponivel_mostra_aguardando_corretor():
     assert _previa_de(eventos) == "Aguardando corretor"
 
 
-def test_previa_de_conversa_2bdc86e8_cotada_mostra_o_resumo_da_cotacao():
+def test_previa_de_conversa_2bdc86e8_cotada_mostra_o_status_trilha_anterior_ao_plano_nome():
     """Trilha REAL completa de `examples/trilha_conv-2bdc86e8.jsonl` (sucesso,
-    `decisao tipo=explicar_cotacao`): `_resumo_da_ultima_cotacao` (hoje, ANTES do #94, regex sobre
-    o texto de `mensagem_enviada` — `dominio.redator` grava "Plano Essencial: R$ 137,88/mês...")
-    já casa e vira o resumo "Essencial · R$ 137,88/mês" — medido contra o código real desta
-    worktree, não presumido; depois que o #94 entrar e `_resumo_da_ultima_cotacao` passar a ler
-    `plano_nome` de um campo estruturado, esta trilha ANTIGA (sem esse campo) pode passar a cair no
-    rótulo do status ("Cotada") até `examples/` ser regenerado — não é este PR que muda
-    `_resumo_da_ultima_cotacao` (fora de escopo, #93 não toca)."""
+    `decisao tipo=explicar_cotacao`), gravada ANTES do PR #94: `_resumo_da_ultima_cotacao` deixou
+    de casar `mensagem_enviada.texto` por regex (#94, issue #59 PR 2/2) e passou a exigir o campo
+    ESTRUTURADO `plano_nome` na `tentativa_de_cotacao` — que esta trilha antiga não tem. Cai no
+    rótulo do status ("Cotada"), nunca inventa o resumo. Depois que `examples/` for regenerado com
+    o código pós-#94, a trilha nova volta a mostrar o resumo (`gerar_examples.py` roda contra o
+    domínio real, que já grava `plano_nome`)."""
     eventos = _carregar_trilha_real("trilha_conv-2bdc86e8.jsonl")
 
-    assert _previa_de(eventos) == "Essencial · R$ 137,88/mês"
+    assert _previa_de(eventos) == "Cotada"
 
 
-def test_previa_de_conversa_com_plano_nome_no_formato_do_redator_mostra_o_resumo():
-    """Trilha sintética no formato que `_resumo_da_ultima_cotacao` já reconhece hoje (o mock de
-    "tem plano_nome" citado pela coordenação) — a prévia é o resumo, não o rótulo do status."""
+def test_previa_de_conversa_com_plano_nome_estruturado_mostra_o_resumo():
+    """issue #93 pós-#94: `_resumo_da_ultima_cotacao` lê `plano_nome`/`premio_mensal` da ÚLTIMA
+    `tentativa_de_cotacao` com `classificacao=sucesso` — campo estruturado, não mais regex. Trilha
+    sintética no formato novo."""
     eventos = [
         {"evento": "mensagem_recebida", "conversation_id": "conv_plano", "id": "m_sys",
          "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
-        {"evento": "mensagem_enviada", "conversation_id": "conv_plano", "id": "m_env",
-         "instante": "2026-09-13T10:00:01",
-         "texto": "Plano Completo: R$ 313,80/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
-         "decisao_id": "dec_01", "regra_aplicada": "explicar_cotacao", "origem_do_texto": "redator_deterministico:v1"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_plano", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Completo", "premio_mensal": 313.80},
         {"evento": "decisao", "conversation_id": "conv_plano", "id": "dec_01",
          "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
     ]
