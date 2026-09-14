@@ -104,8 +104,14 @@ chat web ganha um campo de texto livre para o lead escrever uma objeção ("ache
 barato na concorrente"...); a IA responde a partir da Base de conhecimento
 (`conhecimento/objecoes/*.json`, ver [§6](#6-cuidado-com-dados-sensíveis)), nunca com um número
 fora de `{{marcador}}`. Liga com o MESMO `LLM_PROVEDOR=openrouter` de cima — uma conta, uma
-variável (LEI do dono único). **Sem chave, ou sem nenhuma ficha publicada, a resposta é sempre o
-mesmo texto fixo oferecendo um corretor** — nunca um número inventado
+variável (LEI do dono único). **Sem chave, o campo nunca fica mudo, mas a resposta não vem da IA:**
+sem `LLM_PROVEDOR=openrouter`, o extrator determinístico não classifica texto livre como objeção
+de preço (ele só EXTRAI campo por regex, não interpreta intenção) — qualquer texto cai no texto
+fixo genérico de fora de escopo, testado ao vivo: *"Por aqui eu consigo tirar dúvidas sobre o
+preço desta cotação. Para outras perguntas, toque em \"Falar com um corretor\"."*
+(`src/aplicacao/servico_resposta_orientada.py:53-57`, `ORIGEM_TEXTO_FORA_DE_ESCOPO`). **Com chave
+mas sem nenhuma ficha publicada** (ou se as tentativas de resposta reprovarem a validação), aí sim
+entra o encaminhamento ao corretor, nunca um número inventado
 (`src/aplicacao/servico_resposta_orientada.py:171-172,178-189`,
 `src/infra/adaptador_de_linguagem.py:345-360`). Limites medidos desta função: [§10](#10-limites-conhecidos).
 
@@ -141,6 +147,80 @@ Sim — duas execuções reais, sem edição, ficaram em `examples/` como entreg
   ([`trilha_conv-9a861a37.jsonl`](examples/trilha_conv-9a861a37.jsonl)) mostra três `500` seguidos
   (2795ms, 265ms, 401ms) até o orçamento não comportar mais uma tentativa, e o evento `handoff` sendo
   gravado com o motivo.
+
+---
+
+## Roteiro de teste (5 minutos)
+
+Cobre só o que está mergeado na `main` agora (`9099560` ou mais nova) — status/estado da conversa
+além do motivo do handoff, atendimento contínuo (corretor respondendo na mesma conversa) e o menu
+da tela Relatório **ainda não entraram** (ver [§9](#9-o-que-ficou-de-fora-e-por-quê)).
+
+**(a) Sem `.env` — fluxo guiado até o card, sem IA**
+```bash
+docker compose up --build
+```
+Abra `http://localhost:8080/`. Responda o roteiro guiado (nome, WhatsApp, idade, veículo, CEP,
+plano, início) até aparecer o card de preço. **Deve aparecer:** um card com plano, prêmio mensal,
+franquia, coberturas e carência, e um campo de texto abaixo com a dica "Ficou com alguma dúvida
+sobre o preço? Pode escrever aqui." Escreva qualquer coisa nesse campo (ex.: "achei caro"). **Deve
+aparecer:** a resposta fixa *"Por aqui eu consigo tirar dúvidas sobre o preço desta cotação. Para
+outras perguntas, toque em \"Falar com um corretor\"."* — nunca um erro, nunca vazio (testado ao
+vivo, servidor sem `.env`).
+
+**(b) Com `.env` (`LLM_PROVEDOR=openrouter` + `OPENROUTER_API_KEY`) — a IA responde pela base de
+conhecimento**
+
+Reinicie (`docker compose up --build` de novo, agora com o `.env` na raiz) e repita o fluxo guiado
+até o card. No campo de dúvida, cada frase abaixo deve responder pela FICHA certa
+(`conhecimento/objecoes/*.json`), citando os números do card (prêmio, franquia) — nunca um número
+diferente do que a tela já mostrou:
+- "achei caro" → ficha `preco-salgado`;
+- "a franquia tá alta" → ficha `franquia-alta`;
+- "vi mais barato na concorrente" → ficha `mais-barato-na-concorrente`;
+- "pago e ainda tenho que esperar pra ter cobertura" → ficha `caro-com-carencia`, com o número de
+  dias de carência do plano.
+
+*Não executei este passo (b) nesta rodada — não tenho `OPENROUTER_API_KEY` nesta worktree. Os 4
+comportamentos acima foram verificados ao vivo, com o LLM real, em auditorias anteriores: as duas
+primeiras frases no [veredito do PR #75](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/75#issuecomment-5657446315),
+a terceira no [log da issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78),
+a de carência no [veredito do PR #82](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/82#issuecomment-5657685213).*
+
+**(c) "Falar com um corretor"**
+
+No mesmo card, toque em "Falar com um corretor" (ou "Quero contratar" — caem no mesmo caminho
+hoje). **Deve aparecer:** *"Logo um corretor vai entrar em contato para te dar todo o suporte."*
+(testado ao vivo).
+
+**(d) O painel**
+
+Abra `http://localhost:8080/painel/rastreio.html`. **Deve aparecer:** a conversa que você acabou de
+fazer, listada à esquerda com um chip de status (ex. "handoff"); clicando nela, a linha do tempo
+completa — cada mensagem e cada tentativa de cotação, com quem enviou, id e horário. Se a `/quote`
+tiver simulado uma falha na sua tentativa (ela falha ~20% das vezes, de propósito), aparecem duas
+ou mais tentativas para a MESMA cotação antes do sucesso. Abra também
+`http://localhost:8080/painel/cotacoes.html`: a mesma tentativa aparece numa tabela, com status e
+latência.
+
+**(e) A trilha bruta**
+
+Pelo chat web, a trilha grava em `/app/examples/trilha_<conversation_id>.jsonl` **dentro do
+container** — de propósito, nunca no `./examples` do host (`docker-compose.yml`, `TRILHA_DIR`,
+comentário: "para não poluir as trilhas de exemplo versionadas com conversa de demonstração").
+Para ver, de fora do container:
+```bash
+docker compose exec app sh -c "ls /app/examples | grep trilha_"
+docker compose exec app cat /app/examples/trilha_<conversation_id>.jsonl
+```
+**Deve aparecer:** um evento JSON por linha (`mensagem_recebida`, `tentativa_de_cotacao`,
+`decisao`, `mensagem_enviada`, `handoff`...), cada um com `id` e, nas tentativas de cotação,
+`classificacao` (`sucesso`/`indisponivel`/`timeout`) — testado ao vivo (`docker exec` no container
+já rodando). É a MESMA trilha que alimenta o painel do passo (d) — nada no painel é inventado.
+
+**Status/estado da conversa (além do motivo do handoff), atendimento contínuo (corretor
+respondendo na mesma conversa) e o menu da tela Relatório: seções acrescentadas aqui quando
+entrarem na `main`.**
 
 ---
 

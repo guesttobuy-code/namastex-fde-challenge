@@ -6,6 +6,26 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Adicionado
+- **README ganha `## Roteiro de teste (5 minutos)` (pedido da coordenação, issue #15):** passos
+  (a)-(e) testados ao vivo contra a `main` pós-merge (`0eebcb9`), com servidor isolado numa porta
+  livre consumindo o `quote-api` do dono só por leitura (containers do dono nunca tocados) — (a)
+  fluxo guiado sem `.env` até o card, campo de dúvida com o texto fixo real
+  (`"Por aqui eu consigo tirar dúvidas..."`); (b) com chave, as 4 fichas — não executado nesta
+  rodada (sem `OPENROUTER_API_KEY` nesta worktree), documentado com fonte nos vereditos reais dos
+  PR #75/#82 e no log da #78; (c) "Falar com um corretor" (texto real testado); (d)
+  `/painel/rastreio.html` e `/painel/cotacoes.html`, conferidos com uma conversa real (2 tentativas
+  de cotação, retry incluso); (e) a trilha `.jsonl` — achado no caminho: ela vive DENTRO do
+  container (`TRILHA_DIR=/app/examples`, nunca montada no host, de propósito), README corrigido
+  com o comando `docker compose exec app cat ...` em vez de um caminho de host que não existe.
+  **Divergência achada e corrigida na mesma rodada:** a frase de §1 sobre "sem chave" citava o
+  texto de ENCAMINHAMENTO ao corretor, mas o teste ao vivo mostrou que sem `LLM_PROVEDOR`
+  configurado o extrator nem chega a classificar a mensagem como objeção — o texto real é o de
+  FORA DE ESCOPO (`_TEXTO_FORA_DE_ESCOPO`, `servico_resposta_orientada.py:53-57`), caminho
+  diferente do "sem ficha publicada". §9 também ganhou a troca da linha #81 (mergeado) pela #59
+  (tela Relatório sem menu ainda, confirmado por grep: `gerar.py`/`layout.py` não referenciam
+  `tela_relatorio`).
+
 ### Segurança
 - **`scripts/sanitizar_ai_logs.py` ganha rede de segurança independente para padrão pessoal, fail-closed (pedido da coordenação, issue #15):** a verificação final passa a conferir também os 4 padrões pessoais (chave OU valor), lidos de `_local/padroes_pessoais.txt` — arquivo SEPARADO de `_local/ai-logs-config.json` de propósito: criado pelo DONO, não pela sessão que decide a substituição, para ser um segundo par de olhos independente (se os dois vierem da mesma fonte, os dois têm o mesmo ponto cego — foi exatamente o caso do achado anterior). Um padrão LITERAL por linha (não regex), sem caixa; linhas vazias/`#` ignoradas. Arquivo ausente ou vazio: `SystemExit` ANTES de escrever qualquer coisa — "não publico ai-logs sem essa checagem", nunca segue em silêncio (LEI 2). `--self-test` ganha 3 casos novos: padrão fictício numa chave de dict aborta, num valor aborta, arquivo ausente aborta sem escrever nada — os 5 continuam verdes. README (§8) ganha uma linha declarando que a checagem existe, sem citar nenhum padrão.
 - **`scripts/sanitizar_ai_logs.py` não sanitizava CHAVE de dicionário, só valor (achado do ensaio
