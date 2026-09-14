@@ -132,6 +132,30 @@ O `docker compose` repassa essas duas variáveis para o container `app` em tempo
 entram na imagem nem no log) — o mesmo `.env` funciona rodando o servidor direto no host, sem
 Docker (`PYTHONPATH=src python -m interfaces.servidor`).
 
+### Rodar os testes
+
+Dependências de desenvolvimento (`ruff`, `pytest`, `import-linter`) vêm do `[dependency-groups]`
+do `pyproject.toml`, não do Docker — instale com [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --group dev
+PYTHONPATH=src uv run python -m pytest -q
+PYTHONPATH=src uv run lint-imports
+uv run ruff check .
+```
+
+Saída esperada (rodada nesta máquina, contra o HEAD desta branch):
+
+```
+611 passed, 38 deselected
+Contracts: 3 kept, 0 broken
+All checks passed!
+```
+
+Os 38 testes `deselected` são marcados `llm_real` (`pyproject.toml:56`) — chamam a API OpenRouter
+de verdade e só rodam com `OPENROUTER_API_KEY` no ambiente (`pytest -m llm_real`, explícito; sem
+isso o `addopts` da linha 61 os exclui por padrão, para CI e clones sem `.env` continuarem verdes).
+
 ---
 
 ## 2. Funciona de ponta a ponta?
