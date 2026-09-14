@@ -27,6 +27,9 @@ mudança aqui exige companion obrigatório na prova (Prova 1) e o olho do dono n
 | `interfaces.rotas_planos_indisponivel` (issue #95) | `src/interfaces/rotas_planos_indisponivel.py`, `src/aplicacao/servico_conversa.py` (`encaminhar_planos_indisponiveis`, `_registrar_decisao_do_turno` — extraída de `conduzir_conversa`, dono único da escrita reusado pelos dois), `src/interfaces/chat/_corpo.html` (`PASSOS.plano()` conta falhas de `GET /api/planos`; na 2ª, chama `encaminharPorPlanosIndisponiveis()`) | `interfaces.servidor` (`_rotear_chat`, despacho de `POST /api/chat/planos-indisponivel` — NUNCA recebe `portal_de_cotacao`, de propósito); `dominio.decisao.MotivoHandoff.QUOTE_INDISPONIVEL` (reusado, nenhum motivo novo) | `pytest tests/aplicacao/test_servico_conversa.py tests/interfaces/test_rotas_planos_indisponivel.py tests/interfaces/chat/test_tela_chat.py` | não |
 |  |  |  |  |  |
 
+| `interfaces.painel_inicial` (issue #89, R1) | `src/interfaces/painel_inicial.py`, `src/interfaces/servidor.py` (`main()`, chama `aquecer_painel_em_segundo_plano` antes do `make_server`) | `infra.planos_http.buscar_planos` (só chamador a mais, sem mudar a função — 1 tentativa de 2s, sem retry, dono único); `interfaces.painel.gerar.gerar_paineis` (mesma chamada que `/api/chat/cotar`/`contratar` já fazem) | `pytest tests/interfaces/test_painel_inicial.py tests/interfaces/test_servidor.py` | não |
+|  |  |  |  |  |
+
 ## Regras
 
 - **Erro se concentra nas BORDAS.** A refatoração mudou o dono do arquivo — o dono novo passou a

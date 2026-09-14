@@ -7,6 +7,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **`/painel/regras.html` mostrava buraco de `GET /planos` logo depois de `docker compose up --build`, até a 1ª cotação/handoff (R1 da auditoria fria, issue #89):** o painel nasce em build-time sem rede pra `quote-api` (`Dockerfile`); em runtime, `gerar_paineis` só voltava a rodar depois de `/api/chat/cotar`/`contratar` — e a `quote-api` simula 20% de falha, então a 1ª regeneração podia demorar. `interfaces.painel_inicial.aquecer_painel_em_segundo_plano` (nova, chamada por 1 linha em `servidor.py::main()` antes do `make_server`) tenta `buscar_planos` (inalterado — 1 tentativa de 2s, sem retry) até 10 vezes numa thread `daemon=True`, e chama `gerar_paineis` na primeira resposta não-nula; esgotado sem sucesso, termina sem exceção (o buraco some na 1ª cotação/handoff de qualquer jeito). Nunca atrasa o boot — a thread devolve o controle na hora, medido em teste.
 - **README, seção "Rodar os testes" — números da "Saída esperada" desatualizados (issue #96):** a contagem de testes cresceu de 611 pra 676 desde que a seção foi escrita (novas frentes mergeadas: painel-exibicao, painel-polimento, onclick-seguro, planos-indisponivel); `Contracts: 3 kept, 0 broken` e os 38 `llm_real` continuam iguais. Números conferidos rodando os 4 comandos de verdade nesta worktree, HEAD `f26c5dc`.
 
 ### Segurança

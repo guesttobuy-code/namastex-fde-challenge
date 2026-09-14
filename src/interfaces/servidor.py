@@ -72,6 +72,7 @@ from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_
 from interfaces.http_comum import json_resposta as _json
 from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 from interfaces.painel.gerar import gerar_paineis
+from interfaces.painel_inicial import aquecer_painel_em_segundo_plano
 from interfaces.rotas_planos_indisponivel import responder_planos_indisponivel
 from interfaces.rotas_status_conversa import responder_conversa_assumir, responder_conversa_encerrar
 
@@ -580,7 +581,8 @@ def main() -> int:
         repositorio_contato=repositorio_contato,
         portal_de_cotacao=portal_de_cotacao,
     )
-
+    # issue #89 (R1): painel nasce sem rede pra quote-api no build; thread daemon, nunca atrasa o boot.
+    aquecer_painel_em_segundo_plano(buscar_planos=buscar_planos_real, trilha_dir=trilha_dir, painel_dir=painel_dir, repositorio_contato=repositorio_contato)
     with make_server("0.0.0.0", porta, app) as servidor:
         print(f"servidor local em http://0.0.0.0:{porta} — conhecimento em {conhecimento_dir}")
         servidor.serve_forever()
