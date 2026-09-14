@@ -255,10 +255,38 @@ def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
     assert '<span class="previa"><span class="falta">⚠ ausente na trilha: mensagem_recebida</span></span>' in html
 
 
-def test_previa_de_conversa_com_ultima_resposta_vazia_nao_mostra_buraco():
-    """issue #93: eventos REAIS de `examples/trilha_conv-198a633b.jsonl` (`msg_coleta_3/4_recebida`)
-    — a última mensagem do lead é uma resposta vazia explícita (Enter num campo opcional), nunca o
-    buraco técnico de falha de gravação."""
+def test_previa_de_conversa_ignora_as_respostas_vazias_e_mostra_a_ultima_com_conteudo():
+    """issue #93 (ajuste pós-#94): a ÚLTIMA `mensagem_recebida` de uma conversa da CLI quase sempre
+    é a resposta vazia da data de início (Enter, campo opcional) — se a prévia usasse ela, TODA
+    conversa da CLI mostraria "(sem resposta — seguiu o padrão)" na lista, escondendo o resumo da
+    cotação. A prévia ignora as respostas vazias e usa a última com conteúdo de verdade. Eventos
+    REAIS de `examples/trilha_conv-198a633b.jsonl`: a última mensagem com conteúdo é o CEP
+    (`msg_coleta_2_recebida`, já `[REDIGIDO]` pelo redator) — `msg_coleta_3/4_recebida` (vazias)
+    não contam."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_0_recebida",
+         "instante": "2026-09-14T02:51:44.067264+00:00", "texto": "80", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_1_recebida",
+         "instante": "2026-09-14T02:51:44.068429+00:00", "texto": "2020", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_2_recebida",
+         "instante": "2026-09-14T02:51:44.069186+00:00", "texto": "[REDIGIDO]", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
+         "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
+         "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    previa = re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
+    assert previa == "[REDIGIDO]"
+
+
+def test_previa_de_conversa_so_com_respostas_vazias_cai_no_status_nao_no_vazio():
+    """Quando NENHUMA mensagem do lead tem conteúdo (só respostas vazias), a prévia não mostra o
+    marcador de resposta vazia — cai no mesmo fallback de sempre (resumo da cotação, senão o
+    status). Aqui não há `mensagem_enviada` nem `decisao`/`status_alterado`, então cai no rótulo
+    do estado inicial ("Com o agente")."""
     eventos = [
         {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
          "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead"},
@@ -269,7 +297,8 @@ def test_previa_de_conversa_com_ultima_resposta_vazia_nao_mostra_buraco():
     html = tela_conversas.render(eventos)
 
     assert "ausente na trilha: texto" not in html
-    assert '<span class="previa"><span class="vazio">(sem resposta — seguiu o padrão)</span></span>' in html
+    previa = re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
+    assert previa == "Com o agente"
 
 
 def test_secao_conversa_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
