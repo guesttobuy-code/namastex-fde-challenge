@@ -24,16 +24,14 @@ from interfaces.painel import (
     tela_avaliacao,
     tela_conversas,
     tela_cotacoes,
-    tela_fila_humana,
     tela_rastreio,
     tela_regras,
 )
 
-# handoffs.html sai deste dict (issue #46, PR 2 de 2): precisa receber `contatos`, que as outras
-# telas do loop não usam — mesmo padrão que regras.html/avaliacao.html já seguem, tratadas à parte
-# logo abaixo, fora do loop.
+# index.html sai deste dict (issue #46 e #57, PR 2 de 2): precisa receber `contatos`, que as
+# outras telas do loop não usam — mesmo padrão que regras.html/avaliacao.html já seguem, tratadas
+# à parte logo abaixo, fora do loop.
 _ARQUIVOS = {
-    "index.html": lambda eventos, **kw: tela_conversas.render(eventos, **kw),
     "rastreio.html": lambda eventos, **kw: tela_rastreio.render(eventos, **kw),
     "cotacoes.html": lambda eventos, **kw: tela_cotacoes.render(eventos, **kw),
 }
@@ -52,10 +50,11 @@ def _ler_eventos(caminho_trilha: Path) -> list[dict]:
 def _contatos_das_conversas(
     eventos: list[dict], repositorio_contato: RepositorioDeContato | None
 ) -> dict[str, ContatoLead] | None:
-    """Monta `conversation_id -> ContatoLead` para `tela_fila_humana.render` (ADR-0005, decisão 3):
-    lê o repositório de contato só para as conversas que aparecem na trilha, nunca grava nada e
-    nunca passa pelo `RepositorioDeTrilha`. `repositorio_contato=None` (chamador não passou —
-    aditivo) devolve `None`, e a tela cai no comportamento de hoje ("não informado" para tudo)."""
+    """Monta `conversation_id -> ContatoLead` para `tela_conversas.render` (ADR-0005, decisão 3;
+    issue #57, P14 — antes alimentava `tela_fila_humana`, removida): lê o repositório de contato só
+    para as conversas que aparecem na trilha, nunca grava nada e nunca passa pelo
+    `RepositorioDeTrilha`. `repositorio_contato=None` (chamador não passou — aditivo) devolve
+    `None`, e a tela cai no comportamento de hoje ("não informado" para tudo)."""
     if repositorio_contato is None:
         return None
     conversas = {evento.get("conversation_id") for evento in eventos if evento.get("conversation_id")}
@@ -74,17 +73,21 @@ def gerar_paineis(
     caminho_ui_css: Path | None = None,
     repositorio_contato: RepositorioDeContato | None = None,
 ) -> list[Path]:
-    """Gera as seis telas em `dir_saida` a partir da trilha em `caminho_trilha` — um arquivo
+    """Gera as CINCO telas em `dir_saida` a partir da trilha em `caminho_trilha` — um arquivo
     `.jsonl`, ou uma pasta com vários `trilha_*.jsonl`. Retorna os caminhos escritos, na ordem de
-    prioridade do escopo #13.
+    prioridade do escopo #13. `handoffs.html` (Fila humana) não é mais gerado (issue #57, P14, PR
+    2 de 2, pré-auditoria do PR #87) — o menu aponta pro Histórico já filtrado (S10), e o catálogo
+    de motivos migrou para `regras.html`.
 
     `repositorio_contato` (issue #46, PR 2 de 2, ADR-0005): aditivo, default `None` — todo chamador
-    existente continua funcionando igual. Quando passado, `handoffs.html` (Fila humana) ganha
-    nome/WhatsApp do lead ao lado de cada card, lido fora da trilha."""
+    existente continua funcionando igual. Quando passado, `index.html` (Histórico) ganha nome/
+    WhatsApp do lead ao lado de cada conversa encaminhada, lido fora da trilha."""
     eventos = _ler_eventos(caminho_trilha)
 
     dir_saida = Path(dir_saida)
     dir_saida.mkdir(parents=True, exist_ok=True)
+
+    contatos = _contatos_das_conversas(eventos, repositorio_contato)
 
     escritos = []
     for nome_arquivo, render in _ARQUIVOS.items():
@@ -92,6 +95,12 @@ def gerar_paineis(
         caminho = dir_saida / nome_arquivo
         caminho.write_text(html, encoding="utf-8")
         escritos.append(caminho)
+
+    caminho_index = dir_saida / "index.html"
+    caminho_index.write_text(
+        tela_conversas.render(eventos, caminho_ui_css=caminho_ui_css, contatos=contatos), encoding="utf-8"
+    )
+    escritos.append(caminho_index)
 
     planos = buscar_planos(url_quote_service())
     caminho_regras = dir_saida / "regras.html"
@@ -111,17 +120,6 @@ def gerar_paineis(
     caminho_avaliacao = dir_saida / "avaliacao.html"
     caminho_avaliacao.write_text(tela_avaliacao.render(caminho_ui_css=caminho_ui_css), encoding="utf-8")
     escritos.append(caminho_avaliacao)
-
-    caminho_handoffs = dir_saida / "handoffs.html"
-    caminho_handoffs.write_text(
-        tela_fila_humana.render(
-            eventos,
-            caminho_ui_css=caminho_ui_css,
-            contatos=_contatos_das_conversas(eventos, repositorio_contato),
-        ),
-        encoding="utf-8",
-    )
-    escritos.append(caminho_handoffs)
 
     return escritos
 

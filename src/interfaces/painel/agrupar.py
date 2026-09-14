@@ -1,17 +1,34 @@
 """Agrupamento puro de eventos da trilha por conversa — nenhuma regra de negócio, só leitura e
-rótulo de apresentação a partir do vocabulário que o domínio já publica (`dominio.decisao`).
+rótulo de apresentação a partir do vocabulário que o domínio já publica (`dominio.status_conversa`,
+issue #57, P14 — substituiu `dominio.decisao` como fonte do estado nesta frente).
 """
 
 from __future__ import annotations
 
-from dominio.decisao import TipoDecisao
+from dominio.status_conversa import StatusDaConversa, status_atual_da_conversa
 
-ROTULO_POR_TIPO_DECISAO = {
-    TipoDecisao.EXPLICAR_COTACAO.value: "cotada",
-    TipoDecisao.ENCERRAR.value: "recusada",
-    TipoDecisao.ENCAMINHAR.value: "handoff",
-    TipoDecisao.COTAR.value: "cotando",
-    TipoDecisao.COLETAR_INFORMACAO.value: "coletando dados",
+# Rótulo de EXIBIÇÃO — o corretor lê isto na tela. Distinto do valor RAW (`StatusDaConversa.value`,
+# ex. "aguardando_corretor") que `estado_da_conversa()` devolve: o raw é o que vira `data-status`
+# pro filtro client-side (S10 do roteiro de aceite, #57) e a CHAVE de `classe_chip_do_estado`
+# abaixo — nunca o inverso, senão o filtro teria que normalizar acento/maiúscula do texto exibido.
+ROTULO_DE_EXIBICAO = {
+    StatusDaConversa.COM_O_AGENTE.value: "Com o agente",
+    StatusDaConversa.COTADA.value: "Cotada",
+    StatusDaConversa.AGUARDANDO_CORRETOR.value: "Aguardando corretor",
+    StatusDaConversa.EM_ATENDIMENTO_HUMANO.value: "Em atendimento humano",
+    StatusDaConversa.ENCERRADA.value: "Encerrada",
+}
+
+# Chip: reaproveita os 5 tokens de cor já existentes em `docs/design/ui.css` (ok/alerta/falha/
+# neutra/viva) — nenhuma classe nova. Julgamento de apresentação (não especificado pelo PLAN):
+# COM_O_AGENTE/EM_ATENDIMENTO_HUMANO = "viva" (conversa ativa, alguém agindo agora), COTADA = "ok"
+# (ponto positivo), AGUARDANDO_CORRETOR = "alerta" (precisa de ação humana), ENCERRADA = "neutra".
+_CLASSE_CHIP_POR_STATUS = {
+    StatusDaConversa.COM_O_AGENTE.value: "viva",
+    StatusDaConversa.COTADA.value: "ok",
+    StatusDaConversa.AGUARDANDO_CORRETOR.value: "alerta",
+    StatusDaConversa.EM_ATENDIMENTO_HUMANO.value: "viva",
+    StatusDaConversa.ENCERRADA.value: "neutra",
 }
 
 
@@ -25,28 +42,24 @@ def agrupar_por_conversa(eventos: list[dict]) -> dict[str, list[dict]]:
 
 
 def estado_da_conversa(eventos_da_conversa: list[dict]) -> str:
-    """Estado de apresentação, lido do último evento `decisao` ou `handoff` — nunca calculado.
-
-    Um `handoff` sempre vence porque é o desfecho declarado da conversa; na ausência de um, o
-    último `decisao` manda. Sem nenhum dos dois, a conversa ainda está em andamento.
-    """
-    if any(evento.get("evento") == "handoff" for evento in eventos_da_conversa):
-        return "handoff"
-    decisoes = [e for e in eventos_da_conversa if e.get("evento") == "decisao"]
-    if decisoes:
-        return ROTULO_POR_TIPO_DECISAO.get(decisoes[-1].get("tipo"), "em andamento")
-    return "em andamento"
+    """Valor RAW do status (`StatusDaConversa.value`, ex. `"aguardando_corretor"`) — dono único é
+    `dominio.status_conversa` (LEI 11, condição 1 do veredito do PLANO do PR 2 da issue #57):
+    último evento `status_alterado` se existir; senão reconstrói pelo último `decisao` (trilhas
+    ANTIGAS, sem esse evento — `examples/*.jsonl` gravados antes desta frente). Conversa sem
+    NENHUM sinal ainda (só `mensagem_recebida`, nem uma `decisao`) cai em COM_O_AGENTE — o estado
+    inicial antes da primeira decisão automática."""
+    status = status_atual_da_conversa(eventos_da_conversa)
+    return (status or StatusDaConversa.COM_O_AGENTE).value
 
 
-_CLASSE_CHIP_POR_ESTADO = {
-    "cotada": "cotada", "handoff": "handoff", "recusada": "recusada",
-    "cotando": "andamento", "coletando dados": "andamento", "em andamento": "neutra",
-}
+def rotulo_de_exibicao(estado: str) -> str:
+    """Traduz o valor RAW (chave de filtro/`data-status`) pro texto que o corretor lê na tela."""
+    return ROTULO_DE_EXIBICAO.get(estado, estado)
 
 
 def classe_chip_do_estado(estado: str) -> str:
-    """Classe CSS do `.chip` (já em `docs/design/ui.css`) para o estado de apresentação da conversa."""
-    return _CLASSE_CHIP_POR_ESTADO.get(estado, "neutra")
+    """Classe CSS do `.chip` (já em `docs/design/ui.css`) para o estado RAW da conversa."""
+    return _CLASSE_CHIP_POR_STATUS.get(estado, "neutra")
 
 
 def tentativas_de_cotacao(eventos_da_conversa: list[dict]) -> list[dict]:

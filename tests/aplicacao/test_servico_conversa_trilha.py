@@ -47,7 +47,9 @@ def test_conversa_de_sucesso_grava_mensagem_recebida_tentativa_decisao_e_mensage
 
     eventos = repositorio.eventos_da_conversa("conv-trilha")
     tipos = [e["evento"] for e in eventos]
-    assert tipos == ["mensagem_recebida", "decisao", "mensagem_enviada"]
+    # status_alterado (issue #57, P14): conduzir_conversa passa a gravar o status a cada turno,
+    # sempre por último — depois de decisao/mensagem_enviada/handoff (quando houver).
+    assert tipos == ["mensagem_recebida", "decisao", "mensagem_enviada", "status_alterado"]
     # FakePortalDeCotacao não simula tentativas HTTP individuais (ver seu docstring) — quem prova
     # tentativa_de_cotacao por tentativa é o teste com ClienteQuoteHTTP real, abaixo.
 
