@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sanitizar_ai_logs import PLACEHOLDER_PADRAO_PESSOAL, exportar
+from sanitizar_ai_logs import PLACEHOLDER_PADRAO_PESSOAL, exportar, verificacao_final
 
 
 def rodar_self_test() -> int:
@@ -24,7 +24,11 @@ def rodar_self_test() -> int:
     este script) sobrevive tanto a um abort quanto a um sucesso -- a pasta inteira nunca e apagada,
     so as pastas de SESSAO exportadas. S3 (issue #15): a ultima linha do arquivo de origem sem '\n'
     final (sessao ainda sendo escrita no instante da copia) nao aborta mais -- so essa linha e
-    descartada, com aviso, e o resto exporta normal. Nao toca em nada de `_local/` real (todo
+    descartada, com aviso, e o resto exporta normal. S4 (issue #15): `verificacao_final` separa
+    "linha" so por '\n' real (bytes) -- um registro valido com U+2028/U+0085 embutido num valor
+    string nao aborta mais (json.dumps nao escapa esses caracteres, e o antigo `str.splitlines()`
+    os tratava como quebra de linha, fragmentando 1 registro em 2+ "linhas" invalidas falsas); uma
+    linha de verdade invalida no meio continua abortando. Nao toca em nada de `_local/` real (todo
     caminho e temporario)."""
     import contextlib
     import io
@@ -129,6 +133,42 @@ def rodar_self_test() -> int:
         saida_capturada_s3 = captura.getvalue()
         conteudo_linha_incompleta = arquivo_saida.read_text(encoding="utf-8") if arquivo_saida.exists() else ""
 
+        # 7) S4 (achado da exportacao real, issue #15): verificacao_final tem que separar "linha" por
+        #    `\n` REAL (bytes), nunca por `str.splitlines()` -- `json.dumps` nao escapa U+0085 (NEL)
+        #    nem U+2028/U+2029 (fora do range 0x00-0x1F que o JSON exige escapar), e `splitlines()`
+        #    trata esses caracteres como quebra de linha, fragmentando 1 registro VALIDO em 2+
+        #    "linhas" falsas (achado ao vivo: 2 registros reais da sessao da coordenacao, cada um com
+        #    um separador desses dentro de um valor string, viraram 4 "linhas invalidas" reportadas,
+        #    quando nenhum registro estava quebrado). Testa `verificacao_final` DIRETO (sem passar
+        #    por `exportar`/`sanitizar_arquivo_jsonl`, que so escrevem `\n` real e nunca produziriam o
+        #    caso por si so): 1 registro valido com U+2028 e U+0085 embutidos (nao pode reportar
+        #    problema) e, na linha seguinte, 1 registro DE VERDADE invalido (tem que continuar
+        #    reportando -- a troca de separador nao pode fazer a checagem parar de pegar erro real).
+        pasta_verificacao_s4 = tmp / "verificacao-s4"
+        pasta_verificacao_s4.mkdir()
+        arquivo_verificacao_s4 = pasta_verificacao_s4 / "sessao-verificacao.jsonl"
+        # chr(0x2028)/chr(0x0085) -- nunca um caractere cru no fonte (LS/NEL nao aparecem no
+        # editor de forma confiavel; construir por codigo evita mutilacao do arquivo-fonte).
+        separador_ls = chr(0x2028)
+        separador_nel = chr(0x0085)
+        conteudo_com_separadores = f"linha1{separador_ls}linha2{separador_nel}linha3"
+        # ensure_ascii=False, igual ao `json.dumps` real (linha 308) -- com o default (True) os
+        # caracteres nao-ASCII virariam escape `\uXXXX` e o caso de teste nao reproduziria o achado
+        # real (U+2028/U+0085 CRUS na saida, que so aparecem com ensure_ascii=False).
+        registro_com_separadores = json.dumps(
+            {"type": "user", "message": {"content": conteudo_com_separadores}}, ensure_ascii=False
+        )
+        arquivo_verificacao_s4.write_text(
+            registro_com_separadores + "\n" + "{isto nao e json valido" + "\n", encoding="utf-8"
+        )
+        problemas_s4 = verificacao_final(pasta_verificacao_s4, ["PADRAO-FICTICIO-TESTE"])
+        registro_com_separadores_nao_reportado = not any(
+            "sessao-verificacao.jsonl:1:" in p for p in problemas_s4
+        )
+        linha_invalida_ainda_reportada = any(
+            "sessao-verificacao.jsonl:2: linha nao e JSON valido" in p for p in problemas_s4
+        )
+
     ok = (
         exit_com_chave == 1
         and marcador_sobreviveu_ao_abort
@@ -149,6 +189,8 @@ def rodar_self_test() -> int:
         and "MARCA-LINHA-COMPLETA" in conteudo_linha_incompleta
         and "MARCA-LINHA-INCOMPLETA" not in conteudo_linha_incompleta
         and "linha(s) final(is) incompleta(s) descartada(s)" in saida_capturada_s3
+        and registro_com_separadores_nao_reportado
+        and linha_invalida_ainda_reportada
     )
     print()
     print("[sanitizar_ai_logs] SELF-TEST (roteiro de mutacao):")
@@ -158,5 +200,6 @@ def rodar_self_test() -> int:
     print(f"  padrao pessoal no valor (S1)  -> exit={exit_padrao_no_valor} (esperado 0), substituido={PLACEHOLDER_PADRAO_PESSOAL in conteudo_padrao_valor}")
     print(f"  arquivo de padroes ausente    -> abortou={arquivo_ausente_abortou} (esperado True), nada escrito={not saida_sem_padroes_existe}")
     print(f"  linha final sem '\\n' (S3)     -> exit={exit_linha_incompleta} (esperado 0), linha completa preservada={'MARCA-LINHA-COMPLETA' in conteudo_linha_incompleta}, linha incompleta descartada={'MARCA-LINHA-INCOMPLETA' not in conteudo_linha_incompleta}, avisou={'linha(s) final(is) incompleta(s) descartada(s)' in saida_capturada_s3}")
+    print(f"  separador U+2028/U+0085 (S4)  -> registro valido NAO reportado={registro_com_separadores_nao_reportado} (esperado True), linha de verdade invalida continua reportada={linha_invalida_ainda_reportada} (esperado True)")
     print("SELF-TEST OK" if ok else "SELF-TEST FALHOU")
     return 0 if ok else 1

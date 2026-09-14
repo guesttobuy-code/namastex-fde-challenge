@@ -44,8 +44,11 @@ O QUE ESTE SCRIPT FAZ, em ordem:
      segredo conhecidos (prefixos de token), dos padroes PESSOAIS remanescentes (chave ou valor --
      esperado zero, ja que o passo 3 os substitui; fica como rede de seguranca) e de blocos de
      imagem remanescentes, e confere que toda linha de todo arquivo gerado continua sendo JSON
-     valido. Qualquer ocorrencia ABORTA a exportacao inteira e imprime a LISTA DE ARQUIVOS afetados
-     -- nunca o valor que casou. `ai-logs/` (o destino real) nunca chega a ser tocado.
+     valido -- "linha" separada so por `\n` REAL, em bytes (S4), nunca por `str.splitlines()`, que
+     trata U+0085/U+2028/U+2029 (nao escapados por `json.dumps`) como quebra de linha e
+     fragmentaria 1 registro valido em "linhas" falsas. Qualquer ocorrencia ABORTA a exportacao
+     inteira e imprime a LISTA DE ARQUIVOS afetados -- nunca o valor que casou. `ai-logs/` (o
+     destino real) nunca chega a ser tocado.
   5. Só se a verificação passar: troca, em `ai-logs/`, SÓ as pastas de SESSÃO exportadas (S2) --
      nunca a pasta inteira. `ai-logs/README.md` e `ai-logs/codex/` (conteúdo que não é pasta de
      sessão nenhuma) nunca são apagados nem tocados, porque não fazem parte da troca.
@@ -350,7 +353,16 @@ def verificacao_final(pasta_saida: Path, padroes_pessoais: list[str]) -> list[st
                 problemas.append(f"{rel}: padrao de segredo '{nome}' presente apos sanitizacao")
         if '"type": "image"' in texto or '"type":"image"' in texto:
             problemas.append(f"{rel}: ainda tem bloco de imagem nao removido")
-        for numero, linha in enumerate(texto.splitlines(), start=1):
+        # S4 (achado da exportacao real, issue #15): NUNCA `texto.splitlines()` aqui -- ele quebra em
+        # ~9 caracteres (\n, \r, \v, \f, \x1c-\x1e, U+0085, U+2028, U+2029), mas `json.dumps` (linha
+        # 308, ensure_ascii=False) so' e' obrigado a escapar controle U+0000-U+001F -- um valor string
+        # com U+0085/U+2028/U+2029 sobrevive CRU na saida. Um so' registro valido com um desses
+        # embutido virava 2+ "linhas" falsas aqui, cada uma invalida isolada (achado ao vivo: 2
+        # registros reais da sessao da coordenacao geraram 4 "linhas invalidas" reportadas, nenhuma
+        # de verdade quebrada). So' separar por `\n` REAL, em bytes, corresponde 1:1 ao que
+        # `sanitizar_arquivo_jsonl` escreveu.
+        for numero, bruto in enumerate(arq.read_bytes().split(b"\n"), start=1):
+            linha = bruto.decode("utf-8")
             if not linha.strip():
                 continue
             try:
