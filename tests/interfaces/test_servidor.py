@@ -20,6 +20,7 @@ from infra.cliente_quote import FakePortalDeCotacao
 from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialMemoria
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoMemoria
 from infra.repositorio_contato_json import RepositorioDeContatoMemoria
+from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.servidor import _ESTADOS_EM_MEMORIA, criar_app
 
 

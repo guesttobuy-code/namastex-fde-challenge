@@ -85,7 +85,23 @@ linha alheia (R2, #16).
   caso de uso que `interfaces.cli` já chama, nunca reimplementado aqui —, grava a trilha e
   regenera o painel); `POST /api/chat/contratar` ("Quero contratar" e "Falar com um corretor" —
   ver a nota da decisão abaixo — marcam `ultimo_intent=QUER_CONTRATAR` e chamam `conduzir_conversa`
-  de novo).
+  de novo); `POST /api/chat/mensagem`, roteada para `interfaces.chat_mensagem.responder_chat_mensagem`
+  (módulo próprio, separado de `servidor.py` para não empurrar o arquivo perto do teto do guard
+  `file-loc-ceiling` — importa os helpers de borda HTTP de `interfaces.http_comum`, abaixo; issue
+  #51, parte 2: registra uma pergunta ou resposta de um dos 9 passos da coleta guiada na trilha,
+  pelas MESMAS funções `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/
+  `registrar_resposta_de_coleta` que `interfaces.cli` já usa — dono único da escrita da trilha;
+  nunca chama `gerar_paineis`, mesmo padrão mais leve de `/api/chat/contato`. Campo obrigatório
+  `campo`, um dos 9 nomes de passo do fluxo guiado — nome/whatsapp/email são mascarados no servidor
+  antes de chegar na trilha, incondicional ao texto que o cliente mandou; CEP é normalizado por
+  `dominio.validacao.normalizar_cep` antes de gravar, mesma disciplina de `/api/chat/cotar`,
+  issue #68 — achado durante a prova: CEP sem hífen não batia em nenhum padrão do redator e
+  chegaria em claro).
+- `interfaces.http_comum` (novo, issue #51 parte 2): utilitários de borda HTTP compartilhados —
+  `json_resposta`, `ler_corpo_json`, `conversation_id_ou_400`, `METODO_NAO_SUPORTADO`,
+  `CONVERSATION_ID_VALIDO` — extraídos de `servidor.py` (dono único, sem duplicar) porque o merge
+  com outras frentes levou o arquivo a 603 linhas, acima do teto do `file-loc-ceiling`; `servidor.py`
+  e `chat_mensagem.py` importam de lá, sem mudança de assinatura/comportamento.
 - Estado da conversa entre turnos (ADR-0005, decisão 1): `_ESTADOS_EM_MEMORIA`, um
   `dict[str, EstadoDaConversa]` a nível de MÓDULO em `servidor.py` — não escondido atrás de uma
   classe. Perdido ao reiniciar o processo, limite aceito e declarado no ADR.

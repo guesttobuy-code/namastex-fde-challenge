@@ -53,6 +53,17 @@ def test_render_tem_os_textos_exatos_aprovados_pela_issue_46():
     )
 
 
+def test_render_instrumenta_as_9_perguntas_da_coleta_na_trilha():
+    """Issue #51, parte 2: cada uma das 9 perguntas do fluxo guiado grava pergunta E resposta na
+    trilha via POST /api/chat/mensagem, chamando `perguntar(...)`/`responder(...)` — pega quem
+    remover a instrumentação de um dos passos ao editar `_corpo.html`."""
+    html = tela_chat.render()
+
+    assert "/api/chat/mensagem" in html
+    assert html.count("perguntar(") >= 9
+    assert html.count("responder(") >= 9
+
+
 def test_render_esta_dentro_da_casca_compartilhada():
     """Achado da auditoria do PR #62 (13/09/2026): a tela tinha um `.cabecalho` extra, com texto
     de programador ("ligado ao agente real via aplicacao.servico_conversa... /api/chat/*") visível
