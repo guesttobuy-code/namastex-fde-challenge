@@ -148,7 +148,7 @@ uv run ruff check .
 Saída esperada (rodada nesta máquina, contra o HEAD desta branch):
 
 ```
-611 passed, 38 deselected
+676 passed, 38 deselected
 Contracts: 3 kept, 0 broken
 All checks passed!
 ```
