@@ -52,6 +52,10 @@ _ITENS_MENU = (
         # atalho"). Filtra o Histórico de atendimentos pelo status oficial equivalente
         # (`interfaces.painel.tela_conversas`, JS lê `?status=` no carregamento da página).
         ("/painel/index.html?status=aguardando_corretor", "🙋", "Fila humana", "fila"),
+        # issue #59 (PR 2 de 2): ferramenta do corretor pra acompanhar e priorizar leads, não
+        # diagnóstico técnico — decisão da coordenação de ficar em "Atendimento", não em
+        # "Observabilidade".
+        ("/painel/relatorio.html", "🗂️", "Relatório", None),
     )),
     ("Observabilidade", (
         ("/painel/rastreio.html", "🧭", "Rastreio", None),
