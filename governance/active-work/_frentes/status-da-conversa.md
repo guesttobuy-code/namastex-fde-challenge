@@ -10,7 +10,7 @@ session_title: "Status conversa análise e plano - chat 17"
 status: aberta
 opened_at: 2026-09-13T18:34:02.9416785-03:00
 last_seen: 2026-09-13T18:34:02.9416785-03:00
-pr: ""
+pr: "87"
 github_frente: "frente:status-da-conversa"
 closed_at: ""
 ---
