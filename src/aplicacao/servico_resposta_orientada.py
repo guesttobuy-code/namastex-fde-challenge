@@ -21,6 +21,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 
 from aplicacao.servico_conversa import _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, intencao_reconhecida
+from aplicacao.servico_status_conversa import registrar_mudanca_de_status
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import redator_pii
 from dominio.configuracao_comercial import ConfiguracaoComercial
@@ -38,6 +39,7 @@ from dominio.intencao import Intencao
 from dominio.nomes_cobertura import nome_legivel
 from dominio.preco_cotado import PrecoCotado
 from dominio.redator import valor_br
+from dominio.status_conversa import StatusDaConversa
 
 from .portas.portal_de_linguagem import PortalDeLinguagem
 from .portas.portal_de_resposta_orientada import PortalDeRespostaOrientada
@@ -55,6 +57,11 @@ _TEXTO_FORA_DE_ESCOPO = (
     'em "Falar com um corretor".'
 )
 ORIGEM_TEXTO_FORA_DE_ESCOPO = "texto_fixo:fora_do_escopo_resposta_orientada"
+
+# LEI 11 (dono único): a mesma string identifica, na trilha, "este turno respondeu uma objeção de
+# preço" — usada tanto para GRAVAR `mensagem_enviada.regra_aplicada` quanto para CONTAR, no
+# próximo turno, quantas vezes isso já aconteceu (item 6 da #58, `_tentativas_de_objecao_ja_feitas`).
+_REGRA_OBJECAO_DE_PRECO = "resposta_orientada:objecao_de_preco"
 
 _MAX_TENTATIVAS = 2
 
@@ -106,6 +113,19 @@ def _valores_dos_marcadores(preco: PrecoCotado, planos: Iterable[dict]) -> dict[
     return valores
 
 
+def _tentativas_de_objecao_ja_feitas(trilha: ServicoDeTrilha | None, conversation_id: str) -> int:
+    """Item 6 da #58: conta, na TRILHA desta conversa, quantos turnos JÁ responderam uma objeção
+    de preço (`mensagem_enviada.regra_aplicada == _REGRA_OBJECAO_DE_PRECO`) — o turno ATUAL não
+    conta ainda, só chamado antes de decidir a resposta dele. `trilha=None` (chamador não gravou
+    nada, ex. teste sem trilha): sempre 0 — sem histórico, não há como esgotar."""
+    if trilha is None:
+        return 0
+    eventos = trilha.eventos_da_conversa(conversation_id)
+    return sum(
+        1 for e in eventos if e.get("evento") == "mensagem_enviada" and e.get("regra_aplicada") == _REGRA_OBJECAO_DE_PRECO
+    )
+
+
 def montar_contexto(
     preco: PrecoCotado,
     planos: Iterable[dict],
@@ -137,6 +157,27 @@ def montar_contexto(
     }
 
 
+def _limite_de_tentativas(contexto: dict) -> int | None:
+    """Item 6 da #58 ("tentativas antes do corretor" da ficha, decisão registrada no PR #75 —
+    "fora daquele PR, vai para a #57 PR 2"): cada ficha PUBLICADA tem seu próprio
+    `tentativas_antes_do_corretor` (obrigatório, 1..5, validado em `FichaDeObjecao.publicar`).
+
+    LIMITE CONHECIDO, sinalizado aqui (LEI 2 — não-chute): o LLM recebe TODAS as fichas publicadas
+    juntas no mesmo contexto e escreve texto livre — o código nunca sabe com certeza QUAL ficha
+    embasou a resposta (a saída não é estruturada; mudar isso é escopo maior, fora do que a #58
+    pediu). Sem esse dado, não dá pra contar tentativas POR ficha com segurança. Decisão desta
+    frente: usar o MENOR `tentativas_antes_do_corretor` entre as fichas que estavam no contexto —
+    a leitura mais conservadora (nunca deixa o lead passar do limite mais apertado de nenhuma
+    ficha envolvida). `None` só quando não há ficha publicada (caso já tratado antes de chamar
+    esta função)."""
+    limites = [
+        f.get("tentativas_antes_do_corretor")
+        for f in contexto["fichas_de_objecao"]
+        if f.get("tentativas_antes_do_corretor")
+    ]
+    return min(limites) if limites else None
+
+
 def _dados_usados_das_fichas(contexto: dict) -> tuple[str, ...]:
     """issue #58, veredito da auditoria do PR #75, bloqueante B5: a trilha precisa registrar quais
     peças da base de conhecimento alimentaram a resposta. O LLM não devolve qual ficha escolheu
@@ -155,16 +196,21 @@ def montar_e_responder(
     servico_conhecimento: ServicoDeConhecimento,
     configuracao: ConfiguracaoComercial,
     texto_do_lead: str = "",
+    tentativas_ja_feitas: int = 0,
 ) -> tuple[str, str, MotivoHandoff | None, tuple[str, ...]]:
     """Devolve `(texto, origem_do_texto, motivo_handoff, dados_usados)`. `motivo_handoff` é `None`
     numa resposta válida; `MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL` quando não há ficha
-    publicada para basear a resposta (nem chama o LLM à toa) ou quando as `_MAX_TENTATIVAS`
-    reprovam na validação de marcador ou de frase proibida ("Pronto quando" da #58, bloqueante B4
-    do veredito da auditoria do PR #75) — nunca um número fabricado, nem um `{{marcador}}` visível
-    ao lead, nem uma promessa de desconto/ajuste/urgência; encaminha para o corretor em vez disso,
-    mesmo texto de `LEAD_QUER_CONTRATAR` (decisão da coordenação — reaproveita
+    publicada para basear a resposta (nem chama o LLM à toa), quando as `_MAX_TENTATIVAS` reprovam
+    na validação de marcador ou de frase proibida ("Pronto quando" da #58, bloqueante B4 do
+    veredito da auditoria do PR #75), ou quando `tentativas_ja_feitas` já esgotou o
+    `tentativas_antes_do_corretor` da ficha (item 6 da #58, decisão registrada no PR #75 — "vai
+    para a #57 PR 2"; ver `_limite_de_tentativas`) — nunca um número fabricado, nem um
+    `{{marcador}}` visível ao lead, nem uma promessa de desconto/ajuste/urgência; encaminha para o
+    corretor em vez disso, mesmo texto de `LEAD_QUER_CONTRATAR` (decisão da coordenação — reaproveita
     `_TEXTO_ENCAMINHAMENTO_PARA_CORRETOR`, LEI 11). `texto_do_lead` (bloqueante B2) já vem
-    mascarado — só repassado para `montar_contexto`, nunca lido aqui."""
+    mascarado — só repassado para `montar_contexto`, nunca lido aqui. `tentativas_ja_feitas`: quem
+    chama (`processar_mensagem_livre`) conta na TRILHA quantas respostas de objeção esta conversa
+    já recebeu — esta função fica sem I/O, só recebe o número pronto."""
     planos = list(planos)
     contexto = montar_contexto(preco, planos, servico_conhecimento, configuracao, texto_do_lead)
 
@@ -172,6 +218,10 @@ def montar_e_responder(
         return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL, ()
 
     dados_usados = _dados_usados_das_fichas(contexto)
+    limite = _limite_de_tentativas(contexto)
+    if limite is not None and tentativas_ja_feitas >= limite:
+        return _TEXTO_ENCAMINHAMENTO_PARA_CORRETOR, ORIGEM_TEXTO_FIXO, MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL, dados_usados
+
     vocabulario = vocabulario_de_marcadores(p["id"] for p in planos if p.get("id"))
     valores = _valores_dos_marcadores(preco, planos)
 
@@ -241,8 +291,9 @@ def processar_mensagem_livre(
             servico_conhecimento=servico_conhecimento,
             configuracao=configuracao,
             texto_do_lead=texto_mascarado,
+            tentativas_ja_feitas=_tentativas_de_objecao_ja_feitas(trilha, estado.conversation_id),
         )
-        regra_aplicada = "resposta_orientada:objecao_de_preco"
+        regra_aplicada = _REGRA_OBJECAO_DE_PRECO
     else:
         texto, origem, motivo_handoff, dados_usados = _TEXTO_FORA_DE_ESCOPO, ORIGEM_TEXTO_FORA_DE_ESCOPO, None, ()
         regra_aplicada = "resposta_orientada:fora_de_escopo"
@@ -274,6 +325,14 @@ def processar_mensagem_livre(
                     reason_code=motivo_handoff.value,
                     mensagem_ao_lead=texto,
                 )
+            )
+            # issue #57 (S8 do roteiro de aceite): este fluxo não passa por `conduzir_conversa`, e
+            # não constrói `dominio.decisao.Decisao` (não há `politica.decidir` aqui) — por isso não
+            # reusa `aplicacao.servico_conversa.registrar_status_do_turno`, que exige uma. Chama
+            # `registrar_mudanca_de_status` direto, com a MESMA regra genérica da condição 3
+            # (qualquer encaminhamento vira AGUARDANDO_CORRETOR, sem caso especial por motivo).
+            registrar_mudanca_de_status(
+                trilha, estado.conversation_id, StatusDaConversa.AGUARDANDO_CORRETOR, origem="automatico"
             )
 
     return texto, origem, intencao
