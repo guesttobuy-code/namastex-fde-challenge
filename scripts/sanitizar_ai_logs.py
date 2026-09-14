@@ -25,6 +25,14 @@ O QUE ESTE SCRIPT FAZ, em ordem:
      seguranca, nao como unico defensor.
   2. Para cada sessao configurada, le o `.jsonl` principal e cada `.jsonl` de `subagents/`
      (recursivo), PULANDO os arquivos da lista `excluir` (ex.: a transcricao do incidente).
+     Antes de sanitizar, tira um RETRATO de cada arquivo (S3, `shutil.copy2` pra uma pasta
+     temporaria) e sanitiza SO o retrato, nunca o arquivo vivo -- achado da exportacao real: a
+     sessao de origem pode estar sendo escrita ao mesmo tempo que a exportacao roda, e ler o
+     arquivo vivo linha a linha pode pegar uma linha final pela metade. Se a ULTIMA linha do
+     retrato nao termina em `\n` (escrita pela metade no instante exato da copia), essa linha
+     final e descartada (so ela), com aviso da contagem -- linha invalida no MEIO do arquivo
+     continua so pulada e contada (nao aborta aqui; aborta na verificacao final, passo 4, se sobrar
+     no que foi ESCRITO).
   3. Em cada linha (um evento JSON por linha), NUMA PASTA DE STAGING TEMPORARIA (S2, fora de
      `ai-logs/`): substitui todo bloco `{"type": "image", ...}` por um bloco de texto `[IMAGEM
      REMOVIDA: captura de tela do dono]`; aplica os padroes de substituicao da config, o redator de
@@ -355,13 +363,35 @@ def verificacao_final(pasta_saida: Path, padroes_pessoais: list[str]) -> list[st
     return problemas
 
 
+def _copiar_para_retrato(origem: Path, destino: Path) -> int:
+    """S3 (achado da exportação real, issue #15): copia `origem` para `destino` -- um RETRATO
+    (fotografia do arquivo naquele instante), porque a sessão de origem pode estar sendo ESCRITA ao
+    mesmo tempo que a exportação roda (achado ao vivo: a sessão da coordenação, ainda ativa, causou
+    4 linhas finais quebradas no meio da exportação, porque o script lia o arquivo vivo linha a
+    linha enquanto ele crescia). Dali em diante, sanitizar/ler só olha para a CÓPIA, nunca mais para
+    o arquivo vivo. Se a última linha da cópia não termina em `\n` (escrita pela metade no instante
+    exato da cópia), descarta só essa linha final e devolve 1; senão devolve 0. Linha inválida no
+    MEIO do arquivo não é tratada aqui -- continua indo para `sanitizar_arquivo_jsonl`, que já pula
+    e conta linhas de origem que não são JSON válido."""
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(origem, destino)
+    dados = destino.read_bytes()
+    if dados and not dados.endswith(b"\n"):
+        pos = dados.rfind(b"\n")
+        destino.write_bytes(dados[: pos + 1] if pos != -1 else b"")
+        return 1
+    return 0
+
+
 def _sanitizar_todas_as_sessoes(
-    config, apenas_sessoes, excluir, staging, substituicoes, redigir,
+    config, apenas_sessoes, excluir, staging, retrato, substituicoes, redigir,
     padroes_pessoais_sub, contagens_padroes_pessoais,
-) -> tuple[set[str], int, int]:
-    """Sanitiza cada sessão descoberta para dentro de `staging`. Devolve (slugs exportados, total
-    de arquivos, total de linhas de origem que não eram JSON válido)."""
+) -> tuple[set[str], int, int, int]:
+    """Sanitiza cada sessão descoberta para dentro de `staging`, lendo sempre de um RETRATO (S3) em
+    `retrato`, nunca do arquivo vivo. Devolve (slugs exportados, total de arquivos, total de linhas
+    de origem que não eram JSON válido, total de linhas finais incompletas descartadas)."""
     total_linhas_invalidas = 0
+    total_linhas_finais_descartadas = 0
     total_arquivos = 0
     slugs_exportados: set[str] = set()
     for sessao in descobrir_sessoes(config):
@@ -374,12 +404,14 @@ def _sanitizar_todas_as_sessoes(
             continue
         slugs_exportados.add(slug)
         for origem, rel in coletar_arquivos_da_sessao(pasta_sessao, slug, excluir):
+            retrato_arquivo = retrato / rel
+            total_linhas_finais_descartadas += _copiar_para_retrato(origem, retrato_arquivo)
             destino = staging / rel
             total_linhas_invalidas += sanitizar_arquivo_jsonl(
-                origem, destino, substituicoes, redigir, padroes_pessoais_sub, contagens_padroes_pessoais
+                retrato_arquivo, destino, substituicoes, redigir, padroes_pessoais_sub, contagens_padroes_pessoais
             )
             total_arquivos += 1
-    return slugs_exportados, total_arquivos, total_linhas_invalidas
+    return slugs_exportados, total_arquivos, total_linhas_invalidas, total_linhas_finais_descartadas
 
 
 def _trocar_pastas_de_sessao(saida: Path, staging: Path, slugs_exportados: set[str]) -> None:
@@ -424,14 +456,25 @@ def exportar(
     with tempfile.TemporaryDirectory(prefix="sanitizar_ai_logs_") as tmp:
         staging = Path(tmp) / "saida"
         staging.mkdir()
+        # S3 (achado da exportacao real, issue #15): retrato -- copia de cada arquivo de sessao no
+        # instante da exportacao, porque a sessao de origem pode estar sendo escrita ao mesmo tempo
+        # (achado ao vivo: a sessao da coordenacao, ainda ativa, quebrou 4 linhas no meio da leitura
+        # porque o script lia o arquivo vivo enquanto ele crescia). Dali em diante, tudo le so o
+        # retrato, nunca mais o arquivo vivo.
+        retrato = Path(tmp) / "retrato"
+        retrato.mkdir()
 
-        slugs_exportados, total_arquivos, total_linhas_invalidas = _sanitizar_todas_as_sessoes(
-            config, apenas_sessoes, excluir, staging, substituicoes, redigir,
-            padroes_pessoais_sub, contagens_padroes_pessoais,
+        slugs_exportados, total_arquivos, total_linhas_invalidas, total_linhas_finais_descartadas = (
+            _sanitizar_todas_as_sessoes(
+                config, apenas_sessoes, excluir, staging, retrato, substituicoes, redigir,
+                padroes_pessoais_sub, contagens_padroes_pessoais,
+            )
         )
         print(f"[sanitizar_ai_logs] {total_arquivos} arquivo(s) sanitizado(s) (staging, fora de {saida})")
         if total_linhas_invalidas:
             print(f"[sanitizar_ai_logs] AVISO: {total_linhas_invalidas} linha(s) de origem nao eram JSON valido (puladas)")
+        if total_linhas_finais_descartadas:
+            print(f"[sanitizar_ai_logs] AVISO: {total_linhas_finais_descartadas} linha(s) final(is) incompleta(s) descartada(s) (sessao sendo escrita no instante da copia)")
 
         problemas = verificacao_final(staging, padroes_pessoais)
         if problemas:

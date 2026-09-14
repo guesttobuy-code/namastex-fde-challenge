@@ -22,8 +22,12 @@ def rodar_self_test() -> int:
     aborta mais so por isso) -- e o arquivo de padroes pessoais ausente continua abortando ANTES de
     escrever qualquer coisa. S2 (issue #15): um arquivo pre-existente em `saida` (nao gerado por
     este script) sobrevive tanto a um abort quanto a um sucesso -- a pasta inteira nunca e apagada,
-    so as pastas de SESSAO exportadas. Nao toca em nada de `_local/` real (todo caminho e
-    temporario)."""
+    so as pastas de SESSAO exportadas. S3 (issue #15): a ultima linha do arquivo de origem sem '\n'
+    final (sessao ainda sendo escrita no instante da copia) nao aborta mais -- so essa linha e
+    descartada, com aviso, e o resto exporta normal. Nao toca em nada de `_local/` real (todo
+    caminho e temporario)."""
+    import contextlib
+    import io
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -113,6 +117,18 @@ def rodar_self_test() -> int:
             arquivo_ausente_abortou = True
         saida_sem_padroes_existe = saida_sem_padroes.exists()
 
+        # 6) S3: ultima linha do arquivo de origem SEM '\n' final (sessao sendo escrita no instante
+        #    da copia) -> nao aborta, descarta so essa linha, avisa a contagem, resto passa normal
+        principal.write_bytes(
+            (json.dumps({"type": "user", "message": {"content": "MARCA-LINHA-COMPLETA"}}) + "\n").encode("utf-8")
+            + json.dumps({"type": "user", "message": {"content": "MARCA-LINHA-INCOMPLETA"}}).encode("utf-8")
+        )
+        captura = io.StringIO()
+        with contextlib.redirect_stdout(captura):
+            exit_linha_incompleta = exportar(config_path, saida, apenas_sessoes=["teste"], padroes_pessoais_path=padroes_path)
+        saida_capturada_s3 = captura.getvalue()
+        conteudo_linha_incompleta = arquivo_saida.read_text(encoding="utf-8") if arquivo_saida.exists() else ""
+
     ok = (
         exit_com_chave == 1
         and marcador_sobreviveu_ao_abort
@@ -129,6 +145,10 @@ def rodar_self_test() -> int:
         and PLACEHOLDER_PADRAO_PESSOAL in conteudo_padrao_valor
         and arquivo_ausente_abortou
         and not saida_sem_padroes_existe
+        and exit_linha_incompleta == 0
+        and "MARCA-LINHA-COMPLETA" in conteudo_linha_incompleta
+        and "MARCA-LINHA-INCOMPLETA" not in conteudo_linha_incompleta
+        and "linha(s) final(is) incompleta(s) descartada(s)" in saida_capturada_s3
     )
     print()
     print("[sanitizar_ai_logs] SELF-TEST (roteiro de mutacao):")
@@ -137,5 +157,6 @@ def rodar_self_test() -> int:
     print(f"  padrao pessoal na CHAVE (S1)  -> exit={exit_padrao_na_chave} (esperado 0), substituido={PLACEHOLDER_PADRAO_PESSOAL in conteudo_padrao_chave}")
     print(f"  padrao pessoal no valor (S1)  -> exit={exit_padrao_no_valor} (esperado 0), substituido={PLACEHOLDER_PADRAO_PESSOAL in conteudo_padrao_valor}")
     print(f"  arquivo de padroes ausente    -> abortou={arquivo_ausente_abortou} (esperado True), nada escrito={not saida_sem_padroes_existe}")
+    print(f"  linha final sem '\\n' (S3)     -> exit={exit_linha_incompleta} (esperado 0), linha completa preservada={'MARCA-LINHA-COMPLETA' in conteudo_linha_incompleta}, linha incompleta descartada={'MARCA-LINHA-INCOMPLETA' not in conteudo_linha_incompleta}, avisou={'linha(s) final(is) incompleta(s) descartada(s)' in saida_capturada_s3}")
     print("SELF-TEST OK" if ok else "SELF-TEST FALHOU")
     return 0 if ok else 1
