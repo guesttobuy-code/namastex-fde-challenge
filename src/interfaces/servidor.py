@@ -36,7 +36,6 @@ import dataclasses
 import json
 import mimetypes
 import os
-import re
 from pathlib import Path
 from wsgiref.simple_server import make_server
 
@@ -50,6 +49,7 @@ from dominio.estado_conversa import EstadoDaConversa
 from dominio.ficha_objecao import MarcadorInvalido
 from dominio.intencao import Intencao
 from dominio.nomes_cobertura import nome_legivel
+from dominio.validacao import normalizar_cep
 from infra.cliente_quote import MAX_TENTATIVAS, ClienteQuoteHTTP
 from infra.config import url_quote_service
 from infra.planos_http import buscar_planos as buscar_planos_real
@@ -59,42 +59,21 @@ from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON
 from infra.repositorio_contato_json import RepositorioDeContatoJSON, RepositorioDeContatoMemoria
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.chat import tela_chat
+from interfaces.chat_mensagem import responder_chat_mensagem
 from interfaces.conhecimento import tela_edicao
+from interfaces.http_comum import CONVERSATION_ID_VALIDO as _CONVERSATION_ID_VALIDO
+from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
+from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
+from interfaces.http_comum import json_resposta as _json
+from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 from interfaces.painel.gerar import gerar_paineis
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _PAISES_JSON = _RAIZ / "docs" / "design" / "paises.json"
 
-# Achado de segurança (revisão automática, 13/09/2026): `conversation_id` chega pelo corpo do POST
-# — HTTP, não confiável — e vira nome de arquivo da trilha em `_responder_chat_cotar`/`_contratar`
-# (`trilha_dir / f"trilha_{conversation_id}.jsonl"`). Sem validar o formato, um `conversation_id`
-# tipo "../../etc/cron.d/x" escreve/lê fora de `trilha_dir` (path traversal). Mesmo regex de
-# `infra.repositorio_contato_json._CONVERSATION_ID_VALIDO` (LEI 11: mesma técnica de validação de
-# nome de arquivo, dono duplicado de propósito nas 3 bordas que recebem o id — mesmo raciocínio já
-# registrado ali, não uma regra de negócio nova).
-_CONVERSATION_ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-
-
-def _conversation_id_ou_400(dados: dict) -> tuple[str, None] | tuple[None, tuple]:
-    """`(conversation_id, None)` se válido; `(None, resposta_400)` se ausente ou fora do formato
-    seguro — quem chama devolve a resposta direto (`return resposta` quando o segundo item não é
-    `None`)."""
-    conversation_id = dados.get("conversation_id")
-    if not conversation_id or not isinstance(conversation_id, str):
-        return None, _json("400 Bad Request", {"erro": "conversation_id é obrigatório"})
-    if not _CONVERSATION_ID_VALIDO.match(conversation_id):
-        return None, _json("400 Bad Request", {"erro": "conversation_id fora do formato seguro"})
-    return conversation_id, None
-
 # ADR-0005, decisão 1 (ver docstring do módulo): estado da conversa entre turnos, chave
 # `conversation_id`, em memória do PROCESSO — não é um singleton escondido, é este dict, explícito.
 _ESTADOS_EM_MEMORIA: dict[str, EstadoDaConversa] = {}
-
-
-def _json(status: str, corpo: dict | list) -> tuple[str, list[tuple[str, str]], list[bytes]]:
-    dados = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
-    cabecalhos = [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(dados)))]
-    return status, cabecalhos, [dados]
 
 
 def _html(status: str, texto: str) -> tuple[str, list[tuple[str, str]], list[bytes]]:
@@ -128,19 +107,6 @@ def _servir_painel(painel_dir: Path, subcaminho: str) -> tuple[str, list[tuple[s
     return _arquivo_estatico(alvo)
 
 
-_METODO_NAO_SUPORTADO = ("405 Method Not Allowed", {"erro": "método não suportado"})
-
-
-def _ler_corpo_json(environ) -> dict | None:
-    """`None` quando o corpo não é JSON válido — quem chama decide o 400."""
-    try:
-        tamanho = int(environ.get("CONTENT_LENGTH") or 0)
-        bruto = environ["wsgi.input"].read(tamanho)
-        return json.loads(bruto or b"{}")
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return None
-
-
 def _responder_raiz(metodo: str):
     if metodo != "GET":
         return _json(*_METODO_NAO_SUPORTADO)
@@ -160,7 +126,12 @@ def _responder_lista(servico: ServicoDeConhecimento, metodo: str):
 
 
 def _responder_ler_ficha(servico: ServicoDeConhecimento, id_da_ficha: str):
-    ficha = servico.obter_objecao(id_da_ficha)
+    # issue #69: `_validar_id` levanta ValueError p/ id fora do formato (path traversal já
+    # BLOQUEADO antes de ler arquivo) — sem este `try` virava 500; o PUT abaixo já tratava.
+    try:
+        ficha = servico.obter_objecao(id_da_ficha)
+    except ValueError as erro:
+        return _json("400 Bad Request", {"erro": str(erro)})
     if ficha is None:
         return _json("404 Not Found", {"erro": "ficha não encontrada"})
     return _json("200 OK", ficha)
@@ -205,9 +176,14 @@ def _responder_salvar_configuracao(servico_configuracao: ServicoDeConfiguracaoCo
     dados = _ler_corpo_json(environ)
     if dados is None or "encaminhar_lead_fora_do_padrao" not in dados:
         return _json("400 Bad Request", {"erro": "envie {\"encaminhar_lead_fora_do_padrao\": true|false}"})
-    configuracao = servico_configuracao.salvar(
-        encaminhar_lead_fora_do_padrao=bool(dados["encaminhar_lead_fora_do_padrao"])
-    )
+    valor = dados["encaminhar_lead_fora_do_padrao"]
+    # issue #69: bool("nao") é True — mandar "nao" LIGAVA a config em silêncio (o oposto do pedido).
+    if not isinstance(valor, bool):
+        return _json(
+            "400 Bad Request",
+            {"erro": "encaminhar_lead_fora_do_padrao precisa ser true ou false (JSON bool), não uma string"},
+        )
+    configuracao = servico_configuracao.salvar(encaminhar_lead_fora_do_padrao=valor)
     return _json("200 OK", {"encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao})
 
 
@@ -366,6 +342,11 @@ def _responder_chat_cotar(
     conversation_id, resposta_erro = _conversation_id_ou_400(dados)
     if resposta_erro is not None:
         return resposta_erro
+    # issue #68: CEP fora do formato cotava sem o agravo regional; normalizar_cep é o dono único
+    # do formato aceito (mesma função de montar_estado). Ausente/vazio não é erro (ainda não coletado).
+    cep_bruto = dados.get("cep")
+    if cep_bruto not in (None, "") and normalizar_cep(cep_bruto) is None:
+        return _json("400 Bad Request", {"erro": "cep fora do formato válido (00000-000)"})
 
     estado = montar_estado(conversation_id, _dados_mesclados(conversation_id, dados))
 
@@ -448,6 +429,8 @@ def _rotear_chat(
         return _responder_paises(metodo)
     if caminho == "/api/chat/contato":
         return _responder_chat_contato(servico_contato, environ, metodo)
+    if caminho == "/api/chat/mensagem":
+        return responder_chat_mensagem(trilha_dir=trilha_dir, environ=environ, metodo=metodo)
     if caminho == "/api/chat/cotar":
         return _responder_chat_cotar(
             painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,

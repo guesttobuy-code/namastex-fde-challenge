@@ -49,7 +49,9 @@ def _respostas_com_eof(*linhas: str):
 
 
 def test_coletar_dados_aceita_tudo_de_primeira(capsys):
-    dados = coletar_dados(_Transcricao(), entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01"))
+    dados = coletar_dados(
+        _Transcricao(), "conv-teste", entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01")
+    )
 
     assert dados == {
         "idade": 30,
@@ -62,21 +64,25 @@ def test_coletar_dados_aceita_tudo_de_primeira(capsys):
 
 
 def test_coletar_dados_campos_opcionais_em_branco():
-    dados = coletar_dados(_Transcricao(), entrada=_respostas("30", "2020", "01310-100", "", ""))
+    dados = coletar_dados(_Transcricao(), "conv-teste", entrada=_respostas("30", "2020", "01310-100", "", ""))
 
     assert dados["plano_id"] is None
     assert dados["data_inicio"] is None
 
 
 def test_coletar_dados_reprompta_cep_invalido(capsys):
-    dados = coletar_dados(_Transcricao(), entrada=_respostas("30", "2020", "abc", "01310-100", "", ""))
+    dados = coletar_dados(
+        _Transcricao(), "conv-teste", entrada=_respostas("30", "2020", "abc", "01310-100", "", "")
+    )
 
     assert dados["cep"] == "01310-100"
     assert "inválido" in capsys.readouterr().out
 
 
 def test_coletar_dados_reprompta_campo_obrigatorio_em_branco(capsys):
-    dados = coletar_dados(_Transcricao(), entrada=_respostas("", "30", "2020", "01310-100", "", ""))
+    dados = coletar_dados(
+        _Transcricao(), "conv-teste", entrada=_respostas("", "30", "2020", "01310-100", "", "")
+    )
 
     assert dados["idade"] == 30
     assert "obrigatório" in capsys.readouterr().out
@@ -271,3 +277,98 @@ def test_rodar_conversa_grava_a_trilha_estruturada_por_padrao(tmp_path, monkeypa
     assert estruturado.exists()
     assert "mensagem_enviada" in estruturado.read_text(encoding="utf-8")
     assert "01310-100" not in jsonl.read_text(encoding="utf-8"), "CEP em claro no arquivo de trilha"
+
+
+def test_coletar_dados_com_trilha_grava_dez_eventos_na_ordem_certa():
+    """issue #51/#55: a coleta campo a campo hoje não grava nada na trilha — com `trilha=` passado,
+    cada um dos 5 campos grava a pergunta (`mensagem_enviada`) ANTES de perguntar e a resposta REAL
+    do lead (`mensagem_recebida`) DEPOIS, pela `aplicacao` (nunca `trilha.registrar_evento` direto
+    daqui)."""
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+
+    dados = coletar_dados(
+        _Transcricao(),
+        "conv-coleta-trilha",
+        entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01"),
+        trilha=trilha,
+    )
+
+    assert dados["idade"] == 30
+    eventos = repositorio.eventos_da_conversa("conv-coleta-trilha")
+    assert len(eventos) == 10
+    assert [e["evento"] for e in eventos] == [
+        "mensagem_enviada", "mensagem_recebida",
+        "mensagem_enviada", "mensagem_recebida",
+        "mensagem_enviada", "mensagem_recebida",
+        "mensagem_enviada", "mensagem_recebida",
+        "mensagem_enviada", "mensagem_recebida",
+    ]
+    # o CEP é PII: `ServicoDeTrilha` redige sozinho antes de gravar (mesmo tratamento dos outros
+    # eventos) — a resposta REAL (não redigida) é o que `registrar_resposta_de_coleta` recebeu,
+    # não necessariamente o que fica no repositório.
+    respostas_gravadas = [e["texto"] for e in eventos if e["evento"] == "mensagem_recebida"]
+    assert respostas_gravadas == ["30", "2020", "[REDIGIDO]", "completo", "2026-10-01"]
+    # a pergunta do CEP casa com o próprio padrão de PII (`00000-000`) e sai redigida pelo
+    # ServicoDeTrilha — mesma disciplina de "nada escapa do redator" que vale para qualquer
+    # evento da trilha; índice 0 (idade) não tem esse formato, então prova o texto plano.
+    perguntas_gravadas = [e["texto"] for e in eventos if e["evento"] == "mensagem_enviada"]
+    assert perguntas_gravadas[0] == "Qual a sua idade?"
+    assert all(e["origem_do_texto"] == "coleta_deterministica" for e in eventos if e["evento"] == "mensagem_enviada")
+
+
+def test_coletar_dados_com_trilha_grava_string_vazia_quando_campo_opcional_em_branco():
+    """Campo opcional em branco (`resposta is None`) tem que gravar `""` na trilha, nunca `None`
+    (o dataclass `MensagemRecebida.texto` espera `str`)."""
+    repositorio = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio)
+
+    coletar_dados(
+        _Transcricao(), "conv-coleta-branco", entrada=_respostas("30", "2020", "01310-100", "", ""), trilha=trilha
+    )
+
+    eventos = repositorio.eventos_da_conversa("conv-coleta-branco")
+    respostas_gravadas = [e["texto"] for e in eventos if e["evento"] == "mensagem_recebida"]
+    assert respostas_gravadas == ["30", "2020", "[REDIGIDO]", "", ""]
+
+
+def test_transcricao_salvar_nao_redige_o_prompt_mas_redige_a_resposta(tmp_path):
+    """O prompt do CEP é texto do sistema (nunca dado do lead) — não pode ser redigido, senão o
+    `"00000-000"` do formato viraria `[REDIGIDO]`. A resposta com o CEP real continua redigida."""
+    transcricao = _Transcricao()
+    transcricao.emitir("Qual o seu CEP? (formato 00000-000)", redigir=False)
+    transcricao.emitir("> 01310-100")
+
+    caminho = tmp_path / "transcricao.log"
+    transcricao.salvar(caminho)
+
+    conteudo = caminho.read_text(encoding="utf-8")
+    linhas = conteudo.splitlines()
+    assert linhas[0] == "Qual o seu CEP? (formato 00000-000)"
+    assert "[REDIGIDO]" not in linhas[0]
+    assert "01310-100" not in linhas[1]
+    assert "[REDIGIDO]" in linhas[1]
+
+
+def test_coletar_dados_ponta_a_ponta_prompt_do_cep_sobrevive_e_resposta_sai_redigida(tmp_path):
+    """Achado da auditoria do PR (veredito no #64): o teste acima chama `_Transcricao.emitir`
+    direto, com literais — nunca passa por `_perguntar`/`coletar_dados`, então uma mutação que
+    também marcasse a RESPOSTA como `redigir=False` dentro de `_perguntar` ficava verde. Este teste
+    roda `coletar_dados` de ponta a ponta (o caminho de produção real) com um CEP de verdade na
+    entrada simulada e lê o arquivo que `_Transcricao.salvar` escreveria — o mesmo formato do log
+    de execução, que é entregável público (`examples/execucao_*.log`)."""
+    transcricao = _Transcricao()
+
+    coletar_dados(
+        transcricao, "conv-teste-log", entrada=_respostas("30", "2020", "01310-100", "completo", "2026-10-01")
+    )
+
+    caminho = tmp_path / "transcricao.log"
+    transcricao.salvar(caminho)
+    linhas = caminho.read_text(encoding="utf-8").splitlines()
+
+    linha_prompt_cep = next(l for l in linhas if l.startswith("Qual o seu CEP?"))
+    linha_resposta_cep = next(l for l in linhas if l.startswith("> ") and ("01310-100" in l or "[REDIGIDO]" in l))
+    assert linha_prompt_cep == "Qual o seu CEP? (formato 00000-000)"
+    assert "01310-100" not in linha_resposta_cep
+    assert linha_resposta_cep == "> [REDIGIDO]"

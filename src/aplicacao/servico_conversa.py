@@ -46,14 +46,22 @@ def montar_estado(conversation_id: str, dados: dict) -> EstadoDaConversa:
     nome/whatsapp/email/veiculo_modelo — issue #46, PR 2 de 2). Só valida FORMATO
     (`dominio.validacao`) — elegibilidade é decidida pela `/quote`, nunca aqui. `nome`/`whatsapp`/
     `email` ficam só em `EstadoDaConversa` (para o chat lembrar entre turnos) — nunca vão para
-    `_contexto_coletado`/a trilha, isso é feito só por `ServicoDeContato` (ADR-0005)."""
-    faltantes = validacao.campos_obrigatorios_faltantes(dados)
+    `_contexto_coletado`/a trilha, isso é feito só por `ServicoDeContato` (ADR-0005).
+
+    CEP passa por `validacao.normalizar_cep` (issue #68, decisão da coordenação) ANTES de entrar
+    no estado — nunca o valor cru. Um CEP sem hífen (`"01310100"`) vira `"01310-100"` (o único
+    formato que `dominio.redator_pii` sabe mascarar); um CEP inválido vira `None`, que
+    `campos_obrigatorios_faltantes` (chamada abaixo, já com o valor normalizado) volta a pedir ao
+    lead — dono único do formato aceito e do normalizado (LEI 11), nunca uma segunda regra aqui."""
+    cep_normalizado = validacao.normalizar_cep(dados.get("cep"))
+    dados_com_cep_normalizado = {**dados, "cep": cep_normalizado}
+    faltantes = validacao.campos_obrigatorios_faltantes(dados_com_cep_normalizado)
     return EstadoDaConversa(
         conversation_id=conversation_id,
         idade=dados.get("idade"),
         veiculo_ano=dados.get("veiculo_ano"),
         plano_id=dados.get("plano_id"),
-        cep=dados.get("cep"),
+        cep=cep_normalizado,
         data_inicio=dados.get("data_inicio"),
         campos_faltantes=faltantes,
         nome=dados.get("nome"),
@@ -237,6 +245,44 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
     )
 
 
+def registrar_pergunta_de_coleta(
+    trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str, *,
+    origem_do_texto: str, regra_aplicada: str = "coleta:pergunta",
+) -> None:
+    """Grava a pergunta que o agente fez durante a coleta (campo a campo ou texto livre) — pela
+    aplicacao, nunca da interface direto (issue #51/#55: dono único da escrita da trilha).
+
+    `regra_aplicada` tem default para o caminho campo a campo (pergunta fixa, sem regra por trás);
+    o caminho texto livre passa a sua própria (`portal_de_linguagem:extrair`, preservando o valor
+    que a trilha já gravava antes desta função existir)."""
+    trilha.registrar_evento(
+        MensagemEnviada(
+            evento="mensagem_enviada",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_enviada",
+            instante=_agora_iso(),
+            texto=texto,
+            decisao_id=f"dec_coleta_{indice}",
+            regra_aplicada=regra_aplicada,
+            origem_do_texto=origem_do_texto,
+        )
+    )
+
+
+def registrar_resposta_de_coleta(trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str) -> None:
+    """Grava a resposta que o lead deu durante a coleta — o texto REAL que ele escreveu, nunca um
+    resumo sintético (issue #51: hoje só o caminho texto-livre grava isto; campo a campo não grava nada)."""
+    trilha.registrar_evento(
+        MensagemRecebida(
+            evento="mensagem_recebida",
+            conversation_id=conversation_id,
+            id=f"msg_coleta_{indice}_recebida",
+            instante=_agora_iso(),
+            texto=texto,
+        )
+    )
+
+
 def _regra_aplicada(decisao: Decisao, resultado: ResultadoDaCotacao | None) -> str:
     origem = resultado.status.value.upper() if resultado is not None else "SEM_TENTATIVA"
     return f"politica.decidir:{origem}->{decisao.tipo.value.upper()}"
@@ -305,6 +351,7 @@ def conduzir_conversa(
                     f"idade={estado.idade}; veiculo_ano={estado.veiculo_ano}; cep={estado.cep}; "
                     f"plano_id={estado.plano_id}; data_inicio={estado.data_inicio}"
                 ),
+                sender_role="sistema",
             )
         )
 

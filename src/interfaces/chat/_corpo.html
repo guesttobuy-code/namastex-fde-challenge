@@ -151,6 +151,29 @@
     return m;
   }
 
+  // ── trilha da coleta (issue #51, parte 2): cada pergunta/resposta dos 9 passos guiados é
+  // gravada no backend, pelo mesmo caminho já usado pela coleta via terminal — dono único da
+  // escrita da trilha. O JS manda o texto REAL sempre — decidir no cliente se é PII é frágil
+  // (bug no JS, ou alguém chamando a rota direto, grava o dado real); quem decide mascarar
+  // nome/whatsapp/email é o SERVIDOR, pelo campo, incondicional ao que o cliente mandar. Falha ao
+  // gravar não pode travar o fluxo do lead (mesmo padrão de salvarContato).
+  let indiceMensagem = -1;
+
+  function _registrarMensagem(campo, direcao, texto) {
+    const idx = direcao === "pergunta" ? ++indiceMensagem : indiceMensagem;
+    fetch("/api/chat/mensagem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: conversationId, indice: idx, direcao, campo, texto }),
+    }).catch(() => {});
+  }
+  function perguntar(campo, textoComHtml) {
+    _registrarMensagem(campo, "pergunta", textoComHtml.replace(/<[^>]+>/g, ""));
+  }
+  function responder(campo, texto) {
+    _registrarMensagem(campo, "resposta", texto);
+  }
+
   function anexar(no) { fio.append(no); rolar(); }
 
   function limparDoca() { rapidas.innerHTML = ""; entrada.oninput = null; }
@@ -208,17 +231,19 @@
     nome() {
       progresso(1);
       mensagemBot("Para começar, <b>qual é o seu nome completo?</b>");
+      perguntar("nome", "Para começar, qual é o seu nome completo?");
       mostrarDoca({ placeholder: "Nome completo", dica: "Usamos seu nome para o corretor falar com você." });
       passoAtual = (v) => {
         const nome = v.trim();
         const partesValidas = nome.split(/\s+/).filter((p) => (p.match(/[A-Za-zÀ-ÿ]/g) || []).length >= 2);
         if (partesValidas.length < 2) return erro("Digite nome e sobrenome.");
-        mensagemLead(nome); dados.nome = nome; seguir("whatsapp");
+        mensagemLead(nome); responder("nome", nome); dados.nome = nome; seguir("whatsapp");
       };
     },
     whatsapp() {
       progresso(2);
       mensagemBot("Qual o seu <b>WhatsApp</b>? Escolha o país e digite o número.");
+      perguntar("whatsapp", "Qual o seu WhatsApp? Escolha o país e digite o número.");
       mostrarDoca({ placeholder: "Número, com DDD", pais: true });
       paisSel.innerHTML = "";
       paises.forEach((p) => {
@@ -258,6 +283,7 @@
           exibicao = `+${p.ddi} ${digitos}`;
         }
         mensagemLead(exibicao);
+        responder("whatsapp", exibicao);
         dados.whatsappExibicao = exibicao;
         salvarContato();
         seguir("email");
@@ -266,23 +292,25 @@
     email() {
       progresso(3);
       mensagemBot("Se quiser, deixe seu <b>e-mail</b>. É opcional.");
+      perguntar("email", "Se quiser, deixe seu e-mail. É opcional.");
       mostrarDoca({
         placeholder: "seuemail@exemplo.com", tipo: "email",
-        botoes: [{ rotulo: "Pular", acao: () => { mensagemLead("Prefiro não informar"); dados.email = null; salvarContato(); seguir("idade"); } }],
+        botoes: [{ rotulo: "Pular", acao: () => { mensagemLead("Prefiro não informar"); responder("email", "Prefiro não informar"); dados.email = null; salvarContato(); seguir("idade"); } }],
       });
       passoAtual = (v) => {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return erro("Esse e-mail não parece válido. Confira ou toque em Pular.");
-        mensagemLead(v.trim()); dados.email = v.trim(); salvarContato(); seguir("idade");
+        mensagemLead(v.trim()); responder("email", v.trim()); dados.email = v.trim(); salvarContato(); seguir("idade");
       };
     },
     idade() {
       progresso(4);
       mensagemBot("E <b>quantos anos você tem?</b>");
+      perguntar("idade", "E quantos anos você tem?");
       mostrarDoca({ placeholder: "Sua idade, ex.: 35", tipo: "number", dica: "Usamos a idade para a faixa de preço." });
       passoAtual = (v) => {
         const n = parseInt(v, 10);
         if (!Number.isInteger(n) || n <= 0) return erro("Digite só o número, ex.: 35.");
-        mensagemLead(`${n} anos`); dados.idade = n;
+        mensagemLead(`${n} anos`); responder("idade", `${n} anos`); dados.idade = n;
         // Menor de 18: mensagem exata da issue #46, sem tentativa de cotação — decisão de
         // política que é só do frontend guiado (nunca chega a chamar /api/chat/cotar).
         if (n < 18) return menorDeIdade();
@@ -292,17 +320,19 @@
     modelo() {
       progresso(5);
       mensagemBot("Qual o <b>modelo</b> do seu carro? (ex.: Onix, HB20, Corolla)");
+      perguntar("modelo", "Qual o modelo do seu carro?");
       mostrarDoca({ placeholder: "Modelo do carro", dica: "O modelo fica registrado para o corretor; nesta cotação não altera o preço." });
       passoAtual = (v) => {
         const modelo = v.trim();
         if (modelo.length < 2) return erro("Digite o modelo do carro.");
-        mensagemLead(modelo); dados.veiculo_modelo = modelo; seguir("ano");
+        mensagemLead(modelo); responder("modelo", modelo); dados.veiculo_modelo = modelo; seguir("ano");
       };
     },
     ano() {
       progresso(6);
       const anoAtual = new Date().getFullYear();
       mensagemBot(`E o seu ${esc(dados.veiculo_modelo)}, <b>de que ano é?</b>`);
+      perguntar("ano", `E o seu ${dados.veiculo_modelo}, de que ano é?`);
       const anos = [0, 1, 2, 3, 4].map((i) => anoAtual - i);
       mostrarDoca({
         placeholder: "Ou digite o ano, ex.: 2019", tipo: "number",
@@ -312,7 +342,7 @@
       passoAtual = (v) => {
         const n = parseInt(v, 10);
         if (!Number.isInteger(n) || n < 1950 || n > anoAtual + 1) return erro(`Digite um ano entre 1950 e ${anoAtual + 1}.`);
-        mensagemLead(String(n)); dados.veiculo_ano = n; seguir("cep");
+        mensagemLead(String(n)); responder("ano", String(n)); dados.veiculo_ano = n; seguir("cep");
       };
     },
     cep() {
@@ -321,6 +351,7 @@
       // pular — sem ele a /quote cobra até 30% a menos, em silêncio, pra carro que dorme em
       // região de risco (regra já existente em dominio/validacao.py, achado da Fase B do PR 2).
       mensagemBot("Qual o <b>CEP</b> onde o carro fica à noite?");
+      perguntar("cep", "Qual o CEP onde o carro fica à noite?");
       mostrarDoca({
         placeholder: "00000-000",
         dica: "O CEP entra só no cálculo e fica mascarado no nosso registro.",
@@ -328,7 +359,7 @@
       entrada.oninput = () => { let d = entrada.value.replace(/\D/g, "").slice(0, 8); entrada.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d; };
       passoAtual = (v) => {
         if (!/^\d{5}-\d{3}$/.test(v)) return erro("CEP com 8 números, ex.: 01310-100.");
-        mensagemLead(v); dados.cep = v; seguir("plano");
+        mensagemLead(v); responder("cep", v); dados.cep = v; seguir("plano");
       };
     },
     async plano() {
@@ -352,6 +383,7 @@
         'conserto de R$ 8.000,00 fica R$ 3.000,00 para você e R$ 5.000,00 para o seguro. Quanto ' +
         'menor a franquia, menos você paga quando precisa usar o seguro.</details>'
       );
+      perguntar("plano", "Agora escolha o plano. Toque no card que faz mais sentido para você.");
       const grade = el("div", "planos");
       planos.forEach((p) => {
         const franquia = Number(p.franquia || 0).toLocaleString("pt-BR", { style: "currency", currency: moeda });
@@ -363,6 +395,7 @@
           grade.querySelectorAll(".plano").forEach((c) => { c.setAttribute("aria-pressed", "false"); c.disabled = true; });
           card.setAttribute("aria-pressed", "true");
           mensagemLead(`Plano ${p.nome || p.id}`);
+          responder("plano", `Plano ${p.nome || p.id}`);
           dados.plano_id = p.id; dados.planoNome = p.nome || p.id;
           seguir("inicio");
         };
@@ -374,6 +407,7 @@
     inicio() {
       progresso(9);
       mensagemBot("Por último: <b>quando o seguro deve começar?</b>");
+      perguntar("inicio", "Por último: quando o seguro deve começar?");
       const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
       const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
       const dataBR = (d) => d.toLocaleDateString("pt-BR");
@@ -438,6 +472,7 @@
   function escolherInicio(d) {
     entrada.min = "";
     mensagemLead(d.toLocaleDateString("pt-BR"));
+    responder("inicio", d.toLocaleDateString("pt-BR"));
     dados.data_inicio = d.toISOString().slice(0, 10);
     seguir("resumo");
   }
@@ -460,9 +495,9 @@
     mensagemLead("Cotar agora");
     esconderDoca();
     const status = mensagemBot("Consultando a tabela de preços…");
-    let resposta;
+    let turno;
     try {
-      resposta = await fetch("/api/chat/cotar", {
+      const resposta = await fetch("/api/chat/cotar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -475,12 +510,16 @@
           data_inicio: dados.data_inicio,
         }),
       });
+      // issue #67: `resposta.json()` ficava FORA deste `try` — uma resposta 500 com corpo em
+      // texto (não-JSON) travava o card em "Consultando…" para sempre, sem cair no tratamento de
+      // erro. Agora qualquer falha de rede OU de parse cai no mesmo catch, com o mesmo botão
+      // "Tentar de novo".
+      turno = await resposta.json();
     } catch (e) {
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora. Um corretor pode continuar daqui.';
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: cotar }] });
       return;
     }
-    const turno = await resposta.json();
     const notaTentativas = turno.tentativas ? `<div class="rastro-tentativas">tentativa ${turno.tentativas.realizada} de ${turno.tentativas.max}</div>` : "";
 
     if (turno.preco) {
@@ -534,19 +573,21 @@
     mensagemLead(textoDoLead);
     esconderDoca();
     const status = mensagemBot("Um momento…", { cls: "sistema" });
-    let resposta;
+    let corpo;
     try {
-      resposta = await fetch("/api/chat/contratar", {
+      const resposta = await fetch("/api/chat/contratar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversation_id: conversationId }),
       });
+      // issue #67: mesmo achado de cotar() — `resposta.json()` fora do try travava o card numa
+      // resposta 500 com corpo não-JSON.
+      corpo = await resposta.json();
     } catch (e) {
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui confirmar agora — tente de novo.';
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead) }] });
       return;
     }
-    const corpo = await resposta.json();
     status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}<br><span style="font-size:11px;color:var(--alerta)">entra na Fila humana</span>`;
     mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer outra cotação", acao: reiniciar }] });
   }

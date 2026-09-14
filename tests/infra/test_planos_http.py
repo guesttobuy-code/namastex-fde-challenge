@@ -7,9 +7,11 @@ na geração de verdade.
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 from unittest.mock import MagicMock, patch
 
+import infra.planos_http as planos_http_mod
 from infra.planos_http import TIMEOUT_SEGUNDOS, buscar_planos
 
 
@@ -60,6 +62,26 @@ def test_sem_quote_service_url_no_ambiente_usa_o_mesmo_default_da_cli(monkeypatc
 
     (url_chamada,), _kwargs = urlopen_mock.call_args
     assert url_chamada == "http://localhost:8000/planos"
+
+
+def test_travamento_alem_do_prazo_devolve_none_nunca_pendura(monkeypatch):
+    """issue #67, mesma classe de defeito do cliente da `/quote`: `getaddrinfo`/`urlopen` podem
+    travar além do `TIMEOUT_SEGUNDOS` configurado (medido ao vivo: ~4,4s contra 2s, com o
+    quote-service fora do ar) — o prazo de PAREDE real (worker + `future.result(timeout=...)`)
+    corta e devolve o MESMO `None` de sempre (buraco visível), nunca pendura quem chama."""
+    monkeypatch.setattr(planos_http_mod, "TIMEOUT_SEGUNDOS", 0.05)
+
+    def urlopen_que_trava(*args, **kwargs):
+        time.sleep(0.5)  # bem mais que o prazo reduzido acima — nunca deveria valer
+        raise AssertionError("não deveria completar dentro do prazo do teste")
+
+    with patch("urllib.request.urlopen", side_effect=urlopen_que_trava):
+        inicio = time.monotonic()
+        resultado = buscar_planos("http://quote-service.invalido")
+        duracao = time.monotonic() - inicio
+
+    assert resultado is None
+    assert duracao < 0.4, f"buscar_planos esperou a thread travada em vez de cortar no prazo de parede: {duracao:.3f}s"
 
 
 def test_resposta_valida_e_decodificada():

@@ -40,6 +40,18 @@ MASCARA = "[REDIGIDO]"
 
 _PADRAO_CEP_HIFEN = re.compile(r"(?i)\b\d{5}-\d{3}\b")  # CEP com hífen
 _PADRAO_CEP_ESPACO = re.compile(r"(?i)\b\d{5}\s\d{3}\b")  # CEP com espaço (fixture manual)
+# issue #68: CEP de 8 dígitos SEM separador não bate com nenhum padrão acima, e ficava em claro na
+# trilha mesmo `dominio.validacao.cep_valido` aceitando esse formato (hífen opcional). Rede de
+# segurança, não o conserto principal (esse é `dominio.validacao.normalizar_cep`, chamado por
+# `aplicacao.servico_conversa.montar_estado` antes do valor entrar em `EstadoDaConversa`): aqui o
+# padrão exige o RÓTULO "cep" por perto (`[^\d]{0,15}` — até 15 caracteres não-dígito entre o
+# rótulo e os 8 dígitos, cobrindo "meu cep e 01310100", "cep=01310100", "cep: 01310100") — nunca 8
+# dígitos soltos, que mascarariam telefone/id sem relação nenhuma com CEP (quebraria a expectativa
+# de `test_redator_pii.py` para esses casos). Limite declarado: "CEP01310100" (zero separador,
+# nem espaço) não bate — `\b` entre "cep" e um dígito colado não é fronteira de palavra; não
+# medido em nenhum texto real do dataset/fixtures, mesmo padrão de limite já assumido no docstring
+# do módulo.
+_PADRAO_CEP_SEM_SEPARADOR_ROTULADO = re.compile(r"(?i)\bcep\b[^\d]{0,15}\d{8}\b")
 
 _PADROES = (
     re.compile(r"(?i)\b[\w.+-]+@[\w-]+\.[a-z.]{2,}\b"),  # e-mail
@@ -53,6 +65,7 @@ _PADROES = (
     re.compile(r"(?i)\b[a-z]{3}-?\d{4}\b"),  # placa padrão antigo (fixture manual)
     _PADRAO_CEP_HIFEN,
     _PADRAO_CEP_ESPACO,
+    _PADRAO_CEP_SEM_SEPARADOR_ROTULADO,
     re.compile(r"(?i)\b\d{11}\b"),  # CPF sem pontuação (fixture manual) — por último: mais genérico
 )
 

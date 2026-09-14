@@ -19,6 +19,7 @@ linha alheia (R2, #16).
 | I-1 | `interfaces` nunca importa nada de `dominio` para decidir — só repassa dados; decisão é sempre de `aplicacao` | leitura de código (sem guard automático; `import-linter` não restringe `interfaces` importar `dominio`, só cobra `dominio`/`infra` não importarem `interfaces`) |
 | I-2 | `servidor.py` nunca escreve em `conhecimento/` diretamente — sempre via `aplicacao.servico_conhecimento` | `tests/interfaces/test_servidor.py` (usa dublê de repositório, nunca grava fora dele) |
 | I-3 | Toda rota estática (`/painel/...`) resolve o caminho e confere contra a raiz do diretório antes de ler — nenhum `id`/caminho vindo de fora escapa do diretório servido | `tests/interfaces/test_servidor.py::test_painel_recusa_escapar_do_diretorio` |
+| I-4 | Só `cli.py`, `servidor.py` e `painel/gerar.py` são raízes de composição — só eles podem importar `infra` direto. Telas do painel (`painel/tela_*.py`) recebem dado pronto por parâmetro, nunca importam `infra`. | `tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto` (varre `painel/*.py` exceto `gerar.py`; `.importlinter` não restringe `interfaces`→`infra`, achado da auditoria do PR #64) |
 
 ## Entradas e saídas públicas
 
@@ -57,6 +58,13 @@ linha alheia (R2, #16).
   comercial ganhou rota + tela + ligação real com `interfaces.cli` (B4) — `rodar_conversa` carrega
   `dominio.configuracao_comercial.ConfiguracaoComercial` de `conhecimento/configuracao_comercial.json`
   por padrão e passa para `aplicacao.servico_conversa.conduzir_conversa`.
+- 2026-09-13 — issues #51/#55: `interfaces.cli` deixou de gravar a trilha em parte (`coletar_dados`
+  não gravava nada) e em parte errado (`coletar_dados_por_texto_livre` chamava
+  `trilha.registrar_evento` direto) — agora as duas passam por
+  `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/`registrar_resposta_de_coleta` (dono
+  único da escrita da trilha). `interfaces.painel.tela_regras` deixou de importar `infra` direto
+  (I-4 acima): `planos` e a política de retry chegam prontos por parâmetro, buscados só em
+  `painel/gerar.py`.
 
 ---
 
@@ -77,7 +85,23 @@ linha alheia (R2, #16).
   caso de uso que `interfaces.cli` já chama, nunca reimplementado aqui —, grava a trilha e
   regenera o painel); `POST /api/chat/contratar` ("Quero contratar" e "Falar com um corretor" —
   ver a nota da decisão abaixo — marcam `ultimo_intent=QUER_CONTRATAR` e chamam `conduzir_conversa`
-  de novo).
+  de novo); `POST /api/chat/mensagem`, roteada para `interfaces.chat_mensagem.responder_chat_mensagem`
+  (módulo próprio, separado de `servidor.py` para não empurrar o arquivo perto do teto do guard
+  `file-loc-ceiling` — importa os helpers de borda HTTP de `interfaces.http_comum`, abaixo; issue
+  #51, parte 2: registra uma pergunta ou resposta de um dos 9 passos da coleta guiada na trilha,
+  pelas MESMAS funções `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/
+  `registrar_resposta_de_coleta` que `interfaces.cli` já usa — dono único da escrita da trilha;
+  nunca chama `gerar_paineis`, mesmo padrão mais leve de `/api/chat/contato`. Campo obrigatório
+  `campo`, um dos 9 nomes de passo do fluxo guiado — nome/whatsapp/email são mascarados no servidor
+  antes de chegar na trilha, incondicional ao texto que o cliente mandou; CEP é normalizado por
+  `dominio.validacao.normalizar_cep` antes de gravar, mesma disciplina de `/api/chat/cotar`,
+  issue #68 — achado durante a prova: CEP sem hífen não batia em nenhum padrão do redator e
+  chegaria em claro).
+- `interfaces.http_comum` (novo, issue #51 parte 2): utilitários de borda HTTP compartilhados —
+  `json_resposta`, `ler_corpo_json`, `conversation_id_ou_400`, `METODO_NAO_SUPORTADO`,
+  `CONVERSATION_ID_VALIDO` — extraídos de `servidor.py` (dono único, sem duplicar) porque o merge
+  com outras frentes levou o arquivo a 603 linhas, acima do teto do `file-loc-ceiling`; `servidor.py`
+  e `chat_mensagem.py` importam de lá, sem mudança de assinatura/comportamento.
 - Estado da conversa entre turnos (ADR-0005, decisão 1): `_ESTADOS_EM_MEMORIA`, um
   `dict[str, EstadoDaConversa]` a nível de MÓDULO em `servidor.py` — não escondido atrás de uma
   classe. Perdido ao reiniciar o processo, limite aceito e declarado no ADR.
@@ -133,3 +157,32 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   devolveu, nunca calcula nem reformata valor monetário.
 - Responder com o LLM/base de conhecimento — fora de escopo (declarado na issue #46), o chat é
   guiado e determinístico de propósito.
+
+---
+
+## Seção das issues #67/#68/#69 (frente `robustez-quote-entrada`) — validação de fronteira e resposta não-JSON (append)
+
+### O que esta frente acrescenta
+
+- `servidor._responder_chat_cotar` (#68): CEP fora do formato (`abc`, 7 ou 9 dígitos) é recusado
+  com 400 ANTES de chegar a `montar_estado` — usa `dominio.validacao.normalizar_cep`, a mesma
+  função que o `aplicacao.servico_conversa.montar_estado` já usa (dono único, nunca uma segunda
+  regex na borda HTTP).
+- `servidor._responder_salvar_configuracao` (#69): `PUT /api/configuracao-comercial` recusa com
+  400 qualquer valor de `encaminhar_lead_fora_do_padrao` que não seja `bool` JSON de verdade —
+  `bool("nao")` é `True`, então mandar `"nao"` LIGAVA a configuração em silêncio (o oposto do
+  pedido). `true`/`false` JSON continuam aceitos sem mudança.
+- `servidor._responder_ler_ficha` (#69): `GET /api/objecoes/<id>` com id fora do formato seguro
+  (inclusive tentativa de path traversal, já BLOQUEADA antes de qualquer leitura de arquivo) passa
+  a devolver 400 em vez de 500 — o `ValueError` de `_validar_id` (dono: `infra.repositorio_
+  conhecimento_json`) já era tratado no `PUT`, faltava no `GET`.
+- `interfaces/chat/_corpo.html` (#67): `cotar()` e `contratar()` tinham `await resposta.json()`
+  FORA do `try` de rede — uma resposta com corpo não-JSON (o cenário que motivou o #67, antes do
+  conserto do backend) travava o card em "Consultando…"/"Um momento…" para sempre. Agora o parse
+  do corpo está dentro do mesmo `try`, com o mesmo tratamento visível de falha e o botão "Tentar de
+  novo" que o erro de rede já usava.
+
+### Decisões registradas
+
+- 2026-09-13 — decisão da coordenação: os 3 achados de validação (#67 JS, #68 CEP na rota, #69
+  configuração/ficha) entram juntos nesta frente, mesmo módulo de fronteira HTTP, mesmo PR.
