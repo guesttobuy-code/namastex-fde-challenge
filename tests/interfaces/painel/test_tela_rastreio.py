@@ -56,11 +56,11 @@ def test_sem_conversas_mostra_buraco_em_vez_de_pagina_vazia():
 
 
 def test_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
-    """issue #93: evento REAL de `examples/trilha_conv-198a633b.jsonl` (`msg_coleta_4_recebida`)
+    """issue #93: evento REAL de `examples/trilha_conv-453a5245.jsonl` (`msg_coleta_4_recebida`)
     — resposta vazia explícita (Enter no campo opcional), nunca o buraco de falha de gravação."""
     eventos = [{
-        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
-        "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead",
+        "evento": "mensagem_recebida", "conversation_id": "conv-453a5245", "id": "msg_coleta_4_recebida",
+        "instante": "2026-09-14T04:34:33.562598+00:00", "texto": "", "sender_role": "lead",
     }]
 
     html = _html(eventos)
@@ -70,11 +70,11 @@ def test_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
 
 
 def test_mensagem_recebida_sender_role_sistema_mostra_resumo_nao_lead():
-    """issue #93: evento REAL `msg_ce3e6950` (`sender_role="sistema"`) é o resumo sintético da
+    """issue #93: evento REAL `msg_edcddae8` (`sender_role="sistema"`) é o resumo sintético da
     coleta (issue #39) — nunca deve sair rotulado como fala do lead."""
     eventos = [{
-        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_ce3e6950",
-        "instante": "2026-09-14T02:51:44.071200+00:00",
+        "evento": "mensagem_recebida", "conversation_id": "conv-453a5245", "id": "msg_edcddae8",
+        "instante": "2026-09-14T04:34:33.563825+00:00",
         "texto": "idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None",
         "sender_role": "sistema",
     }]

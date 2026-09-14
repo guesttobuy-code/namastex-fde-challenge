@@ -49,12 +49,12 @@ def test_lista_escapa_cada_item():
 
 
 def test_texto_da_resposta_com_chave_vazia_nao_vira_buraco():
-    """issue #93: evento REAL de `examples/trilha_conv-198a633b.jsonl`, linha `msg_coleta_3_recebida`
+    """issue #93: evento REAL de `examples/trilha_conv-453a5245.jsonl`, linha `msg_coleta_3_recebida`
     — o lead apertou Enter sem responder um campo opcional (plano). `texto=""` é resposta vazia
     EXPLÍCITA, nunca o buraco reservado para falha real de gravação."""
     evento = {
-        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
-        "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead",
+        "evento": "mensagem_recebida", "conversation_id": "conv-453a5245", "id": "msg_coleta_3_recebida",
+        "instante": "2026-09-14T04:34:33.561133+00:00", "texto": "", "sender_role": "lead",
     }
     saida = texto_da_resposta(evento)
     assert "ausente na trilha" not in saida
