@@ -81,6 +81,17 @@ function transicaoDeStatus(conversationId, rota) {
     return resposta.json().then(function (corpo) { alert(corpo.erro || "Não foi possível concluir a ação."); });
   }).catch(function () { alert("Não consegui falar com o servidor agora."); });
 }
+// issue #92: um addEventListener delegado só, em vez do atributo inline antigo com o id
+// interpolado numa string JS (o `esc()` HTML-escapa a aspa simples pra `&#x27;`, mas o navegador
+// DECODIFICA o atributo antes de rodar o handler inline como código — a aspa decodificada fechava
+// a string e permitia injetar JS). `data-alvo`/`data-conversation-id`/`data-rota` são atributos
+// HTML comuns: o navegador nunca reinterpreta o valor como código, só como texto em `dataset`.
+document.addEventListener("click", function (evento) {
+  var item = evento.target.closest("[data-alvo]");
+  if (item) { selecionarConversa(item.dataset.alvo); return; }
+  var botao = evento.target.closest("[data-rota]");
+  if (botao && !botao.disabled) transicaoDeStatus(botao.dataset.conversationId, botao.dataset.rota);
+});
 (function () {
   var params = new URLSearchParams(window.location.search);
   var status = params.get("status");
@@ -149,7 +160,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, Cont
         rotulo = rotulo_de_exibicao(estado)
         previa = _previa_da_conversa(eventos_conversa, estado)
         classe_selecionado = " selecionado" if conversation_id == selecionada_inicial else ""
-        nav_itens.append(f"""<button class="item{classe_selecionado}" data-status="{esc(estado)}" data-alvo="{esc(conversation_id)}" onclick="selecionarConversa('{esc(conversation_id)}')">
+        nav_itens.append(f"""<button class="item{classe_selecionado}" data-status="{esc(estado)}" data-alvo="{esc(conversation_id)}">
           <span class="l1"><span class="nome">{esc(conversation_id)}</span></span>
           <span class="previa">{previa}</span>
           <span class="chip {esc(classe_chip_do_estado(estado))}" style="margin-top:6px">{esc(rotulo)}</span>
@@ -266,8 +277,8 @@ def _botoes_de_transicao(conversation_id: str, estado: str) -> str:
     desabilitar_encerrar = "" if pode_encerrar(status) else "disabled"
     cid = esc(conversation_id)
     return f"""<div class="acoes">
-        <button class="botao principal" {desabilitar_assumir} onclick="transicaoDeStatus('{cid}', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao" {desabilitar_encerrar} onclick="transicaoDeStatus('{cid}', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal" {desabilitar_assumir} data-conversation-id="{cid}" data-rota="/api/conversa/assumir">Assumir</button>
+        <button class="botao" {desabilitar_encerrar} data-conversation-id="{cid}" data-rota="/api/conversa/encerrar">Encerrar</button>
       </div>"""
 
 
