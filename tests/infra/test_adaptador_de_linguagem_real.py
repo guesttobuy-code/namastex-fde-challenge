@@ -264,3 +264,40 @@ def test_extracao_real_toda_ficha_publicada_tem_frase_que_chega_a_objecao_de_pre
         f"ficha {ficha['id']!r} publicada mas invisível: a frase {frase!r} virou "
         f"intent={saida.intent!r}, nunca objecao_de_preco — saida={saida!r}"
     )
+
+
+# issue #81, item 3 do escopo acrescido pela coordenação (comentário 5657713538): "pode me passar
+# pra uma pessoa de verdade?" deu intent=None 1 de 4 vezes na suíte do #82 — MEDIR a taxa real com
+# volume, SEM consertar nada aqui (o achado, se confirmado, vira issue própria). Roda as 5 frases
+# de quer_falar_com_humano ≥10 vezes cada uma e imprime a contagem — não falha por intermitência,
+# só reporta (a decisão de agir fica com quem lê o resultado, não com o exit code do pytest).
+_REPETICOES_POR_FRASE = 10
+
+
+def test_medir_taxa_de_none_em_pedido_de_humano_sem_consertar():
+    """issue #81, item 3 (não conserta, só mede): imprime, para cada uma das 5 frases de
+    `quer_falar_com_humano`, quantas das `_REPETICOES_POR_FRASE` execuções reais deram
+    `intent=None` em vez do valor certo — e a taxa agregada. Comando único:
+    `pytest -m llm_real -k test_medir_taxa_de_none_em_pedido_de_humano_sem_consertar -v -s`."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    total_execucoes = 0
+    total_none = 0
+    print()
+    for param in _FRASES_QUER_FALAR_COM_HUMANO:
+        texto = param.values[0]
+        contagem: dict[str | None, int] = {}
+        for indice in range(_REPETICOES_POR_FRASE):
+            estado = EstadoDaConversa(conversation_id=f"conv-medicao-humano-{abs(hash(texto))}-{indice}")
+            saida = adaptador.extrair(texto, estado)
+            contagem[saida.intent] = contagem.get(saida.intent, 0) + 1
+            total_execucoes += 1
+            if saida.intent is None:
+                total_none += 1
+        nones = contagem.get(None, 0)
+        print(f"[medicao-humano] {texto!r}: {contagem!r} — {nones}/{_REPETICOES_POR_FRASE} None")
+    taxa = total_none / total_execucoes if total_execucoes else 0.0
+    print(f"[medicao-humano] TOTAL: {total_none}/{total_execucoes} None — taxa {taxa:.1%}")
+    print(
+        "[medicao-humano] limite combinado: >10% vira achado próprio (issue #81, item 3) — "
+        "este teste não falha por isso, só registra."
+    )
