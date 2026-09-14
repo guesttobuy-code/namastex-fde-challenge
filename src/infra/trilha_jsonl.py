@@ -9,6 +9,19 @@ import json
 from pathlib import Path
 
 
+def _linhas_completas(texto: str) -> list[str]:
+    """Dono único (LEI 11) de "quais linhas do arquivo já terminaram de ser gravadas" (issue #117):
+    `registrar` sempre escreve `<json>\\n` de uma vez, então qualquer leitura concorrente só pode
+    pegar uma linha pela metade na ÚLTIMA posição do arquivo — uma escrita em andamento nunca
+    empurra bytes NO MEIO do que já foi gravado antes dela (append-only). `texto.split("\\n")`
+    sempre sobra com o último elemento sendo `""` (arquivo termina em `\\n`, escrita completa) ou o
+    fragmento em gravação (arquivo NÃO termina em `\\n`) — os dois casos descartam esse último
+    elemento; qualquer outro elemento não-vazio já terminou de ser escrito e é lido normalmente
+    (inválido ali levanta — corrupção de verdade nunca é escondida, só a ponta em andamento)."""
+    linhas = texto.split("\n")[:-1]
+    return [linha for linha in linhas if linha]
+
+
 class RepositorioDeTrilhaJSONL:
     def __init__(self, caminho: Path) -> None:
         self._caminho = Path(caminho)
@@ -22,11 +35,10 @@ class RepositorioDeTrilhaJSONL:
         if not self._caminho.exists():
             return []
         eventos = []
-        with self._caminho.open(encoding="utf-8") as arquivo:
-            for linha in arquivo:
-                evento = json.loads(linha)
-                if evento.get("conversation_id") == conversation_id:
-                    eventos.append(evento)
+        for linha in _linhas_completas(self._caminho.read_text(encoding="utf-8")):
+            evento = json.loads(linha)
+            if evento.get("conversation_id") == conversation_id:
+                eventos.append(evento)
         return eventos
 
     def todos_os_eventos(self) -> list[dict]:
@@ -36,8 +48,7 @@ class RepositorioDeTrilhaJSONL:
         """
         if not self._caminho.exists():
             return []
-        with self._caminho.open(encoding="utf-8") as arquivo:
-            return [json.loads(linha) for linha in arquivo]
+        return [json.loads(linha) for linha in _linhas_completas(self._caminho.read_text(encoding="utf-8"))]
 
 
 class RepositorioDeTrilhaMemoria:

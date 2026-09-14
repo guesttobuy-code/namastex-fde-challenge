@@ -328,3 +328,31 @@ servidor para a #69).
   `socket.setdefaulttimeout` (efeito colateral processo inteiro, não cobre `getaddrinfo`) ou cache
   de IP (esconderia troca de endereço real). Meta da prova ao vivo declarada: handoff em ≤ ~13s de
   parede (10s do orçamento do cliente da `/quote` + 2s do prazo de `buscar_planos`, somados).
+
+---
+
+## Seção da issue #117 (frente `trilha-leitura-parcial`) — leitor tolera linha em gravação (append)
+
+### O que esta frente acrescenta
+
+| # | invariante | teste que a cobre |
+|---|---|---|
+| I-22 | `RepositorioDeTrilhaJSONL.eventos_da_conversa`/`todos_os_eventos` nunca levantam por causa da ÚLTIMA linha do arquivo ainda não terminar em `\n` (escrita concorrente em andamento, issue #110) — essa linha é ignorada. Qualquer OUTRA linha (não a última) com JSON inválido continua levantando `JSONDecodeError` — corrupção de verdade nunca é escondida | `tests/infra/test_trilha_jsonl.py::test_ultima_linha_sem_newline_e_ignorada_por_estar_em_gravacao` e `::test_linha_completa_invalida_no_meio_do_arquivo_continua_levantando` |
+
+- `_linhas_completas(texto)` (novo, privado): dono único (LEI 11) de "quais linhas já terminaram
+  de ser gravadas" — `registrar` sempre escreve `<json>\n` de uma vez só (append-only), então uma
+  escrita concorrente só pode deixar a ÚLTIMA posição do arquivo pela metade, nunca o meio (o que
+  já foi escrito antes não é tocado de novo). `texto.split("\n")[:-1]` descarta esse último
+  elemento (seja ele `""`, arquivo terminado corretamente, seja o fragmento em gravação) — os dois
+  leitores passam a usar essa função, sem trava nova nem `retry`/`sleep`.
+
+### Por que isto não é regressão
+
+- Ler um arquivo já fechado/completo (o único caso que existia até agora) devolve exatamente os
+  mesmos eventos de antes — os 6 testes originais de `test_trilha_jsonl.py` continuam sem edição.
+  `registrar`/`RepositorioDeTrilhaMemoria` (dublê) não mudam.
+
+### O que NÃO é responsabilidade desta seção
+
+- `interfaces.painel.gerar`/`interfaces.servidor` — proibido tocar (PR #116 mexendo em `gerar.py`
+  ao mesmo tempo). R1/R2/R4 da issue #114 continuam fora daqui.

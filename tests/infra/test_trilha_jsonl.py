@@ -6,6 +6,8 @@ despercebido se o teste só checasse "o arquivo existe depois de um registrar()"
 
 import json
 
+import pytest
+
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL, RepositorioDeTrilhaMemoria
 
 
@@ -71,3 +73,40 @@ def test_todos_os_eventos_do_dublê_em_memoria_bate_com_o_do_jsonl(tmp_path):
     duble.registrar({"evento": "x", "conversation_id": "conv_2", "id": "b"})
 
     assert [e["id"] for e in duble.todos_os_eventos()] == ["a", "b"]
+
+
+def _linha(evento: dict) -> str:
+    return json.dumps(evento, ensure_ascii=False)
+
+
+def test_ultima_linha_sem_newline_e_ignorada_por_estar_em_gravacao(tmp_path):
+    """L1 (issue #117): com o servidor concorrente, um leitor pode abrir o arquivo bem no meio de
+    um `registrar()` de outra thread — a ÚLTIMA linha do arquivo pode não ter terminado de ser
+    escrita ainda (sem `\\n` no final). Os dois leitores precisam devolver só o evento completo,
+    nunca levantar `JSONDecodeError` por causa da ponta em gravação."""
+    caminho = tmp_path / "trilha.jsonl"
+    completo = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"})
+    em_gravacao = _linha({"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02"})
+    caminho.write_text(f"{completo}\n{em_gravacao[: len(em_gravacao) // 2]}", encoding="utf-8")
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    assert [e["id"] for e in repositorio.eventos_da_conversa("conv_1")] == ["msg_01"]
+    assert [e["id"] for e in repositorio.todos_os_eventos()] == ["msg_01"]
+
+
+def test_linha_completa_invalida_no_meio_do_arquivo_continua_levantando(tmp_path):
+    """L1 (issue #117): ignorar a ponta em gravação não pode virar desculpa pra engolir corrupção
+    de verdade — uma linha JÁ TERMINADA (com `\\n`) mas com JSON quebrado no MEIO do arquivo
+    continua levantando `JSONDecodeError`, os dois leitores."""
+    caminho = tmp_path / "trilha.jsonl"
+    valido_1 = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"})
+    valido_2 = _linha({"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02"})
+    caminho.write_text(f"{valido_1}\n{{corrompido de verdade\n{valido_2}\n", encoding="utf-8")
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    with pytest.raises(json.JSONDecodeError):
+        repositorio.eventos_da_conversa("conv_1")
+    with pytest.raises(json.JSONDecodeError):
+        repositorio.todos_os_eventos()
