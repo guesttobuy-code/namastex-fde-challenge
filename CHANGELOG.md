@@ -6,6 +6,20 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Segurança
+- **`scripts/sanitizar_ai_logs.py` não sanitizava CHAVE de dicionário, só valor (achado do ensaio
+  de congelamento, issue #15):** `snapshot.trackedFileBackups` (estrutura interna do Claude Code,
+  presente nas sessões reais) grava o caminho absoluto do arquivo como CHAVE do JSON, nunca como
+  valor — `sanitizar_valor` recursava em `{k: sanitizar_valor(v, ...) for k, v in valor.items()}`
+  e nunca tocava `k`. Isso deixava o usuário do Windows e o nome completo do dono vazando em
+  10+ arquivos do ensaio, mesmo com os 4 padrões pessoais configurados e a verificação final do
+  script (que só confere padrão de SEGREDO, não os padrões pessoais) passando limpo. Medido: com o
+  conserto, os 4 padrões pessoais foram de centenas/milhares de ocorrências para **zero** em todo o
+  corpus (69 sessões reais, ~194MiB), sem regressão no `--self-test`. Chave sanitizada pela MESMA
+  `sanitizar_string` do valor (LEI 11); colisão de chave (duas chaves diferentes virando a mesma
+  string sanitizada) levanta erro em vez de fundir silenciosamente (LEI 2 — dado real ausente nunca
+  se funde/fabrica). Ensaio nunca commitado, saída sempre fora do repositório.
+
 ### Corrigido
 - **README atualizado com o conserto da #78 (PR #82) — issue #15:** o limite "ficha
   `caro-com-carencia` nunca é usada" saiu de §10 (corrigido, prompt v3); entrou no lugar a

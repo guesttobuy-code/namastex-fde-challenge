@@ -155,7 +155,25 @@ def sanitizar_valor(valor, substituicoes, redigir):
     if isinstance(valor, dict):
         if valor.get("type") == "image":
             return dict(PLACEHOLDER_IMAGEM)
-        return {k: sanitizar_valor(v, substituicoes, redigir) for k, v in valor.items()}
+        # achado do ensaio de congelamento (issue #15): `snapshot.trackedFileBackups` guarda o
+        # caminho absoluto do arquivo como CHAVE do dicionario, nunca como valor -- sanitizar só
+        # valores deixava o usuario do Windows e o nome completo do dono vazando ali, mesmo com os
+        # padroes pessoais configurados. Chave sanitizada pela MESMA `sanitizar_string` do valor
+        # (dono único do texto, LEI 11); colisão de chave (duas chaves diferentes viram a mesma
+        # string sanitizada) é logada, nunca silenciosamente sobrescrita.
+        resultado = {}
+        colisoes = []
+        for k, v in valor.items():
+            k_sanitizada = sanitizar_string(k, substituicoes, redigir) if isinstance(k, str) else k
+            if k_sanitizada in resultado and k_sanitizada != k:
+                colisoes.append(k_sanitizada)
+            resultado[k_sanitizada] = sanitizar_valor(v, substituicoes, redigir)
+        if colisoes:
+            raise ValueError(
+                f"colisao de chave apos sanitizar (dado real ausente se omite, nunca se funde em "
+                f"silencio): {len(colisoes)} chave(s) sanitizada(s) colidiram no mesmo dict"
+            )
+        return resultado
     if isinstance(valor, list):
         return [sanitizar_valor(v, substituicoes, redigir) for v in valor]
     if isinstance(valor, str):
