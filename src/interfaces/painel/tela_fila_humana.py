@@ -33,6 +33,7 @@ _DESCRICAO_MOTIVO = {
     # issue #57 (P9): consequência mecânica de MotivoHandoff.LEAD_PEDIU_HUMANO — sem esta entrada,
     # test_regra_de_regras (abaixo) cai no fallback "sem descrição registrada" (achado do #42).
     MotivoHandoff.LEAD_PEDIU_HUMANO.value: "O lead pediu para falar com uma pessoa.",
+    MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL.value: "A IA não conseguiu responder a objeção de preço com segurança (sem chave, sem ficha publicada, ou a geração reprovou a validação de marcador): encaminhado ao corretor.",
 }
 
 

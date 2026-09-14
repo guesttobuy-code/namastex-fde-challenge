@@ -49,7 +49,10 @@ from dominio.estado_conversa import EstadoDaConversa
 from dominio.ficha_objecao import MarcadorInvalido
 from dominio.intencao import Intencao
 from dominio.nomes_cobertura import nome_legivel
+from dominio.preco_cotado import PrecoCotado
 from dominio.validacao import normalizar_cep
+from infra.adaptador_de_linguagem import criar_adaptador_de_linguagem
+from infra.adaptador_de_linguagem import criar_adaptador_de_resposta_orientada
 from infra.cliente_quote import MAX_TENTATIVAS, ClienteQuoteHTTP
 from infra.config import url_quote_service
 from infra.planos_http import buscar_planos as buscar_planos_real
@@ -58,6 +61,7 @@ from infra.repositorio_configuracao_comercial_json import RepositorioDeConfigura
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON
 from infra.repositorio_contato_json import RepositorioDeContatoJSON, RepositorioDeContatoMemoria
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
+from interfaces import rotas_resposta_orientada
 from interfaces.chat import tela_chat
 from interfaces.chat_mensagem import responder_chat_mensagem
 from interfaces.conhecimento import tela_edicao
@@ -74,6 +78,8 @@ _PAISES_JSON = _RAIZ / "docs" / "design" / "paises.json"
 # ADR-0005, decisão 1 (ver docstring do módulo): estado da conversa entre turnos, chave
 # `conversation_id`, em memória do PROCESSO — não é um singleton escondido, é este dict, explícito.
 _ESTADOS_EM_MEMORIA: dict[str, EstadoDaConversa] = {}
+# Issue #58: último `PrecoCotado` de sucesso por conversa (mesmo padrão de `_ESTADOS_EM_MEMORIA`).
+_PRECOS_EM_MEMORIA: dict[str, PrecoCotado] = {}
 
 
 def _html(status: str, texto: str) -> tuple[str, list[tuple[str, str]], list[bytes]]:
@@ -356,6 +362,8 @@ def _responder_chat_cotar(
 
     turno = conduzir_conversa(portal_de_cotacao, estado, trilha=trilha, configuracao=configuracao)
     _ESTADOS_EM_MEMORIA[conversation_id] = estado
+    if turno.resultado and turno.resultado.preco:
+        _PRECOS_EM_MEMORIA[conversation_id] = turno.resultado.preco
 
     gerar_paineis(trilha_dir, painel_dir, repositorio_contato=repositorio_contato)
 
@@ -407,6 +415,9 @@ def _responder_chat_contratar(
     })
 
 
+# `_responder_chat_responder` (issue #58) mora em `interfaces.rotas_resposta_orientada` (file-loc-ceiling).
+
+
 def _rotear_chat(
     caminho: str,
     metodo: str,
@@ -447,15 +458,8 @@ def _rotear_chat(
 
 
 def _rotear(
-    servico,
-    servico_configuracao,
-    painel_dir,
-    buscar_planos,
-    servico_contato,
-    trilha_dir,
-    repositorio_contato,
-    portal_de_cotacao,
-    environ,
+    servico, servico_configuracao, painel_dir, buscar_planos, servico_contato, trilha_dir,
+    repositorio_contato, portal_de_cotacao, environ, *, portal_de_linguagem=None, portal_de_resposta_orientada=None,
 ):
     metodo = environ["REQUEST_METHOD"]
     caminho = environ["PATH_INFO"] or "/"
@@ -472,6 +476,12 @@ def _rotear(
         return _responder_configuracao_comercial(servico_configuracao, metodo, environ)
     if caminho == "/painel" or caminho.startswith("/painel/"):
         return _responder_painel(painel_dir, metodo, caminho[len("/painel/") :])
+    if caminho == "/api/chat/responder":  # issue #58 — fora de _rotear_chat, handler em rotas_resposta_orientada.py
+        return rotas_resposta_orientada.responder_chat_responder(
+            servico=servico, servico_configuracao=servico_configuracao, buscar_planos=buscar_planos,
+            portal_de_linguagem=portal_de_linguagem, portal_de_resposta_orientada=portal_de_resposta_orientada,
+            trilha_dir=trilha_dir, estados_em_memoria=_ESTADOS_EM_MEMORIA, precos_em_memoria=_PRECOS_EM_MEMORIA,
+            environ=environ, metodo=metodo)
 
     resposta_chat = _rotear_chat(
         caminho, metodo, environ,
@@ -486,38 +496,32 @@ def _rotear(
 
 
 def criar_app(
-    *,
-    servico: ServicoDeConhecimento,
-    painel_dir: Path,
-    servico_configuracao: ServicoDeConfiguracaoComercial,
-    buscar_planos=buscar_planos_real,
-    servico_contato: ServicoDeContato | None = None,
-    trilha_dir: Path | None = None,
-    repositorio_contato: RepositorioDeContato | None = None,
-    portal_de_cotacao=None,
+    *, servico: ServicoDeConhecimento, painel_dir: Path, servico_configuracao: ServicoDeConfiguracaoComercial,
+    buscar_planos=buscar_planos_real, servico_contato: ServicoDeContato | None = None,
+    trilha_dir: Path | None = None, repositorio_contato: RepositorioDeContato | None = None,
+    portal_de_cotacao=None, portal_de_linguagem=None, portal_de_resposta_orientada=None,
 ):
-    """Fábrica do app WSGI — injeção do caso de uso, do diretório do painel e de como buscar os
-    planos (achado B2 da auditoria: teste nunca bate na rede de verdade) para o teste rodar sem
-    tocar o disco real nem depender de variável de ambiente.
-
-    Parâmetros do chat (issue #46, PR 2 de 2) são ADITIVOS, com default seguro para não tocar
-    disco/rede em teste que não usa as rotas `/api/chat/*`: `servico_contato` default é um
-    `RepositorioDeContatoMemoria` (não grava em `contato/`); `trilha_dir` default `Path("examples")`;
-    `portal_de_cotacao` default é `ClienteQuoteHTTP(infra.config.url_quote_service())` (fala com a
-    `/quote` de verdade só quando de fato chamado — nenhum teste que não exercita `/api/chat/cotar`
-    é afetado)."""
+    """Fábrica do app WSGI — injeção do caso de uso, do diretório do painel e de como buscar os planos
+    (achado B2 da auditoria: teste nunca bate na rede de verdade) para o teste rodar sem tocar o disco
+    real nem depender de variável de ambiente. Parâmetros do chat (issue #46) são ADITIVOS, com default
+    seguro para não tocar disco/rede em teste que não usa as rotas `/api/chat/*`: `servico_contato`
+    default é `RepositorioDeContatoMemoria`; `trilha_dir` default `Path("examples")`; `portal_de_cotacao`
+    default é `ClienteQuoteHTTP` de verdade só quando de fato chamado. `portal_de_linguagem`/
+    `portal_de_resposta_orientada` (issue #58) default por `LLM_PROVEDOR`."""
     if servico_contato is None:
         servico_contato = ServicoDeContato(RepositorioDeContatoMemoria())
     if trilha_dir is None:
         trilha_dir = Path("examples")
     if portal_de_cotacao is None:
         portal_de_cotacao = ClienteQuoteHTTP(url_quote_service())
+    portal_de_linguagem = portal_de_linguagem or criar_adaptador_de_linguagem()
+    portal_de_resposta_orientada = portal_de_resposta_orientada or criar_adaptador_de_resposta_orientada()
 
     def app(environ, start_response):
         status, cabecalhos, corpo = _rotear(
             servico, servico_configuracao, painel_dir, buscar_planos,
-            servico_contato, trilha_dir, repositorio_contato, portal_de_cotacao,
-            environ,
+            servico_contato, trilha_dir, repositorio_contato, portal_de_cotacao, environ,
+            portal_de_linguagem=portal_de_linguagem, portal_de_resposta_orientada=portal_de_resposta_orientada,
         )
         start_response(status, cabecalhos)
         return corpo

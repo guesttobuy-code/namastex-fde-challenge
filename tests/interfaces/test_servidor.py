@@ -4,6 +4,11 @@ rotas da API de fichas, da configuração comercial (B4), a tela de edição, o 
 desde a issue #46 (PR 2 de 2), o chat guiado ligado ao agente real; nunca decide (só chama
 `aplicacao.servico_conhecimento`/`servico_configuracao_comercial`/`servico_conversa`/
 `servico_contato`)."""
+# catraca-reduz-de-proposito: issue #58 (frente `ia-responde`) moveu os 5 testes de
+# `/api/chat/responder` para `tests/interfaces/test_rotas_resposta_orientada.py` — o handler
+# correspondente (`responder_chat_responder`) foi extraído de `interfaces.servidor` para
+# `interfaces.rotas_resposta_orientada` (mesmo motivo: `file-loc-ceiling`). Nenhum caso de teste
+# foi apagado, só mudou de arquivo.
 from __future__ import annotations
 
 import json
@@ -21,7 +26,7 @@ from infra.repositorio_configuracao_comercial_json import RepositorioDeConfigura
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoMemoria
 from infra.repositorio_contato_json import RepositorioDeContatoMemoria
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
-from interfaces.servidor import _ESTADOS_EM_MEMORIA, criar_app
+from interfaces.servidor import _ESTADOS_EM_MEMORIA, _PRECOS_EM_MEMORIA, criar_app
 
 
 def _chamar(app, method, path, corpo: dict | None = None):
@@ -82,6 +87,8 @@ def _criar_app(
     trilha_dir=None,
     repositorio_contato=None,
     portal_de_cotacao=None,
+    portal_de_linguagem=None,
+    portal_de_resposta_orientada=None,
 ):
     """`tmp_path` é OBRIGATÓRIO (achado da auditoria do PR #62, 13/09/2026): `criar_app` de
     produção, sem `trilha_dir` explícito, cai no padrão real `Path("examples")` — um teste que
@@ -106,6 +113,8 @@ def _criar_app(
         trilha_dir=trilha_dir,
         repositorio_contato=repositorio_contato,
         portal_de_cotacao=portal_de_cotacao,
+        portal_de_linguagem=portal_de_linguagem,
+        portal_de_resposta_orientada=portal_de_resposta_orientada,
     )
 
 
@@ -116,11 +125,14 @@ def app(tmp_path):
 
 @pytest.fixture(autouse=True)
 def _estados_em_memoria_isolados():
-    """`_ESTADOS_EM_MEMORIA` é um dict a nível de MÓDULO (ADR-0005) — sem isolar entre testes, uma
-    conversa gravada por um teste vazaria para o próximo que usar o mesmo `conversation_id`."""
+    """`_ESTADOS_EM_MEMORIA`/`_PRECOS_EM_MEMORIA` são dicts a nível de MÓDULO (ADR-0005) — sem
+    isolar entre testes, uma conversa gravada por um teste vazaria para o próximo que usar o mesmo
+    `conversation_id`."""
     _ESTADOS_EM_MEMORIA.clear()
+    _PRECOS_EM_MEMORIA.clear()
     yield
     _ESTADOS_EM_MEMORIA.clear()
+    _PRECOS_EM_MEMORIA.clear()
 
 
 _FICHA = {
@@ -537,3 +549,4 @@ def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
     assert "conv-contrata" in handoffs_html
     assert "lead_quer_contratar" in handoffs_html
+
