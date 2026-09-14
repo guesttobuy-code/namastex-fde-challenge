@@ -233,7 +233,8 @@ hoje). **Deve aparecer:** *"Logo um corretor vai entrar em contato para te dar t
 **(d) O painel**
 
 Abra `http://localhost:8080/painel/rastreio.html`. **Deve aparecer:** a conversa que você acabou de
-fazer, listada à esquerda com um chip de status (ex. "handoff"); clicando nela, a linha do tempo
+fazer, listada à esquerda com um chip de status (o rótulo de um dos 5 status oficiais — para a
+conversa do passo (c), "Aguardando corretor"); clicando nela, a linha do tempo
 completa — cada mensagem e cada tentativa de cotação, com quem enviou, id e horário. Se a `/quote`
 tiver simulado uma falha na sua tentativa (ela falha ~20% das vezes, de propósito), aparecem duas
 ou mais tentativas para a MESMA cotação antes do sucesso. Abra também
