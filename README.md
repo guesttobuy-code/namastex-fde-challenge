@@ -96,10 +96,7 @@ PYTHONPATH=src python -m interfaces.cli
 
 Sem `LLM_PROVEDOR=openrouter` no ambiente, o comportamento é exatamente o de cima — sem chave, sem
 LLM, ninguém trava esperando uma variável que não tem (`src/interfaces/cli.py`, trecho do
-`if __name__ == "__main__":`). Execução real ponta a ponta com o adaptador de verdade contra o
-OpenRouter: [`examples/execucao_conv-4aa7be91.log`](examples/execucao_conv-4aa7be91.log) — a trilha
-grava `origem_do_texto="llm:deepseek/deepseek-chat-v3.1@v1"` por turno
-([`examples/trilha_conv-4aa7be91.jsonl`](examples/trilha_conv-4aa7be91.jsonl)).
+`if __name__ == "__main__":`).
 
 **IA responde objeção de preço (opcional, mesma chave — issue #58):** depois do card de preço, o
 chat web ganha um campo de texto livre para o lead escrever uma objeção ("achei caro", "vi mais
@@ -137,18 +134,25 @@ Docker (`PYTHONPATH=src python -m interfaces.servidor`).
 
 ## 2. Funciona de ponta a ponta?
 
-Sim — duas execuções reais, sem edição, ficaram em `examples/` como entregável (item 4 do enunciado):
+Sim — três execuções reais, sem edição, ficaram em `examples/` como entregável (item 4 do
+enunciado), geradas por um roteiro reproduzível
+(`PYTHONPATH=src python scripts/gerar_examples.py`, contra o `quote-api` real):
 
-- [`examples/execucao_conv-d656ea8c.log`](examples/execucao_conv-d656ea8c.log) — cotação sai:
-  `decisão: explicar_cotacao` / `Plano Completo: R$ 241.38/mês...`. A trilha
-  ([`trilha_conv-d656ea8c.jsonl`](examples/trilha_conv-d656ea8c.jsonl)) mostra a `/quote` simulando
-  instabilidade real e o agente vencendo por retry: tentativa 1 `502` (indisponível, 336ms), tentativa 2
-  `502` (58ms), tentativa 3 `200` (38ms, prêmio R$ 241,38) — três chamadas, uma cotação.
-- [`examples/execucao_conv-9a861a37.log`](examples/execucao_conv-9a861a37.log) — a `/quote` não
-  responde e o agente encaminha: `decisão: encaminhar (reason_code=quote_indisponivel)`. A trilha
-  ([`trilha_conv-9a861a37.jsonl`](examples/trilha_conv-9a861a37.jsonl)) mostra três `500` seguidos
-  (2795ms, 265ms, 401ms) até o orçamento não comportar mais uma tentativa, e o evento `handoff` sendo
-  gravado com o motivo.
+- [`examples/execucao_conv-2bdc86e8.log`](examples/execucao_conv-2bdc86e8.log) (E1) — cotação sai
+  de primeira: `decisão: explicar_cotacao` / `Plano Essencial: R$ 137,88/mês...`. A trilha
+  ([`trilha_conv-2bdc86e8.jsonl`](examples/trilha_conv-2bdc86e8.jsonl)) mostra uma única tentativa
+  `200` (125ms, orçamento restante 9875ms).
+- [`examples/execucao_conv-c254c560.log`](examples/execucao_conv-c254c560.log) (E2) — a `/quote`
+  está indisponível (porta morta na sonda, nunca o serviço real) e o agente encaminha: `decisão:
+  encaminhar (reason_code=quote_indisponivel)`. A trilha
+  ([`trilha_conv-c254c560.jsonl`](examples/trilha_conv-c254c560.jsonl)) mostra três tentativas
+  `indisponivel` (2054ms, 2028ms, 2041ms) até o orçamento não comportar mais uma tentativa (7,335s
+  de parede), e o `handoff` gravado com o motivo — nenhum preço inventado.
+- [`examples/execucao_conv-198a633b.log`](examples/execucao_conv-198a633b.log) (E3) — a `/quote`
+  recusa a cotação por idade (80 anos, acima do limite de 75): `decisão: encaminhar
+  (reason_code=recusa_regra_de_aceitacao)`. A trilha
+  ([`trilha_conv-198a633b.jsonl`](examples/trilha_conv-198a633b.jsonl)) mostra a tentativa `422`
+  (recusa_de_negocio, 31ms) e o `handoff` com o mesmo motivo.
 
 ---
 
@@ -383,12 +387,15 @@ duas formas do comando acima). Uma tela por link no topo:
   conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
   declarado aparecendo onde o avaliador olha.
 
-**Um número real, com a fonte:** das 5 tentativas que falharam nas 3 conversas de exemplo, só 2
-tiveram sucesso depois na mesma cotação — **40% (2 de 5) absorvidas por retry**
+**Um número real, com a fonte:** nestes 3 exemplos, as 4 tentativas que falharam (3
+`indisponivel` do E2, 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na mesma
+cotação — **0% (0 de 4) absorvidas por retry**
 ([`examples/painel/cotacoes.html`](examples/painel/cotacoes.html), calculado por
 `_absorcao_por_retry` em `src/interfaces/painel/tela_cotacoes.py` a partir das trilhas reais de
-`examples/`; achado da auditoria do PR #37 — a versão anterior confundia "falhou" com "foi
-absorvida" e contava 71,4%).
+`examples/`). O KPI é real, não fixo — quando um exemplo tiver uma tentativa que falha e a mesma
+cotação fechar depois de um retry, o número sobe sozinho; o comportamento de absorção em si (5xx
+seguido de sucesso) é provado por `tests/infra/test_cliente_quote.py`, não depende destes 3
+exemplos mostrarem o caso.
 
 ---
 
@@ -600,7 +607,7 @@ quote-service/   API de cotação fornecida pela Namastex (docs/DESAFIO.md)
 dataset/         histórico de conversas + dicionário, fornecidos pela Namastex
 src/             o agente: dominio/ (regras puras) · aplicacao/ (orquestra) · infra/ (HTTP, trilha) · interfaces/ (CLI)
 tests/           testes por camada + arquitetura + integração
-examples/        as duas execuções reais exigidas pelo enunciado (item 2 acima)
+examples/        três execuções reais: sucesso, `/quote` indisponível e recusa (item 2 acima)
 governance/      ADRs, contratos por módulo, matriz de impacto, guards
 docs/            DESAFIO.md (enunciado original), PRIVACIDADE.md, design/ (mocks)
 ai-logs/         conversas com IA durante o desafio — ver ai-logs/README.md
