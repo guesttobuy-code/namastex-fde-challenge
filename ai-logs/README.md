@@ -1,12 +1,7 @@
-<!--
-RASCUNHO (issue #15, C5/C6/C7 da #89) — não é o índice final. A exportação real das transcrições
-sanitizadas (as pastas de sessão em si) só acontece no congelamento, porque as sessões continuam
-crescendo até lá (`scripts/sanitizar_ai_logs.py`, self-test verde). Antes de publicar de verdade:
-reconferir a lista de sessões pelo disco (cresceu desde que este rascunho foi escrito), recontar os
-padrões pós-sanitização da exportação REAL (não do ensaio) e colar a saída aqui.
--->
-
 # `ai-logs/` — índice das conversas com IA
+
+Exportação real de 14/09/2026, sanitizada por `scripts/sanitizar_ai_logs.py` — saída completa em
+["Como foi sanitizado"](#como-foi-sanitizado), abaixo.
 
 Este projeto foi construído por várias sessões de IA, cada frente numa worktree própria (seção
 "A esteira" do `CLAUDE.md`: 1 chat = 1 frente = 1 branch = 1 worktree = 1 PR — com exceções
@@ -25,27 +20,29 @@ script, que recusa exportar se a checagem não puder rodar (`scripts/sanitizar_a
 
 ## Índice por papel
 
-| Sessão | Papel | O que produziu |
-|---|---|---|
-| `coordenacao/` | Planeja, audita entre frentes, decide prioridade, aprova merge | Todo o roteamento das frentes abaixo; decisões registradas na issue-diário [#16](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16) |
-| `auditoria-fria/` | Auditoria adversarial periódica do projeto inteiro (fora do fluxo de PR) | Achado do vazamento de dado pessoal em `esteira.json` ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)) |
-| `sondagem-inicial/` | Primeira leitura do desafio, antes de qualquer código | Levantamento inicial que virou a base do roadmap ([issue #3](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/3)) |
-| `fundacao-python/` | F1 — fundação do projeto | Config Python, guards que substituem os do kit JS/TS ([PR #25](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/25), mergeado) |
-| `dominio/` | F2 — domínio puro | Estado da conversa, decisão, `PrecoCotado`, motivos de handoff iniciais ([PR #32](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/32), mergeado) |
-| `guards-linux/` | Conserto da rede de guards no Linux | Fix de portabilidade ([PR #33](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/33), mergeado) |
-| `agente/` | F3 — cliente HTTP resiliente | Retry/timeout/orçamento contra a `/quote`, execução ponta a ponta ([PR #35](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/35), mergeado; [ADR-0002](../governance/adr/0002-politica-de-retry-quote.md)) |
-| `trilha-privacidade/` | F4 — trilha auditável e PII | Trilha JSONL, `redigir_texto`, decisão de não pedir CPF ([PR #31](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/31), mergeado; [`docs/PRIVACIDADE.md`](../docs/PRIVACIDADE.md)) |
-| `painel/` | F10 — painel de rastreio | 6 telas HTML geradas da trilha real ([PR #37](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/37), mergeado) |
-| `llm/` | F6 — adaptador de LLM | `PortalDeLinguagem`, extração por texto livre, provedor OpenRouter ([PR #40](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/40), mergeado; [ADR-0003](../governance/adr/0003-provedor-e-modelo-do-llm.md)) |
-| `politica-handoff/` | Política de handoff configurável | Recusa 422 configurável, intenção "quero contratar" ([PR #44](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/44), mergeado) |
-| `servidor-local/` | F13 — base de conhecimento | Servidor WSGI local, edição de objeções em JSON ([PR #45](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/45), mergeado; [ADR-0004](../governance/adr/0004-servidor-local-conhecimento-json.md)) |
-| `conversas-chat/` | F14 — casca única + chat; depois, por ordem do dono, mais 3 frentes na mesma sessão (chat 12) | Menu lateral e chat guiado ligado ao agente real ([PR #47](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/47), [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62), mergeados); depois `ia-responde` ([PR #75](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/75)), `prompt-carencia` ([PR #82](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/82)) e `docker-env-llm` ([PR #84](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/84)) — todos mergeados |
-| `texto-ao-lead/` | Formato brasileiro de preço e recusa educada | `_valor_br`, `nomes_cobertura` ([PR #60](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/60), mergeado) |
-| `correcoes-contratos/` | 3º contrato de camadas | `aplicacao` não importa `infra`/`interfaces` ([PR #61](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/61), mergeado) |
-| `status-conversa/` | Pedido explícito de humano (chat 17); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | `LEAD_PEDIU_HUMANO` ([PR #63](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63), mergeado); depois `status-da-conversa` ([PR #87](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/87), mergeado), `precommit-enxuto` ([PR #73](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/73), mergeado) e `robustez-quote-entrada` (issue #67/#68/#69, aberta, sem PR ainda) |
-| `trilha-coleta/` | Trilha da coleta determinística + 3 achados de auditoria (chat 16); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76), mergeado), `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85), mergeado) e `relatorio-crm` ([PR #80](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/80), mergeado) |
-| `entrega/` | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77), mergeado) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice. `atendimento-chat-lead` (issue #86) também está aberta nesta sessão, sem commit nem PR ainda |
-| `codex/` | Auditoria externa (Codex), antes de qualquer código | Red-team do roadmap — [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md) |
+| Sessão | Arquivos | Papel | O que produziu |
+|---|---|---|---|
+| `coordenacao/` | 32 | Planeja, audita entre frentes, decide prioridade, aprova merge | Todo o roteamento das frentes abaixo; decisões registradas na issue-diário [#16](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16) |
+| `auditoria-fria/` | 1 | Auditoria adversarial periódica do projeto inteiro (fora do fluxo de PR) | Achado do vazamento de dado pessoal em `esteira.json` ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)) |
+| `sondagem-inicial/` | 1 | Primeira leitura do desafio, antes de qualquer código | Levantamento inicial que virou a base do roadmap ([issue #3](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/3)) |
+| `fundacao-python/` | 2 | F1 — fundação do projeto | Config Python, guards que substituem os do kit JS/TS ([PR #25](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/25), mergeado) |
+| `dominio/` | 1 | F2 — domínio puro | Estado da conversa, decisão, `PrecoCotado`, motivos de handoff iniciais ([PR #32](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/32), mergeado) |
+| `guards-linux/` | 1 | Conserto da rede de guards no Linux | Fix de portabilidade ([PR #33](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/33), mergeado) |
+| `agente/` | 1 | F3 — cliente HTTP resiliente | Retry/timeout/orçamento contra a `/quote`, execução ponta a ponta ([PR #35](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/35), mergeado; [ADR-0002](../governance/adr/0002-politica-de-retry-quote.md)) |
+| `trilha-privacidade/` | 1 | F4 — trilha auditável e PII | Trilha JSONL, `redigir_texto`, decisão de não pedir CPF ([PR #31](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/31), mergeado; [`docs/PRIVACIDADE.md`](../docs/PRIVACIDADE.md)) |
+| `painel/` | 1 | F10 — painel de rastreio | 6 telas HTML geradas da trilha real ([PR #37](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/37), mergeado) |
+| `llm/` | 1 | F6 — adaptador de LLM | `PortalDeLinguagem`, extração por texto livre, provedor OpenRouter ([PR #40](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/40), mergeado; [ADR-0003](../governance/adr/0003-provedor-e-modelo-do-llm.md)) |
+| `politica-handoff/` | 1 | Política de handoff configurável | Recusa 422 configurável, intenção "quero contratar" ([PR #44](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/44), mergeado) |
+| `servidor-local/` | 1 | F13 — base de conhecimento | Servidor WSGI local, edição de objeções em JSON ([PR #45](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/45), mergeado; [ADR-0004](../governance/adr/0004-servidor-local-conhecimento-json.md)) |
+| `conversas-chat/` | 5 | F14 — casca única + chat; depois, por ordem do dono, mais 3 frentes na mesma sessão (chat 12) | Menu lateral e chat guiado ligado ao agente real ([PR #47](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/47), [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62), mergeados); depois `ia-responde` ([PR #75](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/75)), `prompt-carencia` ([PR #82](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/82)) e `docker-env-llm` ([PR #84](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/84)) — todos mergeados |
+| `texto-ao-lead/` | 1 | Formato brasileiro de preço e recusa educada | `_valor_br`, `nomes_cobertura` ([PR #60](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/60), mergeado) |
+| `correcoes-contratos/` | 1 | 3º contrato de camadas | `aplicacao` não importa `infra`/`interfaces` ([PR #61](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/61), mergeado) |
+| `status-conversa/` | 1 | Pedido explícito de humano (chat 17); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | `LEAD_PEDIU_HUMANO` ([PR #63](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63), mergeado); depois `status-da-conversa` ([PR #87](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/87), mergeado), `precommit-enxuto` ([PR #73](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/73), mergeado) e `robustez-quote-entrada` (issue #67/#68/#69, aberta, sem PR ainda) |
+| `trilha-coleta/` | 12 | Trilha da coleta determinística + 3 achados de auditoria (chat 16); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76), mergeado), `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85), mergeado) e `relatorio-crm` ([PR #80](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/80), mergeado) |
+| `entrega/` | 17 | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77), mergeado) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice. `atendimento-chat-lead` (issue #86) foi aberta nesta sessão e depois **retirada do escopo desta entrega por decisão do dono** — sem commit nem PR |
+| `codex/` | 1 | Auditoria externa (Codex), antes de qualquer código | Red-team do roadmap — [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md) |
+
+**Total: 18 pastas de sessão, 81 arquivos `.jsonl`, ~222MB (exportação real de 14/09/2026).**
 
 Cada pasta de sessão tem o `.jsonl` principal (a conversa) e, quando a sessão usou subagentes, uma
 subpasta `subagents/` com a transcrição de cada um — a varredura cobre os dois (achado da issue #15:
@@ -69,30 +66,46 @@ substituição pessoal usados durante a sanitização.
 em `_local/`, nunca versionado):
 
 1. Bloco de imagem (`"type": "image"`) vira texto `[IMAGEM REMOVIDA: captura de tela do dono]`.
-2. Padrões pessoais (usuário da máquina, sobrenome do dono, e-mail, nome de outro projeto do dono)
-   substituídos em todo valor-string **e toda CHAVE de dicionário** da árvore — não só em campos de
-   "texto de conversa": a estrutura de uma sessão tem dezenas de tipos de evento, e um achado do
-   ensaio de congelamento mostrou um caminho absoluto (usuário do Windows + nome completo do dono)
-   vazando justamente por uma CHAVE (`snapshot.trackedFileBackups`), que uma sanitização só de
-   valores nunca pegaria.
+2. Padrões de substituição da config (usuário da máquina, sobrenome do dono, e-mail, nome de outro
+   projeto do dono) trocados em todo valor-string **e toda CHAVE de dicionário** da árvore — não só
+   em campos de "texto de conversa": a estrutura de uma sessão tem dezenas de tipos de evento, e um
+   achado do ensaio de congelamento mostrou um caminho absoluto (usuário do Windows + nome completo
+   do dono) vazando justamente por uma CHAVE (`snapshot.trackedFileBackups`), que uma sanitização
+   só de valores nunca pegaria.
 3. PII sintética do dataset (CPF, CEP, telefone, e-mail, placa, nome conhecido) redigida com a mesma
    função que o agente usa em produção (`dominio.redator_pii.redigir_texto`), mais uma segunda
    passada sem exigência de fronteira de palavra só para CEP/CPF — achado: o redator original exige
    um caractere não-de-palavra antes do CEP, e isso falha quando a transcrição cita código-fonte
    (docstring com `\n` como texto literal, não quebra de linha).
-4. **Verificação final, fail-closed:** conta ocorrências dos padrões de segredo conhecidos
-   (prefixos de chave de API conhecidos, token `Bearer` longo), dos padrões PESSOAIS (em chave OU
-   valor, lidos de `_local/padroes_pessoais.txt` — arquivo criado pelo DONO, separado do arquivo de
-   substituição, para ser um segundo par de olhos independente) e de blocos de imagem remanescentes;
-   qualquer ocorrência **aborta a exportação inteira** e apaga o que foi escrito, citando os
-   arquivos — nunca o valor. **Se `_local/padroes_pessoais.txt` não existir, a exportação recusa
-   rodar** — nenhum `ai-logs/` sai sem essa checagem.
+4. **Padrões PESSOAIS do dono** (`_local/padroes_pessoais.txt` — arquivo criado pelo DONO, separado
+   do de substituição, para ser um segundo par de olhos independente) trocados por
+   `[DADO PESSOAL REMOVIDO]`, pela MESMA travessia de chave+valor do item 2 — achado da própria
+   exportação real: só CONFERIR não bastava (ninguém pode ler o valor que casa para decidir o
+   conserto na mão), então o script passou a SUBSTITUIR também. O script imprime só a contagem por
+   índice da lista (`padrão #N: <contagem> substituição(ões)`), nunca o valor nem a que padrão
+   corresponde em texto.
+5. **Verificação final, fail-closed, sobre uma pasta de staging temporária (fora de `ai-logs/`):**
+   conta ocorrências dos padrões de segredo conhecidos (prefixos de chave de API, token `Bearer`
+   longo), dos padrões PESSOAIS remanescentes (esperado zero, já que o item 4 os substitui — fica
+   como rede de segurança) e de blocos de imagem remanescentes; qualquer ocorrência **aborta a
+   exportação inteira**, citando os arquivos — nunca o valor — e `ai-logs/` nunca chega a ser
+   tocado. **Se `_local/padroes_pessoais.txt` não existir, a exportação recusa rodar.** Só se a
+   verificação passar, o script troca em `ai-logs/` **apenas as pastas de sessão exportadas** —
+   `ai-logs/README.md` e `ai-logs/codex/` nunca são apagados nem tocados (achado do primeiro
+   comando da exportação real: a versão anterior apagava `ai-logs/` inteira antes de escrever,
+   derrubando este README do disco por um instante — recuperado pelo git, nunca perdido, mas
+   corrigido para não acontecer de novo).
 
-**Ensaiado antes da exportação real**, contra as sessões de 13-14/09 (18 pastas de sessão, ~78
-arquivos `.jsonl`, ~230MB): depois do conserto do achado do item 2 acima, os 4 padrões pessoais
-foram todos a zero em todo o corpus, e a verificação de segredo passou limpa em todas as rodadas.
-`[PENDENTE: colar aqui as contagens da exportação REAL, não do ensaio — o commit desta exportação
-vai ter a saída completa do script]`.
+**Exportação real, 14/09/2026** — 18 pastas de sessão, 81 arquivos `.jsonl`, ~222MB:
+```
+[sanitizar_ai_logs] 81 arquivo(s) sanitizado(s) (staging, fora de ai-logs)
+[sanitizar_ai_logs] verificacao final: zero padrao de segredo, zero padrao pessoal (chave ou valor), zero bloco de imagem, 100% das linhas JSON validas.
+[sanitizar_ai_logs] padrao #3: 2 substituicao(oes)
+[sanitizar_ai_logs] padrao #14: 6 substituicao(oes)
+[sanitizar_ai_logs] padrao #15: 4 substituicao(oes)
+```
+Segunda verificação, independente do script (`git grep`, direto no que foi escrito): 0 arquivo com
+qualquer padrão de `_local/padroes_pessoais.txt`; 0 ocorrência de `sk-or-` em `ai-logs/`.
 
 ## O que ficou de fora, e por quê
 
