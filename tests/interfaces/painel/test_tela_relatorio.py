@@ -84,12 +84,19 @@ def test_whatsapp_vira_link_wa_me_so_com_digitos_e_ddi():
     assert "+55 (11) 99999-8888" in html  # valor original ainda visível como texto do link
 
 
-def test_csv_leva_whatsapp_no_formato_original_e_email():
+def test_csv_leva_whatsapp_so_com_digitos_e_email():
+    """B4 da auditoria do PR #94: `+55 11 99999-8888` no CSV virava `'+55 11 99999-8888` — a
+    neutralização de fórmula (corretamente) trata `+` como perigoso, e o número com apóstrofo não
+    se usa direto. A coluna `whatsapp` do CSV passa a ser só dígitos com DDI (mesma forma do
+    `wa.me`, reusando `_link_whatsapp` — nunca `+`/espaço/hífen, então nunca precisa de
+    neutralização nessa coluna especificamente)."""
     linhas = [_linha(whatsapp="+55 11 99999-8888", email="joao@example.com")]
 
     csv_texto = tela_relatorio.gerar_csv(linhas).decode("utf-8-sig")
 
-    assert "+55 11 99999-8888" in csv_texto
+    assert "5511999998888" in csv_texto
+    assert "+55 11 99999-8888" not in csv_texto
+    assert "'5511999998888" not in csv_texto
     assert "joao@example.com" in csv_texto
 
 
@@ -121,14 +128,18 @@ def test_filtro_por_status_usa_o_mesmo_vocabulario_da_5_valores():
 
 
 def test_data_entrada_formatada_em_br_na_tela_e_no_csv():
-    linhas = [_linha(data_entrada="2026-09-13T21:40:00")]
+    """Achado da auditoria do PR #94 (B2): a trilha grava o instante em UTC de verdade
+    (`aplicacao.servico_conversa._agora_iso`, sempre com offset `+00:00`) — mostrar sem converter
+    dá a hora ERRADA pro corretor no Brasil (medido: 01:04 em Brasília saía "04:04")."""
+    linhas = [_linha(data_entrada="2026-09-14T04:04:19.989289+00:00")]
 
     html = tela_relatorio.render(linhas)
     csv_texto = tela_relatorio.gerar_csv(linhas).decode("utf-8-sig")
 
-    assert "13/09/2026 21:40" in html
-    assert "13/09/2026 21:40" in csv_texto
-    assert "2026-09-13T21:40:00" not in html
+    assert "14/09/2026 01:04" in html
+    assert "14/09/2026 01:04" in csv_texto
+    assert "2026-09-14T04:04" not in html
+    assert "04:04" not in html
 
 
 def test_plano_cotado_ausente_mostra_ainda_nao_cotado_nunca_buraco():
@@ -221,6 +232,18 @@ def test_ver_conversa_expande_o_historico_completo_na_linha():
     assert "Quero cotar" in html
     assert "Qual seu CEP?" in html
     assert html.index("Quero cotar") < html.index("Qual seu CEP?")
+
+
+def test_ver_conversa_mostra_o_horario_da_mensagem_em_brasilia():
+    """B2 da auditoria do PR #94: o horário de cada mensagem também precisa da conversão UTC→
+    Brasília, não só a data de entrada."""
+    historico = [{"remetente": "Lead", "texto": "Quero cotar", "instante": "2026-09-14T04:04:19.989289+00:00"}]
+    linhas = [_linha(historico=historico)]
+
+    html = tela_relatorio.render(linhas)
+
+    assert "14/09/2026 01:04" in html
+    assert "04:04" not in html
 
 
 def test_csv_historico_vira_uma_coluna_com_mensagens_separadas_por_pipe():

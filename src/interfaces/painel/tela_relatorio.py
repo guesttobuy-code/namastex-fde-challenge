@@ -32,7 +32,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from dominio.redator import valor_br
@@ -50,6 +50,11 @@ _CARACTERES_PERIGOSOS_CSV = ("=", "+", "-", "@", "\t", "\r")
 _NAO_INFORMADO = "não informado"
 _AINDA_NAO_COTADO = "ainda não cotado"
 _SEM_PENDENCIA = "—"
+
+# Achado da auditoria do PR #94 (B2): a trilha grava o instante em UTC (`_agora_iso`, sempre com
+# offset) — o corretor lê a tela no Brasil. Brasil não tem horário de verão desde 2019 (decisão do
+# governo federal), então `-03:00` fixo é correto o ano inteiro, sem tabela de exceção sazonal.
+_FUSO_BRASILIA = timezone(timedelta(hours=-3))
 
 _ROTULO_REMETENTE = {"lead": "Lead", "agente": "Robô", "ia": "IA", "corretor": "Corretor", "sistema": "Sistema"}
 
@@ -120,10 +125,16 @@ def _whatsapp_html(whatsapp: str | None) -> str:
 
 
 def _link_whatsapp(whatsapp: str) -> str:
-    """`https://wa.me/<dígitos com DDI>` — só dígitos, sem `+`/espaço/hífen/parênteses (formato que
-    o wa.me exige)."""
-    apenas_digitos = re.sub(r"\D", "", whatsapp)
-    return f"https://wa.me/{apenas_digitos}"
+    """`https://wa.me/<dígitos com DDI>` — formato que o wa.me exige."""
+    return f"https://wa.me/{_apenas_digitos_whatsapp(whatsapp)}"
+
+
+def _apenas_digitos_whatsapp(whatsapp: str) -> str:
+    """Só dígitos, sem `+`/espaço/hífen/parênteses — dono único, usado no link `wa.me` (tela) e na
+    coluna `whatsapp` do CSV (achado da auditoria do PR #94, B4: `+55 11 99999-8888` no CSV virava
+    `'+55 11 99999-8888` — a neutralização de fórmula corretamente trata `+` como perigoso; só
+    dígitos nunca precisa de neutralização, e é a forma que se usa direto num WhatsApp/planilha)."""
+    return re.sub(r"\D", "", whatsapp)
 
 
 def _ver_conversa_html(historico: list[dict[str, Any]] | None) -> str:
@@ -136,19 +147,26 @@ def _ver_conversa_html(historico: list[dict[str, Any]] | None) -> str:
 def _mensagem_html(mensagem: dict[str, Any]) -> str:
     remetente = esc(mensagem.get("remetente"))
     texto = campo(mensagem, "texto")
-    instante = esc(mensagem.get("instante") or "")
+    instante = esc(_data_br(mensagem.get("instante")) or "")
     return f'<div class="msg-historico"><b>{remetente}:</b> {texto} <span class="aux">{instante}</span></div>'
 
 
 def _data_br(instante_iso: str | None) -> str | None:
-    """`"2026-09-13T21:40:00"` → `"13/09/2026 21:40"` — sem lib nova. Instante ausente devolve
-    `None` (vira buraco/traço no chamador, nunca uma data inventada)."""
+    """`"2026-09-14T04:04:19.989289+00:00"` → `"14/09/2026 01:04"` (UTC → Brasília, `_FUSO_BRASILIA`)
+    — dono único da conversão, usado na data de entrada (tela e CSV) e no horário de cada mensagem
+    do "Ver conversa". Instante SEM offset (só acontece em fixture de teste — a trilha real sempre
+    grava com `+00:00`) é tratado como já sendo UTC, nunca como hora local da máquina que roda o
+    painel. Instante ausente devolve `None` (vira buraco/traço no chamador, nunca uma data
+    inventada); instante que não é ISO válido devolve o valor original, sem inventar."""
     if not instante_iso:
         return None
     try:
-        return datetime.fromisoformat(instante_iso).strftime("%d/%m/%Y %H:%M")
+        instante = datetime.fromisoformat(instante_iso)
     except ValueError:
         return instante_iso
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=timezone.utc)
+    return instante.astimezone(_FUSO_BRASILIA).strftime("%d/%m/%Y %H:%M")
 
 
 def montar_historico(eventos_da_conversa: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -235,7 +253,7 @@ def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
         escritor.writerow([
             _neutralizar_formula_csv(linha.get("conversation_id") or ""),
             _neutralizar_formula_csv(linha.get("nome") or _NAO_INFORMADO),
-            _neutralizar_formula_csv(linha.get("whatsapp") or _NAO_INFORMADO),
+            _apenas_digitos_whatsapp(linha["whatsapp"]) if linha.get("whatsapp") else _NAO_INFORMADO,
             _neutralizar_formula_csv(linha.get("email") or _NAO_INFORMADO),
             _neutralizar_formula_csv(linha.get("status_rotulo") or ""),
             _neutralizar_formula_csv(_data_br(linha.get("data_entrada")) or ""),
