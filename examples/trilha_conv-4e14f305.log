@@ -1,6 +1,0 @@
-# Execução — conv-4e14f305
-
-[2026-09-12T21:29:48.973494+00:00] mensagem_recebida id=msg_ffcbe7cc
-[2026-09-12T21:29:49.206673+00:00] tentativa_de_cotacao id=ab8aa6bb963e4d459e4f80bd8885a755 status=200 classificacao=sucesso
-[2026-09-12T21:29:49.208017+00:00] decisao id=dec_aec2ae31
-[2026-09-12T21:29:49.208610+00:00] mensagem_enviada id=msg_d6cc1ed0 decisao=dec_aec2ae31 regra=politica.decidir:SUCESSO->EXPLICAR_COTACAO

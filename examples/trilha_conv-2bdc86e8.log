@@ -1,0 +1,16 @@
+# Execução — conv-2bdc86e8
+
+[2026-09-14T02:51:36.595957+00:00] mensagem_enviada id=msg_coleta_0_enviada decisao=dec_coleta_0 regra=coleta:pergunta
+[2026-09-14T02:51:36.596647+00:00] mensagem_recebida id=msg_coleta_0_recebida
+[2026-09-14T02:51:36.597084+00:00] mensagem_enviada id=msg_coleta_1_enviada decisao=dec_coleta_1 regra=coleta:pergunta
+[2026-09-14T02:51:36.599962+00:00] mensagem_recebida id=msg_coleta_1_recebida
+[2026-09-14T02:51:36.600479+00:00] mensagem_enviada id=msg_coleta_2_enviada decisao=dec_coleta_2 regra=coleta:pergunta
+[2026-09-14T02:51:36.600879+00:00] mensagem_recebida id=msg_coleta_2_recebida
+[2026-09-14T02:51:36.601206+00:00] mensagem_enviada id=msg_coleta_3_enviada decisao=dec_coleta_3 regra=coleta:pergunta
+[2026-09-14T02:51:36.601584+00:00] mensagem_recebida id=msg_coleta_3_recebida
+[2026-09-14T02:51:36.601898+00:00] mensagem_enviada id=msg_coleta_4_enviada decisao=dec_coleta_4 regra=coleta:pergunta
+[2026-09-14T02:51:36.602256+00:00] mensagem_recebida id=msg_coleta_4_recebida
+[2026-09-14T02:51:36.602670+00:00] mensagem_recebida id=msg_6ea29ea1
+[2026-09-14T02:51:36.728337+00:00] tentativa_de_cotacao id=0d0e1bb0be90443c93c0c48fe48958d8 status=200 classificacao=sucesso
+[2026-09-14T02:51:36.729207+00:00] decisao id=dec_229dfdb6
+[2026-09-14T02:51:36.729605+00:00] mensagem_enviada id=msg_6785baae decisao=dec_229dfdb6 regra=politica.decidir:SUCESSO->EXPLICAR_COTACAO

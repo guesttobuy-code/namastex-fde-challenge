@@ -35,7 +35,7 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 |---|---|---|
 | `/` | **chat guiado e determinístico** na coleta (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado; sem LLM até o card de preço, de propósito (decisão da coordenação: quem avalia não precisa de chave para chegar na cotação). O campo de dúvida DEPOIS do card usa a IA opcional (issue #58, ver abaixo) | funcional |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
-| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
+| `/painel/` | o painel de rastreio (cinco telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
 
 Pelo chat: aviso de privacidade antes das perguntas, nome + WhatsApp obrigatórios (e-mail opcional),
 idade (menor de 18 não cota — ver [limite conhecido](#10-limites-conhecidos)), veículo, **CEP
@@ -45,11 +45,13 @@ em cards com coberturas/franquia lidas de `GET /api/planos` (nunca escritas à m
 final editável. **O domínio já distingue "quero contratar" de "quero falar com um humano" desde o
 PR #63** (`Intencao.QUER_FALAR_COM_HUMANO` → `MotivoHandoff.LEAD_PEDIU_HUMANO`, mesmo grau
 incondicional de `Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, nunca reaproveita
-um pelo outro — [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável)). **O que ainda
-não mudou é a TELA:** os botões "Quero contratar" e "Falar com um corretor" caem no mesmo endpoint
-(`POST /api/chat/contratar`), com o mesmo `Intencao.QUER_CONTRATAR` para os dois — a tela passar a
-mandar o sinal certo para cada botão é o PR #87 (issue #57 PR 2), ainda não mergeado. Detalhe
-completo (as 5 rotas, o contrato, os achados da auditoria) no `CHANGELOG.md`.
+um pelo outro — [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável)). **A tela já
+manda o sinal certo para cada botão (issue #57 PR 2, #87):** "Quero contratar" e "Falar com um
+corretor" caem no mesmo endpoint (`POST /api/chat/contratar`,
+`src/interfaces/chat/_corpo.html:612-616`), mas com um campo `motivo` (`"contratar"` | `"humano"`)
+que o servidor traduz para `Intencao.QUER_CONTRATAR`/`Intencao.QUER_FALAR_COM_HUMANO`
+(`src/interfaces/servidor.py:400-403`) — cada botão gera o `MotivoHandoff` certo, nunca reaproveita
+um pelo outro. Detalhe completo (as 5 rotas, o contrato, os achados da auditoria) no `CHANGELOG.md`.
 
 **A CLI continua funcionando** como caminho alternativo de terminal — o mesmo agente, a mesma
 trilha, a mesma `/quote`:
@@ -96,10 +98,7 @@ PYTHONPATH=src python -m interfaces.cli
 
 Sem `LLM_PROVEDOR=openrouter` no ambiente, o comportamento é exatamente o de cima — sem chave, sem
 LLM, ninguém trava esperando uma variável que não tem (`src/interfaces/cli.py`, trecho do
-`if __name__ == "__main__":`). Execução real ponta a ponta com o adaptador de verdade contra o
-OpenRouter: [`examples/execucao_conv-4aa7be91.log`](examples/execucao_conv-4aa7be91.log) — a trilha
-grava `origem_do_texto="llm:deepseek/deepseek-chat-v3.1@v1"` por turno
-([`examples/trilha_conv-4aa7be91.jsonl`](examples/trilha_conv-4aa7be91.jsonl)).
+`if __name__ == "__main__":`).
 
 **IA responde objeção de preço (opcional, mesma chave — issue #58):** depois do card de preço, o
 chat web ganha um campo de texto livre para o lead escrever uma objeção ("achei caro", "vi mais
@@ -137,18 +136,25 @@ Docker (`PYTHONPATH=src python -m interfaces.servidor`).
 
 ## 2. Funciona de ponta a ponta?
 
-Sim — duas execuções reais, sem edição, ficaram em `examples/` como entregável (item 4 do enunciado):
+Sim — três execuções reais, sem edição, ficaram em `examples/` como entregável (item 4 do
+enunciado), geradas por um roteiro reproduzível
+(`PYTHONPATH=src python scripts/gerar_examples.py`, contra o `quote-api` real):
 
-- [`examples/execucao_conv-d656ea8c.log`](examples/execucao_conv-d656ea8c.log) — cotação sai:
-  `decisão: explicar_cotacao` / `Plano Completo: R$ 241.38/mês...`. A trilha
-  ([`trilha_conv-d656ea8c.jsonl`](examples/trilha_conv-d656ea8c.jsonl)) mostra a `/quote` simulando
-  instabilidade real e o agente vencendo por retry: tentativa 1 `502` (indisponível, 336ms), tentativa 2
-  `502` (58ms), tentativa 3 `200` (38ms, prêmio R$ 241,38) — três chamadas, uma cotação.
-- [`examples/execucao_conv-9a861a37.log`](examples/execucao_conv-9a861a37.log) — a `/quote` não
-  responde e o agente encaminha: `decisão: encaminhar (reason_code=quote_indisponivel)`. A trilha
-  ([`trilha_conv-9a861a37.jsonl`](examples/trilha_conv-9a861a37.jsonl)) mostra três `500` seguidos
-  (2795ms, 265ms, 401ms) até o orçamento não comportar mais uma tentativa, e o evento `handoff` sendo
-  gravado com o motivo.
+- [`examples/execucao_conv-2bdc86e8.log`](examples/execucao_conv-2bdc86e8.log) (E1) — cotação sai
+  de primeira: `decisão: explicar_cotacao` / `Plano Essencial: R$ 137,88/mês...`. A trilha
+  ([`trilha_conv-2bdc86e8.jsonl`](examples/trilha_conv-2bdc86e8.jsonl)) mostra uma única tentativa
+  `200` (125ms, orçamento restante 9875ms).
+- [`examples/execucao_conv-c254c560.log`](examples/execucao_conv-c254c560.log) (E2) — a `/quote`
+  está indisponível (porta morta na sonda, nunca o serviço real) e o agente encaminha: `decisão:
+  encaminhar (reason_code=quote_indisponivel)`. A trilha
+  ([`trilha_conv-c254c560.jsonl`](examples/trilha_conv-c254c560.jsonl)) mostra três tentativas
+  `indisponivel` (2054ms, 2028ms, 2041ms) até o orçamento não comportar mais uma tentativa (7,335s
+  de parede), e o `handoff` gravado com o motivo — nenhum preço inventado.
+- [`examples/execucao_conv-198a633b.log`](examples/execucao_conv-198a633b.log) (E3) — a `/quote`
+  recusa a cotação por idade (80 anos, acima do limite de 75): `decisão: encaminhar
+  (reason_code=recusa_regra_de_aceitacao)`. A trilha
+  ([`trilha_conv-198a633b.jsonl`](examples/trilha_conv-198a633b.jsonl)) mostra a tentativa `422`
+  (recusa_de_negocio, 31ms) e o `handoff` com o mesmo motivo.
 
 ---
 
@@ -354,8 +360,11 @@ prompt — a resposta do lead continua sempre redigida; teste ponta a ponta em
 invariante nova `I-4` (`src/interfaces/CONTRACT.md`) coberta por teste dedicado
 (`tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto`).
 
-**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em HTML
-estático, sem servidor e sem JavaScript, geradas do mesmo `.jsonl` acima:
+**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — cinco telas em
+HTML estático geradas do mesmo `.jsonl` acima; quatro sem servidor nem JavaScript, e a de
+Conversas ganhou os botões Assumir/Encerrar (issue #57 PR 2, #87), que dependem do
+`interfaces.servidor` rodando para funcionar (neste snapshot standalone eles aparecem, mas não
+respondem):
 
 ```bash
 # macOS/Linux
@@ -372,23 +381,31 @@ Abra [`examples/painel/index.html`](examples/painel/index.html) no navegador (j�
 — rodar de novo é opcional, e reproduz os mesmos arquivos byte a byte, conferido nesta frente com as
 duas formas do comando acima). Uma tela por link no topo:
 
-- **Conversas** (`index.html`) — lista cada conversa com o desfecho final (cotação ou handoff).
+- **Histórico de atendimentos** (`index.html`) — lista cada conversa com o status atual (um dos 5
+  de `dominio.status_conversa.StatusDaConversa`: `com_o_agente`, `cotada`, `aguardando_corretor`,
+  `em_atendimento_humano`, `encerrada`), filtro por status (`<select>`, ou o link direto
+  `?status=aguardando_corretor` — a antiga "Fila humana" virou este filtro, issue #57 PR 2/#87) e,
+  em cada conversa aberta, os botões **Assumir**/**Encerrar** (`src/interfaces/painel/tela_conversas.py`).
+  O catálogo de motivos de handoff que antes vivia na Fila humana foi para `regras.html`.
 - **Rastreio** (`rastreio.html`) — a timeline evento a evento de uma conversa, aberta.
 - **Cotações** (`cotacoes.html`) — cada tentativa de `/quote` com status e latência, agrupadas por
   cotação.
-- **Fila humana** (`handoffs.html`) — só as conversas que viraram `ENCAMINHAR`, com o motivo.
-- **Regras e política** (`regras.html`) — a tabela de preço e a política de retry, lidas do código
-  (`src/infra/cliente_quote.py`), nunca redigitadas.
+- **Regras e política** (`regras.html`) — a tabela de preço, a política de retry (lidas do código,
+  `src/infra/cliente_quote.py`) e o catálogo dos 7 `MotivoHandoff` (`dominio.decisao`), nunca
+  redigitadas.
 - **Avaliação** (`avaliacao.html`) — mostra **"eval/casos.jsonl não encontrado"** de propósito: o
   conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
   declarado aparecendo onde o avaliador olha.
 
-**Um número real, com a fonte:** das 5 tentativas que falharam nas 3 conversas de exemplo, só 2
-tiveram sucesso depois na mesma cotação — **40% (2 de 5) absorvidas por retry**
+**Um número real, com a fonte:** nestes 3 exemplos, as 4 tentativas que falharam (3
+`indisponivel` do E2, 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na mesma
+cotação — **0% (0 de 4) absorvidas por retry**
 ([`examples/painel/cotacoes.html`](examples/painel/cotacoes.html), calculado por
 `_absorcao_por_retry` em `src/interfaces/painel/tela_cotacoes.py` a partir das trilhas reais de
-`examples/`; achado da auditoria do PR #37 — a versão anterior confundia "falhou" com "foi
-absorvida" e contava 71,4%).
+`examples/`). O KPI é real, não fixo — quando um exemplo tiver uma tentativa que falha e a mesma
+cotação fechar depois de um retry, o número sobe sozinho; o comportamento de absorção em si (5xx
+seguido de sucesso) é provado por `tests/infra/test_cliente_quote.py`, não depende destes 3
+exemplos mostrarem o caso.
 
 ---
 
@@ -412,7 +429,8 @@ de nomes conhecidos passa intacto. Detalhe completo em [`docs/PRIVACIDADE.md`](d
 
 **O contato do lead (nome, WhatsApp, e-mail) nunca entra no git nem na trilha.** Um arquivo por lead
 em `contato/leads/<conversation_id>.json` (`.gitignore`, volume próprio no `docker-compose.yml`),
-lido só pela Fila humana — dado operacional que o corretor precisa ver de verdade, dono diferente do
+lido só pelo Histórico de atendimentos (`_contatos_das_conversas`, `src/interfaces/painel/gerar.py:50-66`,
+via `repositorio_contato` — antes lido pela extinta Fila humana) — dado operacional que o corretor precisa ver de verdade, dono diferente do
 histórico/trilha (LEI 11). Decisão e alternativas descartadas em
 [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md#contato-do-lead-fora-do-git-nunca-na-trilha-issue-46-adr-0005)
 e [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md). Desde a issue #51 (parte 2), a
@@ -511,7 +529,6 @@ não tem:
 | Ficou de fora | Estado | Issue |
 |---|---|---|
 | Tela Relatório (`src/interfaces/painel/tela_relatorio.py`, CSV com telefone/histórico) existe mas não tem menu nem rota — `interfaces.painel.gerar`/`layout` não a referenciam ainda, então não é alcançável pela navegação | `[PENDENTE: #59]` — PR 1/2 mergeado (a tela), PR 2/2 (menu + `gerar.py`) ainda não | [#59](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/59) |
-| Status/estado da conversa na Fila humana, além do motivo do handoff (o motivo em si já está resolvido — ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável), `LEAD_PEDIU_HUMANO`) | `[PENDENTE: #57]` — issue #57 segue aberta para essa parte | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
@@ -600,7 +617,7 @@ quote-service/   API de cotação fornecida pela Namastex (docs/DESAFIO.md)
 dataset/         histórico de conversas + dicionário, fornecidos pela Namastex
 src/             o agente: dominio/ (regras puras) · aplicacao/ (orquestra) · infra/ (HTTP, trilha) · interfaces/ (CLI)
 tests/           testes por camada + arquitetura + integração
-examples/        as duas execuções reais exigidas pelo enunciado (item 2 acima)
+examples/        três execuções reais: sucesso, `/quote` indisponível e recusa (item 2 acima)
 governance/      ADRs, contratos por módulo, matriz de impacto, guards
 docs/            DESAFIO.md (enunciado original), PRIVACIDADE.md, design/ (mocks)
 ai-logs/         conversas com IA durante o desafio — ver ai-logs/README.md
