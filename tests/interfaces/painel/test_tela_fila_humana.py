@@ -1,10 +1,13 @@
+# catraca-reduz-de-proposito: test_todo_motivohandoff_tem_descricao_registrada mudou de arquivo
+# para tests/interfaces/painel/test_motivos.py (issue #57, P14, PR 2 de 2) — _DESCRICAO_MOTIVO
+# ganhou dono único em interfaces.painel.motivos (usado também por tela_conversas, S12). O teste
+# não sumiu, só mudou de dono junto com o código que testa.
 import re
 
 from dominio.contato_lead import ContatoLead
 from dominio.decisao import MotivoHandoff
 
 from interfaces.painel import tela_fila_humana
-from interfaces.painel.tela_fila_humana import _DESCRICAO_MOTIVO
 
 
 def test_handoff_da_fixture_aparece_com_motivo_e_contexto(trilha_fixture):
@@ -31,14 +34,6 @@ def test_regra_de_regras_a_lista_exibida_e_exatamente_a_do_enum():
     exibidos = set(re.findall(r'<div class="regra"><code>([^<]+)</code>', html))
 
     assert exibidos == {m.value for m in MotivoHandoff}
-
-
-def test_todo_motivohandoff_tem_descricao_registrada():
-    """Pedido da coordenação (issue #42): sem este teste, um `MotivoHandoff` novo sem entrada em
-    `_DESCRICAO_MOTIVO` cai em silêncio no fallback "sem descrição registrada" — nenhum outro
-    teste pegava esse silêncio antes desta issue."""
-    sem_descricao = {m.value for m in MotivoHandoff} - set(_DESCRICAO_MOTIVO.keys())
-    assert not sem_descricao, f"MotivoHandoff sem entrada em _DESCRICAO_MOTIVO: {sem_descricao}"
 
 
 def test_sem_handoff_mostra_buraco():

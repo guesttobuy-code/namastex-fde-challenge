@@ -23,18 +23,7 @@ from dominio.decisao import MotivoHandoff
 from interfaces.painel.agrupar import agrupar_por_conversa
 from interfaces.painel.campos import buraco, campo, esc
 from interfaces.painel.layout import css_extra_da_tela, pagina
-
-_DESCRICAO_MOTIVO = {
-    MotivoHandoff.QUOTE_INDISPONIVEL.value: "Cotação indisponível: o serviço de cotação falhou de forma persistente.",
-    MotivoHandoff.QUOTE_TIMEOUT.value: "Cotação expirou: orçamento de tempo esgotado sem resposta.",
-    MotivoHandoff.QUOTE_ERRO_DE_PAYLOAD.value: "Erro de payload nosso (400) — não repete, registra e passa adiante.",
-    MotivoHandoff.RECUSA_REGRA_DE_ACEITACAO.value: "A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.",
-    MotivoHandoff.LEAD_QUER_CONTRATAR.value: "O lead pediu para contratar: o fechamento é feito por um corretor.",
-    # issue #57 (P9): consequência mecânica de MotivoHandoff.LEAD_PEDIU_HUMANO — sem esta entrada,
-    # test_regra_de_regras (abaixo) cai no fallback "sem descrição registrada" (achado do #42).
-    MotivoHandoff.LEAD_PEDIU_HUMANO.value: "O lead pediu para falar com uma pessoa.",
-    MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL.value: "A IA não conseguiu responder a objeção de preço com segurança (sem chave, sem ficha publicada, ou a geração reprovou a validação de marcador): encaminhado ao corretor.",
-}
+from interfaces.painel.motivos import DESCRICAO_MOTIVO as _DESCRICAO_MOTIVO
 
 
 def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, ContatoLead] | None = None) -> str:
