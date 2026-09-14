@@ -1,4 +1,4 @@
-"""Os 7 eventos da trilha auditável (issue #7, especificação em `docs/design/ESPECIFICACAO.md`).
+"""Os 8 eventos da trilha auditável (issue #7, especificação em `docs/design/ESPECIFICACAO.md`).
 
 Puro, sem IO — não importa `aplicacao`, `infra` nem `interfaces` (contrato do `.importlinter`).
 Cada evento é um dataclass congelado com `campos_comuns()` + os campos próprios; `to_dict()` é o
@@ -90,3 +90,17 @@ class CorrecaoRegistrada(EventoTrilha):
     alvo: str  # regra_de_decisao | texto_do_redator | esquema_de_extracao | politica_de_handoff
     virou_caso: bool = False
     caso_id: str | None = None
+
+
+@dataclass(frozen=True)
+class MudancaDeStatus(EventoTrilha):
+    """`evento="status_alterado"` — issue #57 (P14, PR 2 de 2). `de`/`para` são o `.value` de
+    `dominio.status_conversa.StatusDaConversa` (mesmo padrão de `Decisao.tipo`: a trilha guarda a
+    string, nunca o Enum). `origem` distingue troca automática (a cada turno, via
+    `proxima_transicao_automatica`) de manual (botão "Assumir"/"Encerrar", via
+    `aplicacao.servico_status_conversa`) — sem identidade de pessoa (decisão da coordenação no
+    PLANO do PR 1: "manual" nunca vira "quem")."""
+
+    de: str | None
+    para: str
+    origem: str  # "automatico" | "manual"

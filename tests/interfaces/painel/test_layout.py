@@ -30,6 +30,27 @@ def test_botao_desabilitado_recebe_estilo_visivel():
     assert "button[disabled]" in html
 
 
+# ── UI-B1/UI-B2, achado da pré-auditoria em navegador do PR #87: medição real com
+# `getComputedStyle` mostrou `display:flex` nas três seções com `hidden` e `background:rgb(240,240,240)`
+# nos botões Assumir/Encerrar — a regra CSS que faria as duas coisas funcionarem nunca foi servida.
+
+
+def test_atributo_hidden_tem_regra_css_de_verdade():
+    """Sem esta regra, `hidden` fica só um atributo inerte no HTML — o navegador continua
+    desenhando o elemento (medido com `getComputedStyle` na tela de conversas, S13)."""
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert "[hidden]{display:none!important}" in html
+
+
+def test_classe_botao_tem_estilo_definido():
+    """`.botao`/`.botao.principal` (usadas por Assumir/Encerrar em `tela_conversas`) precisam de
+    uma regra própria — sem ela o navegador aplica o padrão dele (`background:rgb(240,240,240)`,
+    medido na auditoria)."""
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert ".botao{" in html
+    assert ".botao.principal{" in html
+
+
 def test_titulo_da_tela_bate_com_o_rotulo_do_menu():
     """Achado B2 da auditoria do PR #47 (issue #46): o item do menu ficou ativo em
     "Histórico de atendimentos" enquanto a página ainda dizia "Conversas" — os dois vinham de
@@ -51,6 +72,24 @@ def test_titulo_da_tela_bate_com_o_rotulo_do_menu():
     # R2 da auditoria do PR #47 (issue #46): o `<title>` também tem que bater com o rótulo do
     # menu, não só o `<h1>` — mesmo achado, segunda etiqueta que pode divergir da primeira.
     assert f"<title>AutoSeguro · {rotulo_do_menu}</title>" in html
+
+
+def test_item_fila_humana_aponta_para_o_filtro_aguardando_corretor_sem_sumir():
+    """S10 do roteiro de aceite (issue #57, PR 2 de 2): o item "Fila humana" NÃO some do menu —
+    decisão do dono ("não some, vira atalho") — só o `href` muda pro Histórico já filtrado.
+    Afirma o `href`, não a ausência do item (pega quem tentar remover em vez de redirecionar,
+    exatamente a regressão nomeada no PLANO)."""
+    rotulo, icone = next(
+        (rotulo, icone)
+        for _, itens in _ITENS_MENU
+        for arquivo, icone, rotulo, _ in itens
+        if rotulo == "Fila humana"
+    )
+    assert rotulo == "Fila humana"
+    assert icone == "🙋"
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert '<a href="/painel/index.html?status=aguardando_corretor">' in html
+    assert "Fila humana" in html
 
 
 def test_css_extra_da_tela_traz_o_segundo_bloco_de_estilo_do_mock():

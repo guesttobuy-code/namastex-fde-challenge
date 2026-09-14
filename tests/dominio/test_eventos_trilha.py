@@ -10,6 +10,7 @@ from dominio.eventos_trilha import (
     Handoff,
     MensagemEnviada,
     MensagemRecebida,
+    MudancaDeStatus,
     TentativaDeCotacao,
 )
 
@@ -139,6 +140,35 @@ def test_correcao_registrada_referencia_o_erro_e_o_alvo():
     campos = evento.to_dict()
     assert campos["alvo"] == "politica_de_handoff"
     assert campos["virou_caso"] is True
+
+
+def test_mudanca_de_status_guarda_de_para_e_origem():
+    evento = MudancaDeStatus(
+        evento="status_alterado",
+        conversation_id="conv_1",
+        id="st_01",
+        instante="2026-09-13T10:00:00",
+        de="com_o_agente",
+        para="aguardando_corretor",
+        origem="automatico",
+    )
+    campos = evento.to_dict()
+    assert campos["de"] == "com_o_agente"
+    assert campos["para"] == "aguardando_corretor"
+    assert campos["origem"] == "automatico"
+
+
+def test_mudanca_de_status_aceita_de_none_na_primeira_transicao():
+    evento = MudancaDeStatus(
+        evento="status_alterado",
+        conversation_id="conv_1",
+        id="st_00",
+        instante="2026-09-13T09:59:00",
+        de=None,
+        para="com_o_agente",
+        origem="automatico",
+    )
+    assert evento.to_dict()["de"] is None
 
 
 def test_mensagem_recebida_e_decisao_tem_os_campos_comuns():

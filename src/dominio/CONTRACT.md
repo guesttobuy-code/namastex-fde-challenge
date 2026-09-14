@@ -225,6 +225,7 @@ acréscimo à seção da F4, sem editar nenhuma linha dela).
 | # | invariante | teste que a cobre | exceção |
 |---|---|---|---|
 | I-15 | `normalizar_cep` devolve `#####-###` para qualquer CEP que `cep_valido` aceite (com ou sem hífen), e `None` para qualquer CEP que `cep_valido` recuse — as duas funções nunca divergem sobre o mesmo valor | `tests/dominio/test_validacao.py::test_normalizar_cep` | — |
+| I-16 | `dominio.status_conversa._status_por_tipo_de_decisao` é a ÚNICA tabela `TipoDecisao -> StatusDaConversa` do sistema — `proxima_transicao_automatica` (turno ao vivo) e `status_atual_da_conversa` (reconstrução de trilha sem `status_alterado`, condição 1 do veredito do PLANO do PR 2 da issue #57) chamam a mesma função, nunca duas tabelas | `tests/dominio/test_status_conversa.py::test_proxima_transicao_automatica_mapeia_tipo_de_decisao` e `test_status_atual_reconstroi_pelo_ultimo_decisao_quando_nao_ha_status_alterado` | um `handoff` isolado (sem `decisao` correspondente na trilha) vale o mesmo que `TipoDecisao.ENCAMINHAR` — `test_status_atual_trata_handoff_isolado_como_aguardando_corretor` |
 
 ### Decisões registradas
 
@@ -239,3 +240,10 @@ acréscimo à seção da F4, sem editar nenhuma linha dela).
   nome do plano num campo estruturado, nunca extraído do texto livre de `mensagem_enviada`. Campos
   aditivos e opcionais (default `None`): trilha gravada antes desta decisão continua válida sem
   eles. Teste: `tests/dominio/test_eventos_trilha.py::test_tentativa_de_cotacao_serializa_com_e_sem_plano`.
+- 2026-09-13/14 — issue #57 (P14, PR 2 de 2): `StatusDaConversa` (5 valores oficiais do dono) e a
+  tabela de transições nascem em `dominio.status_conversa`, substituindo o rótulo inferido que
+  `interfaces.painel.agrupar.estado_da_conversa()` calculava por conta própria (dois donos do
+  mesmo conceito, LEI 11). Condição 3 do veredito do PLANO: `TipoDecisao.ENCAMINHAR` de QUALQUER
+  `MotivoHandoff` — presente ou futuro — vira `AGUARDANDO_CORRETOR` pela regra genérica de tipo,
+  nunca por lista de motivos (confirmado automaticamente compatível com `RESPOSTA_ORIENTADA_INDISPONIVEL`,
+  da issue #58, sem precisar de nenhuma mudança nesta camada).
