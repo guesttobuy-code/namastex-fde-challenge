@@ -7,6 +7,9 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Adicionado
+- **README ganha a afirmação explícita de que a `/quote` é a única autoridade de preço (issue #89, C3/A3 do enunciado):** `dominio.politica.decidir` só devolve `EXPLICAR_COTACAO` com `StatusCotacao.SUCESSO` (`src/dominio/politica.py:42-44`) — todo outro status vira `ENCAMINHAR`/`ENCERRAR`, nunca um preço aproximado. Achado ao conferir a #89: a garantia já era real no código, mas nunca tinha uma frase própria no README — só implícita na explicação de retry. **Achado maior, registrado à parte:** o README de `origin/main` (152 linhas) NÃO é mais o enunciado puro — dois PRs anteriores (`f261ecb`/#31 e `24b4a28`/#84) acabaram tocando `README.md` de passagem e deixaram 17 linhas órfãs (um fragmento da seção "Ligando a IA real..." e uma frase sobre `docs/PRIVACIDADE.md`) que não existem no README real da entrega nem no original da Namastex — corrigido automaticamente por este PR, que substitui o arquivo inteiro.
+
+### Adicionado
 - **README ganha `## Roteiro de teste (5 minutos)` (pedido da coordenação, issue #15):** passos
   (a)-(e) testados ao vivo contra a `main` pós-merge (`0eebcb9`), com servidor isolado numa porta
   livre consumindo o `quote-api` do dono só por leitura (containers do dono nunca tocados) — (a)

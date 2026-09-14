@@ -226,6 +226,14 @@ entrarem na `main`.**
 
 ## 3. O que ele faz quando a `/quote` falha? (o ponto que mais separa, diz o enunciado)
 
+**A `/quote` é a única autoridade sobre preço — o agente nunca inventa um número.**
+`dominio.politica.decidir` só devolve `EXPLICAR_COTACAO` (o tipo de decisão que mostra o card de
+preço) quando `resultado.status == StatusCotacao.SUCESSO` — uma resposta real e bem-sucedida da
+`/quote` (`src/dominio/politica.py:42-44`). Todo outro status (indisponível, timeout, erro de
+payload, recusa de negócio) vira `ENCAMINHAR` ou `ENCERRAR` (`:45-55`) — nunca um preço aproximado,
+nunca um valor da última cotação reaproveitado. Estruturalmente impossível de contornar: não existe
+nenhum outro caminho no código que produza `EXPLICAR_COTACAO`.
+
 A `/quote` simula instabilidade de propósito: **20% das chamadas falham com 5xx e 10% demoram 8s**
 (contexto medido na issue #3, citado em
 [`governance/adr/0002-politica-de-retry-quote.md`](governance/adr/0002-politica-de-retry-quote.md)).
