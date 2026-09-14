@@ -3,7 +3,10 @@ entre a trilha e as telas que a consomem (F5/F10). Mudar um nome aqui sem mudar 
 silêncio; este teste é o que pega isso primeiro.
 """
 
+import pytest
+
 from dominio.eventos_trilha import (
+    SENDER_ROLES_VALIDOS,
     CorrecaoRegistrada,
     Decisao,
     ErroMarcado,
@@ -37,8 +40,10 @@ def test_mensagem_enviada_tem_os_campos_de_proveniencia_da_especificacao():
         "origem_do_texto",
         "dados_usados",
         "quote_attempt_id",
+        "sender_role",
     }
     assert campos == esperado
+    assert evento.to_dict()["sender_role"] == "agente"  # default, issue #86 (I-16)
 
 
 def test_tentativa_de_cotacao_tem_status_latencia_e_classificacao():
@@ -120,3 +125,31 @@ def test_mensagem_recebida_e_decisao_tem_os_campos_comuns():
     )
     assert COMUNS.issubset(recebida.to_dict())
     assert COMUNS.issubset(decisao.to_dict())
+
+
+# ── I-16 (issue #86): sender_role é lista fechada ───────────────────────────
+
+
+def test_sender_role_so_aceita_a_lista_fechada():
+    assert SENDER_ROLES_VALIDOS == {"lead", "sistema", "agente", "ia", "corretor"}
+    for papel in SENDER_ROLES_VALIDOS:
+        MensagemRecebida(
+            evento="mensagem_recebida", conversation_id="conv_1", id="msg_01",
+            instante="2026-09-12T09:59:00", texto="oi", sender_role=papel,
+        )
+        MensagemEnviada(
+            evento="mensagem_enviada", conversation_id="conv_1", id="msg_02",
+            instante="2026-09-12T10:00:00", texto="oi", decisao_id="dec_01",
+            regra_aplicada="x", origem_do_texto="x", sender_role=papel,
+        )
+    with pytest.raises(ValueError, match="lista fechada"):
+        MensagemRecebida(
+            evento="mensagem_recebida", conversation_id="conv_1", id="msg_03",
+            instante="2026-09-12T09:59:00", texto="oi", sender_role="robo_qualquer",
+        )
+    with pytest.raises(ValueError, match="lista fechada"):
+        MensagemEnviada(
+            evento="mensagem_enviada", conversation_id="conv_1", id="msg_04",
+            instante="2026-09-12T10:00:00", texto="oi", decisao_id="dec_01",
+            regra_aplicada="x", origem_do_texto="x", sender_role="robo_qualquer",
+        )

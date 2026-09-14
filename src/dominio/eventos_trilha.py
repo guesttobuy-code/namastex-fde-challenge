@@ -13,6 +13,20 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+# issue #86 (PR a, atendimento contínuo), decisão da coordenação: lista FECHADA de quem escreveu
+# uma mensagem — dono único (I-16, `dominio/CONTRACT.md`), nunca uma string solta. `lead`/`sistema`
+# já existiam em `MensagemRecebida` (issue #39); `agente`/`ia`/`corretor` são o vocabulário de
+# `MensagemEnviada` (texto fixo/determinístico, resposta da IA, e a mensagem digitada pelo humano).
+SENDER_ROLES_VALIDOS = frozenset({"lead", "sistema", "agente", "ia", "corretor"})
+
+
+def _validar_sender_role(sender_role: str) -> None:
+    if sender_role not in SENDER_ROLES_VALIDOS:
+        raise ValueError(
+            f"sender_role {sender_role!r} não está na lista fechada (I-16): "
+            f"{sorted(SENDER_ROLES_VALIDOS)}"
+        )
+
 
 @dataclass(frozen=True)
 class EventoTrilha:
@@ -30,6 +44,9 @@ class MensagemRecebida(EventoTrilha):
     texto: str
     sender_role: str = "lead"
 
+    def __post_init__(self) -> None:
+        _validar_sender_role(self.sender_role)
+
 
 @dataclass(frozen=True)
 class MensagemEnviada(EventoTrilha):
@@ -39,6 +56,14 @@ class MensagemEnviada(EventoTrilha):
     origem_do_texto: str  # "redator_deterministico:<modelo>" | "llm:<modelo>@<versao_prompt>"
     dados_usados: tuple[str, ...] = ()
     quote_attempt_id: str | None = None  # obrigatório quando `texto` contém valor monetário
+    # issue #86 (PR a, atendimento contínuo): quem escreveu o texto — mesmo vocabulário de
+    # `MensagemRecebida.sender_role`, lista fechada em `dominio/CONTRACT.md`. Default "agente"
+    # preserva os chamadores de antes desta frente (texto determinístico/fixo, nunca da IA nem de
+    # um corretor humano) sem precisar editar os dois de propósito.
+    sender_role: str = "agente"
+
+    def __post_init__(self) -> None:
+        _validar_sender_role(self.sender_role)
 
 
 @dataclass(frozen=True)

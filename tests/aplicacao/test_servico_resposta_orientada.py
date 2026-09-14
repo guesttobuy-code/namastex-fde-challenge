@@ -497,6 +497,27 @@ def test_trilha_grava_mensagem_enviada_com_origem_do_texto():
     eventos = repositorio_trilha.eventos_da_conversa("conv-1")
     enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
     assert enviada["origem_do_texto"] == "llm_resposta:fake@v1"
+    assert enviada["sender_role"] == "ia"  # issue #86, I-16
+
+
+def test_trilha_grava_sender_role_agente_quando_e_texto_fixo():
+    # issue #86 (I-16): texto fixo (fora de escopo OU encaminhamento) nunca é "ia".
+    repositorio_trilha = RepositorioDeTrilhaMemoria()
+    trilha = ServicoDeTrilha(repositorio_trilha)
+    processar_mensagem_livre(
+        portal_de_linguagem=_PortalDeLinguagemComIntent("informar_dados"),
+        portal_de_resposta=_PortalFixo("não deveria ser chamado"),
+        texto_bruto="tenho 35 anos",
+        estado=_estado(),
+        preco_atual=_preco(),
+        planos=[],
+        servico_conhecimento=_servico_com_ficha_publicada(),
+        configuracao=ConfiguracaoComercial(),
+        trilha=trilha,
+    )
+    eventos = repositorio_trilha.eventos_da_conversa("conv-1")
+    enviada = next(e for e in eventos if e["evento"] == "mensagem_enviada")
+    assert enviada["sender_role"] == "agente"
 
 
 def test_trilha_grava_regra_aplicada_fora_de_escopo_quando_nao_e_objecao():

@@ -33,6 +33,7 @@ Arquivo append-only em JSONL. Um evento por linha. Campos comuns a todos:
 | `origem_do_texto` | proveniência → **texto veio de** (`redator_deterministico:<modelo>` ou `llm:<modelo>@<versao_prompt>`) | sim |
 | `dados_usados` | proveniência → **dados usados** (lista de referências, ex.: `qa_7d31`, `estado.veiculo_ano`) | sim |
 | `quote_attempt_id` | prova do preço; **obrigatório se o texto contém valor monetário** | condicional |
+| `sender_role` | quem escreveu — lista fechada (I-16, `dominio/CONTRACT.md`): `agente` (padrão, texto determinístico/fixo) · `ia` (resposta orientada de verdade, #58) · `corretor` (atendimento humano, #86) | sim (default `agente`) |
 
 > **Invariante testável:** mensagem cujo texto contenha valor monetário **e** não tenha `quote_attempt_id`
 > correspondente a uma cotação com sucesso é erro de sistema, não de conteúdo. É o mesmo teste da F2/F5.

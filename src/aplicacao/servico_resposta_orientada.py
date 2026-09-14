@@ -248,6 +248,10 @@ def processar_mensagem_livre(
         regra_aplicada = "resposta_orientada:fora_de_escopo"
 
     if trilha is not None:
+        # issue #86 (I-16): "ia" só quando o texto realmente veio do LLM (origem começa com
+        # "llm_resposta:") — o texto fixo (fora de escopo OU encaminhamento depois de esgotar as
+        # tentativas) é sempre "agente", mesmo dentro do ramo de objeção de preço.
+        sender_role = "ia" if origem.startswith("llm_resposta:") else "agente"
         trilha.registrar_evento(
             MensagemEnviada(
                 evento="mensagem_enviada",
@@ -262,6 +266,7 @@ def processar_mensagem_livre(
                 origem_do_texto=origem,
                 dados_usados=dados_usados,
                 quote_attempt_id=preco_atual.quote_attempt_id if preco_atual is not None else None,
+                sender_role=sender_role,
             )
         )
         if motivo_handoff is not None:
