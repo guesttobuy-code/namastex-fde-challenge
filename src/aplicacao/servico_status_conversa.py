@@ -13,7 +13,13 @@ from datetime import datetime, timezone
 
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.eventos_trilha import MudancaDeStatus
-from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar, status_atual_da_conversa
+from dominio.status_conversa import (
+    StatusDaConversa,
+    pode_assumir,
+    pode_encerrar,
+    status_atual_da_conversa,
+    transicao_permitida,
+)
 
 
 class TransicaoDeStatusInvalida(ValueError):
@@ -29,12 +35,41 @@ def _novo_id(prefixo: str) -> str:
 
 
 def registrar_mudanca_de_status(
-    trilha: ServicoDeTrilha, conversation_id: str, novo_status: StatusDaConversa, *, origem: str
+    trilha: ServicoDeTrilha,
+    conversation_id: str,
+    novo_status: StatusDaConversa,
+    *,
+    origem: str,
+    eventos_anteriores: list[dict] | None = None,
 ) -> None:
-    """Grava `MudancaDeStatus` na trilha. `de` é lido da PRÓPRIA trilha (nunca recebido por
-    parâmetro) — um único lugar decide "qual era o status anterior", nunca dois lugares que
-    poderiam divergir. `origem`: `"automatico"` (a cada turno) ou `"manual"` (botão)."""
-    status_anterior = status_atual_da_conversa(trilha.eventos_da_conversa(conversation_id))
+    """Grava `MudancaDeStatus` na trilha. `de` vem de `eventos_anteriores` quando o CHAMADOR já
+    escreveu outros eventos deste MESMO turno antes de chegar aqui (`conduzir_conversa`/
+    `processar_mensagem_livre` gravam `decisao`/`mensagem_enviada`/`handoff` primeiro) — sem o
+    snapshot, `status_atual_da_conversa` reconstruiria "o status anterior" a partir do PRÓPRIO
+    `decisao`/`handoff` que este turno acabou de gravar, nunca do que já existia antes dele
+    (achado ao testar o conserto do B1: dois turnos de coleta seguidos gravavam ZERO
+    `status_alterado`, porque o segundo turno via o `decisao` do primeiro e concluía "já era esse
+    status, não muda nada"). Quando `eventos_anteriores=None` (`assumir`/`encerrar` — nada mais é
+    gravado antes), lê a trilha ao vivo — não há contaminação porque não há escrita concorrente.
+
+    `origem`: `"automatico"` (a cada turno) ou `"manual"` (botão).
+
+    Achado da pré-auditoria do PR #87 (B1): sem a checagem de tabela abaixo, um turno automático
+    depois de "Encerrar" (ex.: o lead toca "Ver outro plano" na mesma conversa) gravava `encerrada
+    -> cotada` — a tabela de transições só era testada no domínio, nunca aplicada na gravação de
+    verdade. Duas guardas: (1) `de == para` não grava nada (turno normal repetindo o mesmo status
+    não pode poluir a trilha com um evento por turno); (2) transição fora da tabela de
+    `dominio.status_conversa.transicao_permitida` — automática: NÃO grava e não levanta erro (não
+    pode derrubar o turno do lead, que não escolheu nada de errado); manual (botão): levanta
+    `TransicaoDeStatusInvalida`, mesma família de erro que `assumir`/`encerrar` já usam."""
+    eventos = eventos_anteriores if eventos_anteriores is not None else trilha.eventos_da_conversa(conversation_id)
+    status_anterior = status_atual_da_conversa(eventos)
+    if status_anterior == novo_status:
+        return
+    if not transicao_permitida(status_anterior, novo_status):
+        if origem == "manual":
+            raise TransicaoDeStatusInvalida(f"não é possível ir de {status_anterior!r} para {novo_status!r}")
+        return
     trilha.registrar_evento(
         MudancaDeStatus(
             evento="status_alterado",

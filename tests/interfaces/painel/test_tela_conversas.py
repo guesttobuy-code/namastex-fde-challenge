@@ -1,5 +1,7 @@
 import re
 
+from dominio.contato_lead import ContatoLead
+
 from interfaces.painel import tela_conversas
 
 
@@ -69,3 +71,54 @@ def test_botoes_assumir_e_encerrar_habilitados_conforme_o_status(trilha_fixture)
     assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/assumir')\">" not in html
     assert "onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">Encerrar</button>" in html
     assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">" not in html
+
+
+# ── motivo/contato do handoff (S12) — migrado de `test_tela_fila_humana.py` (removida na
+# pré-auditoria do PR #87): o que a Fila humana mostrava por conversa agora mora aqui.
+
+
+def test_card_com_contato_mostra_nome_e_whatsapp(trilha_fixture):
+    contatos = {"conv_b93c": ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584")}
+
+    html = tela_conversas.render(trilha_fixture, contatos=contatos)
+
+    assert "Ursula Souza" in html
+    assert "+55 21 97224-2584" in html
+
+
+def test_card_sem_contato_mostra_nao_informado(trilha_fixture):
+    html = tela_conversas.render(trilha_fixture, contatos={})
+
+    assert "não informado" in html
+
+
+def test_card_sem_o_parametro_contatos_mostra_nao_informado_e_nao_quebra():
+    """`contatos=None` (default, chamador que ainda não passa o parâmetro — aditivo) não quebra."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_sem_contato", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.", "contexto_coletado": {"idade": 30},
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "não informado" in html
+    assert "conv_sem_contato" in html
+
+
+def test_campo_ausente_no_contexto_coletado_vira_buraco_nao_branco():
+    """Bug original (Análise de impacto da #46, migrado de `test_tela_fila_humana.py`): um campo
+    ausente do `contexto_coletado` (ex.: `idade` nunca coletada) não pode virar string vazia
+    (`esc(None)`), escondendo o buraco — tem que aparecer o marcador visível."""
+    eventos = [{
+        "evento": "handoff", "conversation_id": "conv_y", "id": "ho_01",
+        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+        "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+        "contexto_coletado": {"idade": None, "veiculo_ano": 2021},
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "idade: ," not in html
+    assert "ausente na trilha" in html
+    assert "veiculo_ano: 2021" in html

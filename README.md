@@ -63,6 +63,22 @@ curl -X POST localhost:8000/quote -H 'content-type: application/json' \
 > de primeira toda vez** (falhas e lentidão acontecem). Seu agente precisa lidar com isso
 > de forma elegante. Tratar bem a instabilidade é parte central do desafio.
 
+### Ligando a IA real que responde objeção de preço (issue #81)
+
+`docker compose up --build` funciona sem nenhuma configuração extra — sem `.env`, o agente
+responde qualquer dúvida de preço com um texto fixo, nunca trava nem some. Para a resposta vir do
+LLM de verdade (lendo a base de conhecimento e preenchendo o preço real), crie um `.env` na raiz
+(nunca versionado) a partir de `.env.example`:
+
+```bash
+LLM_PROVEDOR=openrouter
+OPENROUTER_API_KEY=<sua chave da OpenRouter>
+```
+
+O `docker compose` repassa essas duas variáveis para o container `app` em tempo de execução (nunca
+entram na imagem nem no log) — o mesmo `.env` funciona rodando o servidor direto no host, sem
+Docker (`PYTHONPATH=src python -m interfaces.servidor`).
+
 ---
 
 ## O que entregar

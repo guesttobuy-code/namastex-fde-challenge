@@ -202,22 +202,23 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   de `habilitarCampoDeObjecao`, #75) mandam o campo.
 - `interfaces.painel.tela_conversas` ganha caixa de entrada de verdade (S13, pedido do dono ao
   testar a tela): lista à esquerda, UMA conversa por vez à direita, seleção por clique + hash da
-  URL, motivo/contato do handoff (S12, `interfaces.painel.motivos`, dono único) e botões Assumir/
-  Encerrar chamando as rotas acima — nunca uma regra de habilitação em JS (o `disabled` vem do
-  `dominio.status_conversa` já calculado no servidor). `interfaces.painel.layout`: item "Fila
-  humana" aponta pro Histórico filtrado (`?status=aguardando_corretor`), rótulo/ícone intactos.
+  URL, motivo/contato/contexto coletado do handoff (S12, `interfaces.painel.motivos`, dono único) e
+  botões Assumir/Encerrar chamando as rotas acima — nunca uma regra de habilitação em JS (o
+  `disabled` vem do `dominio.status_conversa` já calculado no servidor). `interfaces.painel.layout`:
+  item "Fila humana" aponta pro Histórico filtrado (`?status=aguardando_corretor`), rótulo/ícone
+  intactos.
+- `interfaces.painel.tela_fila_humana` REMOVIDA (pré-auditoria do PR #87): o catálogo de "todo
+  motivo com descrição" que ela mostrava migrou para `interfaces.painel.tela_regras` (que já tinha
+  a MESMA lista de códigos, só faltava a descrição — `interfaces.painel.motivos.descricao_do_motivo`
+  acrescentada); o motivo/contato/contexto POR CONVERSA migrou para `tela_conversas` (acima). Nenhum
+  caso de teste sumiu — todos migraram, listados no tombstone de `test_tela_fila_humana.py`.
+  `interfaces.painel.gerar.gerar_paineis` não gera mais `handoffs.html` (cinco telas, não seis).
 
 ### O que NÃO é responsabilidade desta seção
 
 - A caixa de resposta do corretor, a consulta periódica e a continuidade do chat do lead (issue
   #86, decisão do dono 13/09/2026 ~22:45) — o cabeçalho da conversa selecionada em `tela_conversas`
   fica isolado de propósito como ponto de extensão, sem construir nada disso agora.
-- `tela_fila_humana.py` continua existindo nesta versão: o catálogo de "todo motivo com descrição"
-  que ela mostra (`test_regra_de_regras_a_lista_exibida_e_exatamente_a_do_enum`) não tem
-  equivalente em `tela_conversas` (que só mostra o motivo DA conversa aberta, não uma lista de
-  referência de todos os motivos possíveis) — removê-la agora apagaria essa capacidade sem
-  substituto. Decisão desta frente: manter a página (só o menu deixou de apontar pra ela
-  diretamente), sinalizado aqui em vez de removido calado (LEI 9).
 
 ### Decisões registradas
 
@@ -225,3 +226,7 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   de `_DESCRICAO_MOTIVO` (`interfaces.painel.motivos`) só aconteceu depois do merge do PR #75
   (#58), que já tinha acrescentado `RESPOSTA_ORIENTADA_INDISPONIVEL` ao mapa — evitando perder essa
   entrada num conflito de merge, por instrução explícita da coordenação.
+- 2026-09-14 — pré-auditoria do PR #87: a decisão inicial desta frente era MANTER `tela_fila_humana.py`
+  (o catálogo de motivos não tinha substituto ainda). A auditoria mediu que `tela_regras.py` já
+  mostrava o MESMO catálogo (só sem descrição) — decisão revertida: catálogo com descrição vai para
+  `tela_regras`, `tela_fila_humana.py` é removida. Ver ADR-0006 (revisão).

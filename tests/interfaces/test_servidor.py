@@ -546,43 +546,29 @@ def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     assert resposta["decisao"]["reason_code"] == "lead_quer_contratar"
     assert "corretor" in resposta["texto"].lower()
 
-    handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
-    assert "conv-contrata" in handoffs_html
-    assert "lead_quer_contratar" in handoffs_html
+    # issue #57 (P14, PR 2 de 2, pré-auditoria do PR #87): `handoffs.html` não existe mais — a
+    # trilha real é a fonte de verdade do reason_code (a tela traduz para linguagem simples, não
+    # mostra o código cru).
+    eventos = RepositorioDeTrilhaJSONL(trilha_dir / "trilha_conv-contrata.jsonl").eventos_da_conversa("conv-contrata")
+    (handoff,) = [e for e in eventos if e["evento"] == "handoff"]
+    assert handoff["reason_code"] == "lead_quer_contratar"
+    index_html = (painel_dir / "index.html").read_text(encoding="utf-8")
+    assert "conv-contrata" in index_html
 
 
-def test_chat_contratar_com_motivo_humano_grava_lead_pediu_humano_nao_lead_quer_contratar(tmp_path):
-    """S4 do roteiro de aceite (issue #57, PR 2 de 2): "Falar com um corretor" (`motivo="humano"`)
-    tem que gravar um `MotivoHandoff` PRÓPRIO (`lead_pediu_humano`, #63), distinto de "Quero
-    contratar" (`motivo="contratar"`, teste acima) — antes desta frente os dois caíam no mesmo
-    motivo por falta do campo `motivo` no corpo do POST."""
-    painel_dir = tmp_path / "painel-saida"
-    trilha_dir = tmp_path / "trilha"
-    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
-
-    status, _, corpo = _chamar(
-        app, "POST", "/api/chat/contratar", {"conversation_id": "conv-humano", "motivo": "humano"}
-    )
-
-    assert status == "200 OK"
-    resposta = json.loads(corpo)
-    assert resposta["decisao"]["tipo"] == "encaminhar"
-    assert resposta["decisao"]["reason_code"] == "lead_pediu_humano"
-
-    handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
-    assert "lead_pediu_humano" in handoffs_html
+# catraca-reduz-de-proposito: test_chat_contratar_com_motivo_humano_grava_lead_pediu_humano_nao_
+# lead_quer_contratar e test_chat_contratar_com_motivo_invalido_e_recusado_com_400 mudaram para
+# tests/interfaces/test_rotas_status_conversa.py (issue #57, P14, PR 2 de 2) -- este arquivo bateu
+# no teto do file-loc-ceiling depois do merge com a main. Nenhum caso sumiu.
 
 
-def test_chat_contratar_com_motivo_invalido_e_recusado_com_400(tmp_path):
-    painel_dir = tmp_path / "painel-saida"
-    trilha_dir = tmp_path / "trilha"
-    trilha_dir.mkdir()
-    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
+def test_servidor_importa_carregar_dotenv_no_ambiente_como_a_cli():
+    """issue #81: quem roda o servidor sem Docker (`python -m interfaces.servidor`) precisa do
+    `.env` da raiz carregado, mesma disciplina de `interfaces.cli` (#9) — sem isso,
+    LLM_PROVEDOR/OPENROUTER_API_KEY do `.env` nunca chegam ao processo fora do compose. Prova por
+    import: antes desta frente, `interfaces.servidor` não importava `carregar_dotenv_no_ambiente`
+    (ImportError)."""
+    from interfaces.dotenv_loader import carregar_dotenv_no_ambiente as _original
+    from interfaces.servidor import carregar_dotenv_no_ambiente
 
-    status, _, corpo = _chamar(
-        app, "POST", "/api/chat/contratar", {"conversation_id": "conv-x", "motivo": "outra-coisa"}
-    )
-
-    assert status == "400 Bad Request"
-    assert "motivo" in json.loads(corpo)["erro"]
-    assert list(trilha_dir.iterdir()) == []
+    assert carregar_dotenv_no_ambiente is _original

@@ -4,7 +4,7 @@ antes de gravar — nunca gravam uma transição que a tabela do domínio não p
 import pytest
 
 from aplicacao.portas.repositorio_de_trilha import RepositorioDeTrilha
-from aplicacao.servico_status_conversa import TransicaoDeStatusInvalida, assumir, encerrar
+from aplicacao.servico_status_conversa import TransicaoDeStatusInvalida, assumir, encerrar, registrar_mudanca_de_status
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.status_conversa import StatusDaConversa
 
@@ -79,3 +79,40 @@ def test_encerrar_conversa_ja_encerrada_e_recusado():
 
     with pytest.raises(TransicaoDeStatusInvalida):
         encerrar("conv_1", trilha)
+
+
+# ── B1, achado da pré-auditoria do PR #87: registrar_mudanca_de_status aplica a tabela de
+# transições na GRAVAÇÃO, não só no domínio — sem isso, um turno automático depois de "Encerrar"
+# gravava encerrada -> cotada.
+
+
+def test_registrar_mudanca_de_status_nao_grava_quando_de_e_para_sao_iguais():
+    """Dois turnos seguidos no mesmo status (ex.: dois turnos de coleta, ambos COM_O_AGENTE) não
+    podem virar dois eventos `status_alterado` — um por turno poluiria a trilha à toa."""
+    repositorio = _RepositorioEspiao([_status_evento("conv_1", "com_o_agente")])
+    trilha = ServicoDeTrilha(repositorio)
+
+    registrar_mudanca_de_status(trilha, "conv_1", StatusDaConversa.COM_O_AGENTE, origem="automatico")
+
+    assert repositorio.gravados == [_status_evento("conv_1", "com_o_agente")]
+
+
+def test_registrar_mudanca_de_status_automatica_fora_da_tabela_nao_grava_nem_levanta_erro():
+    """Transição automática (turno do lead) fora da tabela do domínio: não pode derrubar o turno
+    com uma exceção — o lead não escolheu nada de errado. Só não grava."""
+    repositorio = _RepositorioEspiao([_status_evento("conv_1", "encerrada")])
+    trilha = ServicoDeTrilha(repositorio)
+
+    registrar_mudanca_de_status(trilha, "conv_1", StatusDaConversa.COTADA, origem="automatico")
+
+    assert repositorio.gravados == [_status_evento("conv_1", "encerrada")]
+
+
+def test_registrar_mudanca_de_status_manual_fora_da_tabela_levanta_transicao_invalida():
+    repositorio = _RepositorioEspiao([_status_evento("conv_1", "encerrada")])
+    trilha = ServicoDeTrilha(repositorio)
+
+    with pytest.raises(TransicaoDeStatusInvalida):
+        registrar_mudanca_de_status(trilha, "conv_1", StatusDaConversa.COTADA, origem="manual")
+
+    assert repositorio.gravados == [_status_evento("conv_1", "encerrada")]

@@ -159,11 +159,19 @@ def _card_contato_e_motivo(eventos: list[dict], contato: ContatoLead | None) -> 
     handoffs = [e for e in eventos if e.get("evento") == "handoff"]
     if not handoffs:
         return ""
-    descricao = descricao_do_motivo(handoffs[-1].get("reason_code"))
+    ultimo = handoffs[-1]
+    descricao = descricao_do_motivo(ultimo.get("reason_code"))
     nome = esc(contato.nome) if contato and contato.nome else "não informado"
     whatsapp = esc(contato.whatsapp) if contato and contato.whatsapp else "não informado"
+    contexto = ultimo.get("contexto_coletado")
+    contexto_html = (
+        ", ".join(f"{esc(k)}: {campo(contexto, k)}" for k in contexto)
+        if isinstance(contexto, dict) and contexto
+        else buraco("contexto_coletado")
+    )
     return f"""<div class="motivo">{esc(descricao)}</div>
-      <div class="contato"><b>Nome:</b> {nome}<br><b>WhatsApp:</b> {whatsapp}</div>"""
+      <div class="contato"><b>Nome:</b> {nome}<br><b>WhatsApp:</b> {whatsapp}</div>
+      <div class="contexto"><b>Já coletado:</b> {contexto_html}</div>"""
 
 
 def _botoes_de_transicao(conversation_id: str, estado: str) -> str:

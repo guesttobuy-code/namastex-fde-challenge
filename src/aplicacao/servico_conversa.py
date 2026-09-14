@@ -251,19 +251,29 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
 
 
 def registrar_status_do_turno(
-    trilha: ServicoDeTrilha, conversation_id: str, decisao: Decisao, resultado: ResultadoDaCotacao | None
+    trilha: ServicoDeTrilha,
+    conversation_id: str,
+    decisao: Decisao,
+    resultado: ResultadoDaCotacao | None,
+    *,
+    eventos_anteriores: list[dict] | None = None,
 ) -> StatusDaConversa:
     """Calcula o status automático do turno (`dominio.status_conversa.proxima_transicao_automatica`,
     dono único — LEI 11, MESMA tabela usada pelas transições manuais) e grava
     `MudancaDeStatus(origem="automatico")` via `aplicacao.servico_status_conversa.registrar_mudanca_de_status`
     — o mesmo gravador que `aplicacao.servico_resposta_orientada.processar_mensagem_livre` usa
     quando a IA esgota as tentativas (issue #58, S8), pra não ter dois lugares decidindo COMO um
-    `MudancaDeStatus` é gravado.
+    `MudancaDeStatus` é gravado. `eventos_anteriores`: snapshot da trilha capturado ANTES deste
+    turno gravar `decisao`/`mensagem_enviada`/`handoff` — repassado direto pra
+    `registrar_mudanca_de_status` calcular `de` sem se contaminar com o `decisao` que este MESMO
+    turno acabou de escrever (achado ao testar o conserto do B1 da pré-auditoria do PR #87).
 
     Chamada por UMA linha no fim de `conduzir_conversa` (issue #57, PR 2 de 2, condição 2 do
     veredito do PLANO — liberada depois do merge da #58)."""
     novo_status = proxima_transicao_automatica(decisao, resultado)
-    registrar_mudanca_de_status(trilha, conversation_id, novo_status, origem="automatico")
+    registrar_mudanca_de_status(
+        trilha, conversation_id, novo_status, origem="automatico", eventos_anteriores=eventos_anteriores
+    )
     return novo_status
 
 
@@ -362,6 +372,12 @@ def conduzir_conversa(
     `configuracao` (issue #42): decisão comercial da seguradora sobre o que fazer com a recusa da
     `/quote` — esta camada só repassa o valor a `dominio.politica.decidir`; quem carrega o valor
     real de `conhecimento/` é a infraestrutura (F13, #43), fora desta frente."""
+    # Snapshot ANTES de qualquer escrita deste turno — `registrar_status_do_turno` (no fim desta
+    # função) usa isto pra calcular "de", nunca a trilha JÁ com o `decisao`/`handoff` que este
+    # mesmo turno vai gravar (achado ao testar o B1 da pré-auditoria do PR #87: sem o snapshot,
+    # dois turnos de coleta seguidos gravavam ZERO `status_alterado` — o segundo via o `decisao`
+    # do primeiro e concluía, errado, que "já era esse status").
+    eventos_antes_do_turno = trilha.eventos_da_conversa(estado.conversation_id) if trilha is not None else None
     if trilha is not None:
         trilha.registrar_evento(
             MensagemRecebida(
@@ -424,6 +440,8 @@ def conduzir_conversa(
                     mensagem_ao_lead=texto,
                 )
             )
-        registrar_status_do_turno(trilha, estado.conversation_id, decisao, resultado)
+        registrar_status_do_turno(
+            trilha, estado.conversation_id, decisao, resultado, eventos_anteriores=eventos_antes_do_turno
+        )
 
     return TurnoDaConversa(decisao=decisao, resultado=resultado, texto=texto)

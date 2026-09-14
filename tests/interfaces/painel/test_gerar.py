@@ -21,11 +21,14 @@ def _sem_rede_real(monkeypatch):
     monkeypatch.setattr("interfaces.painel.gerar.buscar_planos", lambda base_url: None)
 
 
-def test_gerar_paineis_escreve_as_seis_telas(tmp_path, trilha_fixture, conftest_caminho_trilha):
+def test_gerar_paineis_escreve_as_cinco_telas(tmp_path, trilha_fixture, conftest_caminho_trilha):
+    """`handoffs.html` (Fila humana) não é mais gerado (issue #57, P14, PR 2 de 2, pré-auditoria do
+    PR #87) — o menu aponta pro Histórico já filtrado, e o catálogo de motivos migrou para
+    `regras.html`."""
     escritos = gerar_paineis(conftest_caminho_trilha, tmp_path)
 
     nomes = {c.name for c in escritos}
-    assert nomes == {"index.html", "rastreio.html", "cotacoes.html", "handoffs.html", "regras.html", "avaliacao.html"}
+    assert nomes == {"index.html", "rastreio.html", "cotacoes.html", "regras.html", "avaliacao.html"}
     for caminho in escritos:
         assert caminho.exists()
         assert caminho.read_text(encoding="utf-8").startswith("<!doctype html>")
@@ -66,19 +69,10 @@ def test_gerar_paineis_aceita_uma_pasta_com_varios_trilha_star_jsonl(tmp_path, t
     assert "conv_outra" in rastreio  # veio de trilha_conv-b.jsonl
 
 
-def test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_a_fila_humana(
-    tmp_path, trilha_fixture, conftest_caminho_trilha
-):
-    """Issue #46, PR 2 de 2, ADR-0005: `repositorio_contato` é aditivo — passado, `handoffs.html`
-    ganha nome/WhatsApp do lead da conversa `conv_b93c` (a única com `handoff` na fixture)."""
-    repositorio = RepositorioDeContatoMemoria()
-    repositorio.salvar("conv_b93c", ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584"))
-
-    escritos = gerar_paineis(conftest_caminho_trilha, tmp_path, repositorio_contato=repositorio)
-
-    handoffs_html = next(c for c in escritos if c.name == "handoffs.html").read_text(encoding="utf-8")
-    assert "Ursula Souza" in handoffs_html
-    assert "+55 21 97224-2584" in handoffs_html
+# catraca-reduz-de-proposito: test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_
+# a_fila_humana removido (issue #57, P14, PR 2 de 2, pré-auditoria do PR #87) — `handoffs.html` não
+# existe mais; a mesma asserção (nome/WhatsApp aparecem pra `conv_b93c`) já é coberta pelo teste
+# abaixo, que checa `index.html` (Histórico), o único lugar que agora recebe `contatos`.
 
 
 def test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_o_historico_tambem(
@@ -104,9 +98,9 @@ def test_gerar_paineis_sem_repositorio_contato_continua_funcionando_igual(
     chamador existente (Dockerfile, `interfaces.servidor` antes desta frente) precisa mudar."""
     escritos = gerar_paineis(conftest_caminho_trilha, tmp_path)
 
-    handoffs_html = next(c for c in escritos if c.name == "handoffs.html").read_text(encoding="utf-8")
-    assert "conv_b93c" in handoffs_html
-    assert "não informado" in handoffs_html
+    index_html = next(c for c in escritos if c.name == "index.html").read_text(encoding="utf-8")
+    assert "conv_b93c" in index_html
+    assert "não informado" in index_html
 
 
 def test_main_com_argumentos_errados_devolve_2(capsys):

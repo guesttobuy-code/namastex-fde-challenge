@@ -268,6 +268,10 @@ def processar_mensagem_livre(
     resposta é um encaminhamento, `handoff` — mesma disciplina de
     `aplicacao.servico_conversa.conduzir_conversa` (trilha é responsabilidade de QUEM ORQUESTRA,
     nunca da porta nem do adaptador)."""
+    # Snapshot ANTES de qualquer escrita deste turno — mesmo motivo de `conduzir_conversa`
+    # (achado ao testar o B1 da pré-auditoria do PR #87): sem isto, `registrar_mudanca_de_status`
+    # reconstruiria "o status anterior" a partir do `handoff` que ESTE turno acabou de gravar.
+    eventos_antes_do_turno = trilha.eventos_da_conversa(estado.conversation_id) if trilha is not None else None
     if trilha is not None:
         trilha.registrar_evento(
             MensagemRecebida(
@@ -332,7 +336,8 @@ def processar_mensagem_livre(
             # `registrar_mudanca_de_status` direto, com a MESMA regra genérica da condição 3
             # (qualquer encaminhamento vira AGUARDANDO_CORRETOR, sem caso especial por motivo).
             registrar_mudanca_de_status(
-                trilha, estado.conversation_id, StatusDaConversa.AGUARDANDO_CORRETOR, origem="automatico"
+                trilha, estado.conversation_id, StatusDaConversa.AGUARDANDO_CORRETOR, origem="automatico",
+                eventos_anteriores=eventos_antes_do_turno,
             )
 
     return texto, origem, intencao

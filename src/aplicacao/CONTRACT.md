@@ -361,12 +361,13 @@ acrescentam seção própria por append, no fim deste arquivo — nunca editando
 |---|---|---|
 | I-12 | `registrar_mudanca_de_status` é o único lugar que escreve `MudancaDeStatus` — `registrar_status_do_turno`, `processar_mensagem_livre` e `assumir`/`encerrar` nunca constroem o evento por conta própria | `tests/aplicacao/test_servico_status_conversa.py`, `tests/aplicacao/test_servico_conversa.py::test_registrar_status_do_turno_grava_status_alterado_automatico_com_de_e_para`, `tests/aplicacao/test_servico_resposta_orientada_status.py::test_trilha_grava_status_alterado_aguardando_corretor_quando_encaminha_ao_corretor` |
 | I-13 | `assumir`/`encerrar` nunca gravam quando a transição não é permitida pelo domínio — `TransicaoDeStatusInvalida` sobe, nada é gravado | `tests/aplicacao/test_servico_status_conversa.py::test_assumir_fora_de_aguardando_corretor_e_recusado` (confere `repositorio.gravados` inalterado) |
+| I-14 | `registrar_mudanca_de_status` aplica `dominio.status_conversa.transicao_permitida` na GRAVAÇÃO (não só no domínio isolado) — automática fora da tabela não grava e não levanta erro; manual fora da tabela levanta `TransicaoDeStatusInvalida`; `de == para` nunca grava (achado B1 da pré-auditoria do PR #87) | `tests/aplicacao/test_servico_status_conversa.py::test_registrar_mudanca_de_status_*`, `tests/interfaces/test_rotas_status_conversa.py::test_conversa_encerrada_nao_reabre_com_um_turno_de_cotar_seguinte`, `test_dois_turnos_de_coleta_seguidos_gravam_um_unico_status_alterado` |
 
 ### Entradas e saídas públicas acrescentadas
 
-- `aplicacao.servico_status_conversa.registrar_mudanca_de_status(trilha: ServicoDeTrilha, conversation_id: str, novo_status: StatusDaConversa, *, origem: str) -> None`.
+- `aplicacao.servico_status_conversa.registrar_mudanca_de_status(trilha: ServicoDeTrilha, conversation_id: str, novo_status: StatusDaConversa, *, origem: str, eventos_anteriores: list[dict] | None = None) -> None`.
 - `aplicacao.servico_status_conversa.assumir(conversation_id: str, trilha: ServicoDeTrilha) -> StatusDaConversa` / `.encerrar(...)` — levantam `TransicaoDeStatusInvalida`.
-- `aplicacao.servico_conversa.registrar_status_do_turno(trilha, conversation_id, decisao, resultado) -> StatusDaConversa`.
+- `aplicacao.servico_conversa.registrar_status_do_turno(trilha, conversation_id, decisao, resultado, *, eventos_anteriores=None) -> StatusDaConversa`.
 - `aplicacao.servico_trilha.ServicoDeTrilha.eventos_da_conversa(conversation_id: str) -> list[dict]`.
 
 ### O que NÃO é responsabilidade desta seção

@@ -35,17 +35,35 @@ sem tocar `dominio.status_conversa`.
 `MudancaDeStatus` (8º evento da trilha) guarda `de`/`para`/`origem` (`"automatico"` | `"manual"`),
 sem identidade de pessoa (decisão já registrada no PLANO do PR 1 da #57). `aplicacao.
 servico_status_conversa.registrar_mudanca_de_status(trilha, conversation_id, novo_status, *,
-origem)` é o único lugar que grava esse evento — usado pelo turno automático
-(`servico_conversa.registrar_status_do_turno`, chamado por uma linha no fim de `conduzir_conversa`),
-pela resposta orientada (`servico_resposta_orientada.processar_mensagem_livre`, que não passa por
-`conduzir_conversa` e por isso não constrói uma `Decisao` — recebe o `StatusDaConversa` já
-decidido) e pelas transições manuais (`assumir`/`encerrar`, os botões).
+origem, eventos_anteriores=None)` é o único lugar que grava esse evento e a ÚNICA tabela de
+transição APLICADA na gravação (achado B1 da pré-auditoria do PR #87: sem checar
+`dominio.status_conversa.transicao_permitida` na hora de gravar, um turno automático depois de
+"Encerrar" reabria a conversa em "Cotada" — a tabela só era testada no domínio, nunca aplicada de
+verdade) — usado pelo turno automático (`servico_conversa.registrar_status_do_turno`, chamado por
+uma linha no fim de `conduzir_conversa`), pela resposta orientada
+(`servico_resposta_orientada.processar_mensagem_livre`, que não passa por `conduzir_conversa` e por
+isso não constrói uma `Decisao` — recebe o `StatusDaConversa` já decidido) e pelas transições
+manuais (`assumir`/`encerrar`, os botões). `de == para` nunca grava (turno repetindo o mesmo status
+não polui a trilha); transição fora da tabela: automática não grava e não levanta erro (não pode
+derrubar o turno do lead), manual levanta `TransicaoDeStatusInvalida`.
 
-A tela "Fila humana" (`tela_fila_humana.py`) NÃO foi removida nesta versão: seu catálogo de "todo
-motivo com descrição" não tem equivalente em `tela_conversas` (que só mostra o motivo DA conversa
-aberta). O item de menu passou a apontar para o Histórico já filtrado (`?status=
-aguardando_corretor`) — a página antiga fica órfã de link direto no menu, mas continua existindo e
-testada, evitando apagar uma capacidade sem substituto.
+`eventos_anteriores` existe porque `conduzir_conversa`/`processar_mensagem_livre` gravam
+`decisao`/`mensagem_enviada`/`handoff` do turno ANTES de chegar em `registrar_mudanca_de_status` —
+sem passar o snapshot de antes dessas escritas, `status_atual_da_conversa` reconstruiria "o status
+anterior" a partir do PRÓPRIO evento que este turno acabou de gravar (achado ao testar o conserto
+do B1: dois turnos de coleta seguidos gravavam ZERO `status_alterado`, porque o segundo via o
+`decisao` do primeiro e concluía, errado, "já era esse status"). `assumir`/`encerrar` não passam
+nada (`None` — leem a trilha ao vivo): nada mais é gravado antes deles no mesmo turno, então não há
+contaminação a evitar.
+
+A tela "Fila humana" (`tela_fila_humana.py`) foi REMOVIDA (revisão desta ADR na pré-auditoria do PR
+#87): a decisão inicial era mantê-la, por seu catálogo de "todo motivo com descrição" não ter
+equivalente em `tela_conversas`. A auditoria mediu que `interfaces.painel.tela_regras` JÁ mostrava
+o mesmo catálogo (só os códigos, sem descrição) — o catálogo ganhou a descrição
+(`interfaces.painel.motivos.descricao_do_motivo`) e passou a morar só ali; o motivo/contato/
+contexto POR CONVERSA (o que a Fila humana também mostrava) já tinha migrado para `tela_conversas`
+(S12). O item de menu "Fila humana" aponta para o Histórico já filtrado
+(`?status=aguardando_corretor`), rótulo/ícone intactos.
 
 ## Consequências
 
@@ -64,9 +82,12 @@ reescrever a tela.
 
 ## Alternativas descartadas
 
-- **Guardar `de` como parâmetro de quem chama `registrar_mudanca_de_status`** — descartada: dois
-  lugares (quem chama e a própria trilha) poderiam divergir sobre "qual era o status anterior"; a
-  função sempre lê da trilha.
+- **`de` sempre lido AO VIVO da trilha, nunca por parâmetro** — era a intenção original ("um único
+  lugar decide, nunca diverge"), mas se mostrou incompleta na prática: quando o CHAMADOR já
+  escreveu outros eventos deste turno antes de gravar o status, ler a trilha ao vivo lê o PRÓPRIO
+  evento recém-gravado. Mantido "um único lugar decide COMO", mas com o snapshot
+  (`eventos_anteriores`) como parâmetro opcional para quem precisa dele — ainda uma função só, só
+  que agora ciente de quando pode se contaminar.
 - **`assumir`/`encerrar` recebendo `RepositorioDeTrilha` direto (texto literal do PLANO original)**
   — descartada em favor de `ServicoDeTrilha` (o mesmo tipo que `conduzir_conversa`/
   `processar_mensagem_livre` já usavam), pra ter UM gravador só (`registrar_mudanca_de_status`)
@@ -75,5 +96,6 @@ reescrever a tela.
   LLM recebe todas as fichas publicadas juntas e escreve texto livre, o código nunca sabe com
   certeza qual ficha embasou a resposta; a contagem usa o MENOR limite entre as fichas do contexto
   (leitura conservadora), documentado como limite conhecido no código.
-- **Remover `tela_fila_humana.py` nesta versão** — descartada: o catálogo de referência de todos
-  os motivos não tem substituto ainda; remover apagaria essa capacidade sem repor.
+- **Manter `tela_fila_humana.py` só pelo catálogo de motivos** — descartada depois de medir que
+  `tela_regras.py` já mostrava o mesmo catálogo (só sem descrição); acrescentar a descrição ali
+  custou menos do que manter uma página inteira órfã de link no menu.
