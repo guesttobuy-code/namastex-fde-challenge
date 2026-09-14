@@ -230,3 +230,34 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   (o catálogo de motivos não tinha substituto ainda). A auditoria mediu que `tela_regras.py` já
   mostrava o MESMO catálogo (só sem descrição) — decisão revertida: catálogo com descrição vai para
   `tela_regras`, `tela_fila_humana.py` é removida. Ver ADR-0006 (revisão).
+
+## Seção da issue #95 — chat encaminha quando `/api/planos` fica indisponível (append)
+
+### O que esta frente acrescenta
+
+- `interfaces.rotas_planos_indisponivel` (novo, mesmo padrão de `rotas_status_conversa`/
+  `chat_mensagem` — módulo próprio pelo teto do `file-loc-ceiling`, 597/600 antes desta linha):
+  `POST /api/chat/planos-indisponivel`, despachada em `_rotear_chat`. **Nunca recebe
+  `portal_de_cotacao`** — a rota é estruturalmente incapaz de chamar a `/quote` de verdade (ver
+  `aplicacao.CONTRACT.md`, I-15). Idade/veículo/CEP vêm do CORPO da requisição, não de
+  `_ESTADOS_EM_MEMORIA` — esse dict só é preenchido por `/api/chat/cotar`, e o lead nunca chega lá
+  quando `/api/planos` falha antes (exatamente o caso que esta rota cobre).
+- `_corpo.html::PASSOS.plano()`: conta falhas consecutivas de `GET /api/planos`; na 2ª falha
+  seguida, chama `encaminharPorPlanosIndisponiveis()` (nova) em vez de repetir "Tentar de novo" —
+  decide só QUANDO chamar o servidor, nunca o motivo (isso é 100% do servidor/aplicação).
+
+### O que NÃO é responsabilidade desta seção
+
+- `tela_conversas.py`/painel — não mudam (a rota já grava `handoff`/`status_alterado` pelo mesmo
+  caminho que as outras, então o painel já sabe desenhar sem alteração nenhuma). `examples/` — não
+  regenerado por esta frente.
+
+### Decisões registradas
+
+- 2026-09-14 — issue #95, achado ao ler `_payload_da_quote`: chamar `/api/chat/cotar` (rota já
+  existente) quando `/api/planos` falha PARECIA a reutilização mais simples, mas foi descartado —
+  `_payload_da_quote` usa `plano_id or "essencial"`; se a `/quote` estiver de pé e só `/api/planos`
+  tiver falhado (timeouts/retry diferentes: `buscar_planos` é 1 tentativa de 2s sem retry,
+  `ClienteQuoteHTTP` são 3×3s com orçamento de 10s), isso cotaria de verdade pro plano "essencial"
+  sem o lead ter escolhido nada. A rota nova constrói `ENCAMINHAR`/`QUOTE_INDISPONIVEL` direto, sem
+  nunca tentar a `/quote`.

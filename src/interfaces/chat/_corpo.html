@@ -368,10 +368,17 @@
       // escritas à mão aqui (issue #46, B.3.8).
       const resposta = await fetch("/api/planos");
       if (!resposta.ok) {
+        // issue #95: sem isto, o lead ficava preso em "Tentar de novo" pra sempre — a `/quote`
+        // fora do ar nunca encaminhava pra um corretor por este caminho (só pelo de cotar). Na
+        // 2ª falha seguida, desiste de listar planos e encaminha (`encaminharPorPlanosIndisponiveis`,
+        // que decide COMO e o motivo no servidor — aqui só decide QUANDO chamar).
+        dados._falhasPlanos = (dados._falhasPlanos || 0) + 1;
+        if (dados._falhasPlanos >= 2) { return encaminharPorPlanosIndisponiveis(); }
         mensagemBot("Não consegui carregar os planos agora. Toque para tentar de novo.", { cls: "sistema" });
         mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", primaria: true, acao: () => PASSOS.plano() }] });
         return;
       }
+      dados._falhasPlanos = 0;
       const catalogo = await resposta.json();
       const planos = catalogo.planos || [];
       const moeda = catalogo.moeda || "BRL";
@@ -564,6 +571,36 @@
       // oferece só recomeçar em vez de fingir que sabe qual campo falta.
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Recomeçar", acao: reiniciar }] });
     }
+  }
+
+  // issue #95: chamada só depois da 2ª falha seguida de GET /api/planos (PASSOS.plano() acima) —
+  // NUNCA chama /api/chat/cotar (cotaria de verdade pro plano "essencial" sem o lead ter
+  // escolhido nada, se a /quote estiver de pé e só /api/planos tiver falhado). O servidor decide
+  // o motivo e grava a trilha; aqui só exibe o que veio, mesmo padrão de cotar()/contratar().
+  async function encaminharPorPlanosIndisponiveis() {
+    esconderDoca();
+    const status = mensagemBot("Um momento…", { cls: "sistema" });
+    let corpo;
+    try {
+      const resposta = await fetch("/api/chat/planos-indisponivel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          idade: dados.idade,
+          veiculo_ano: dados.veiculo_ano,
+          veiculo_modelo: dados.veiculo_modelo,
+          cep: dados.cep,
+        }),
+      });
+      corpo = await resposta.json();
+    } catch (e) {
+      status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora. Um corretor pode continuar daqui.';
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
+      return;
+    }
+    status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}`;
+    mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
   }
 
   // ── issue #58 (frente ia-responde): campo opcional de objeção de preço, depois do card —

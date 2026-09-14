@@ -5,7 +5,12 @@ from __future__ import annotations
 import pytest
 
 from aplicacao.portas.repositorio_de_trilha import RepositorioDeTrilha
-from aplicacao.servico_conversa import conduzir_conversa, montar_estado, registrar_status_do_turno
+from aplicacao.servico_conversa import (
+    conduzir_conversa,
+    encaminhar_planos_indisponiveis,
+    montar_estado,
+    registrar_status_do_turno,
+)
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.configuracao_comercial import ConfiguracaoComercial
 from dominio.decisao import Decisao, MotivoHandoff, TipoDecisao
@@ -359,3 +364,67 @@ def test_registrar_status_do_turno_de_e_none_quando_conversa_nao_tinha_status_ai
     (gravado,) = repositorio.gravados
     assert gravado["de"] is None
     assert gravado["para"] == "com_o_agente"
+
+
+# ── `encaminhar_planos_indisponiveis` (issue #95): GET /api/planos falhou tentativas suficientes
+# — NUNCA chama `portal.cotar()` (com a `/quote` de pé mas só /api/planos fora do ar, cotar de
+# verdade escolheria "essencial" no lugar do lead). A garantia estrutural: a função nem recebe um
+# `portal` como parâmetro — o teste confirma pela ÚNICA porta observável, a trilha: nenhum evento
+# `tentativa_de_cotacao` (o que `_registrar_tentativa`/`on_tentativa` gravariam se `portal.cotar()`
+# tivesse sido chamado) nunca aparece.
+
+
+def test_encaminhar_planos_indisponiveis_grava_decisao_e_handoff_sem_chamar_o_portal():
+    repositorio = _RepositorioEspiao()
+    trilha = ServicoDeTrilha(repositorio)
+    estado = EstadoDaConversa(conversation_id="conv-planos", idade=35, veiculo_ano=2020, cep="01310-100")
+
+    turno = encaminhar_planos_indisponiveis(trilha, estado)
+
+    assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
+    assert turno.decisao.reason_code == MotivoHandoff.QUOTE_INDISPONIVEL
+    assert turno.resultado is None
+    assert turno.texto == "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."
+
+    eventos_por_tipo = [e["evento"] for e in repositorio.gravados]
+    assert eventos_por_tipo == ["decisao", "mensagem_enviada", "handoff", "status_alterado"]
+    assert "tentativa_de_cotacao" not in eventos_por_tipo, "isto provaria que portal.cotar() foi chamado"
+    (handoff,) = [e for e in repositorio.gravados if e["evento"] == "handoff"]
+    assert handoff["reason_code"] == "quote_indisponivel"
+    (status,) = [e for e in repositorio.gravados if e["evento"] == "status_alterado"]
+    assert status["para"] == "aguardando_corretor"
+
+
+def test_encaminhar_planos_indisponiveis_e_idempotente_chamado_duas_vezes():
+    """Condição da coordenação (#95): duas chamadas seguidas não podem gravar um segundo
+    decisao/handoff/status_alterado."""
+    repositorio = _RepositorioEspiao()
+    trilha = ServicoDeTrilha(repositorio)
+    estado = EstadoDaConversa(conversation_id="conv-planos-2x", idade=35, veiculo_ano=2020, cep="01310-100")
+
+    encaminhar_planos_indisponiveis(trilha, estado)
+    quantidade_apos_primeira = len(repositorio.gravados)
+    turno_2 = encaminhar_planos_indisponiveis(trilha, estado)
+
+    assert len(repositorio.gravados) == quantidade_apos_primeira, "a 2a chamada gravou evento(s) novo(s)"
+    assert turno_2.decisao.tipo == TipoDecisao.ENCAMINHAR
+    assert turno_2.texto == "Não consegui fechar sua cotação agora — vou encaminhar para um atendente."
+
+
+def test_encaminhar_planos_indisponiveis_nao_grava_de_novo_se_ja_aguardando_corretor_por_outro_motivo():
+    """Condição da coordenação (#95): "uma chamada com a conversa já aguardando_corretor" —
+    inclusive quando o status chegou lá por outro caminho (ex.: "Falar com um corretor"), não só
+    por uma chamada anterior desta mesma rota."""
+    repositorio = _RepositorioEspiao([
+        {
+            "evento": "status_alterado", "conversation_id": "conv-ja-encaminhada", "id": "st_0",
+            "instante": "2026-09-13T10:00:00", "de": "com_o_agente", "para": "aguardando_corretor",
+            "origem": "automatico",
+        }
+    ])
+    trilha = ServicoDeTrilha(repositorio)
+    estado = EstadoDaConversa(conversation_id="conv-ja-encaminhada", idade=35, veiculo_ano=2020, cep="01310-100")
+
+    encaminhar_planos_indisponiveis(trilha, estado)
+
+    assert len(repositorio.gravados) == 1, "não podia gravar decisao/handoff/status_alterado novos"
