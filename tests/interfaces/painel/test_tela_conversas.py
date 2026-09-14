@@ -1,8 +1,17 @@
+import json
 import re
+from pathlib import Path
 
 from dominio.contato_lead import ContatoLead
 
 from interfaces.painel import tela_conversas
+
+_RAIZ = Path(__file__).resolve().parents[3]
+
+
+def _carregar_trilha_real(nome_arquivo: str) -> list[dict]:
+    caminho = _RAIZ / "examples" / nome_arquivo
+    return [json.loads(linha) for linha in caminho.read_text(encoding="utf-8").splitlines() if linha.strip()]
 
 
 def test_mensagem_com_html_e_escapada():
@@ -255,50 +264,60 @@ def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
     assert '<span class="previa"><span class="falta">⚠ ausente na trilha: mensagem_recebida</span></span>' in html
 
 
-def test_previa_de_conversa_ignora_as_respostas_vazias_e_mostra_a_ultima_com_conteudo():
-    """issue #93 (ajuste pós-#94): a ÚLTIMA `mensagem_recebida` de uma conversa da CLI quase sempre
-    é a resposta vazia da data de início (Enter, campo opcional) — se a prévia usasse ela, TODA
-    conversa da CLI mostraria "(sem resposta — seguiu o padrão)" na lista, escondendo o resumo da
-    cotação. A prévia ignora as respostas vazias e usa a última com conteúdo de verdade. Eventos
-    REAIS de `examples/trilha_conv-198a633b.jsonl`: a última mensagem com conteúdo é o CEP
-    (`msg_coleta_2_recebida`, já `[REDIGIDO]` pelo redator) — `msg_coleta_3/4_recebida` (vazias)
-    não contam."""
+def _previa_de(eventos: list[dict]) -> str:
+    html = tela_conversas.render(eventos)
+    return re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
+
+
+def test_previa_de_conversa_nunca_mostra_a_mensagem_do_lead():
+    """issue #93 (2º ajuste, achado da coordenação): a mensagem do lead saiu de vez da prévia — uma
+    resposta de formulário ("[REDIGIDO]", "80", "2020") não diz nada ao corretor na lista. A prévia
+    agora é só (1) o resumo da cotação com sucesso, (2) o rótulo do status, (3) o buraco quando não
+    há nenhum evento de mensagem — nunca o texto do lead. Trilha REAL completa de
+    `examples/trilha_conv-198a633b.jsonl` (recusa por idade, `decisao tipo=encaminhar`): a prévia é
+    o status "Aguardando corretor", não a última resposta do lead ("[REDIGIDO]", o CEP)."""
+    eventos = _carregar_trilha_real("trilha_conv-198a633b.jsonl")
+
+    assert _previa_de(eventos) == "Aguardando corretor"
+
+
+def test_previa_de_conversa_c254c560_indisponivel_mostra_aguardando_corretor():
+    """Trilha REAL completa de `examples/trilha_conv-c254c560.jsonl` (`/quote` indisponível,
+    `decisao tipo=encaminhar reason_code=quote_indisponivel`): mesma regra, mesmo resultado."""
+    eventos = _carregar_trilha_real("trilha_conv-c254c560.jsonl")
+
+    assert _previa_de(eventos) == "Aguardando corretor"
+
+
+def test_previa_de_conversa_2bdc86e8_cotada_mostra_o_resumo_da_cotacao():
+    """Trilha REAL completa de `examples/trilha_conv-2bdc86e8.jsonl` (sucesso,
+    `decisao tipo=explicar_cotacao`): `_resumo_da_ultima_cotacao` (hoje, ANTES do #94, regex sobre
+    o texto de `mensagem_enviada` — `dominio.redator` grava "Plano Essencial: R$ 137,88/mês...")
+    já casa e vira o resumo "Essencial · R$ 137,88/mês" — medido contra o código real desta
+    worktree, não presumido; depois que o #94 entrar e `_resumo_da_ultima_cotacao` passar a ler
+    `plano_nome` de um campo estruturado, esta trilha ANTIGA (sem esse campo) pode passar a cair no
+    rótulo do status ("Cotada") até `examples/` ser regenerado — não é este PR que muda
+    `_resumo_da_ultima_cotacao` (fora de escopo, #93 não toca)."""
+    eventos = _carregar_trilha_real("trilha_conv-2bdc86e8.jsonl")
+
+    assert _previa_de(eventos) == "Essencial · R$ 137,88/mês"
+
+
+def test_previa_de_conversa_com_plano_nome_no_formato_do_redator_mostra_o_resumo():
+    """Trilha sintética no formato que `_resumo_da_ultima_cotacao` já reconhece hoje (o mock de
+    "tem plano_nome" citado pela coordenação) — a prévia é o resumo, não o rótulo do status."""
     eventos = [
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_0_recebida",
-         "instante": "2026-09-14T02:51:44.067264+00:00", "texto": "80", "sender_role": "lead"},
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_1_recebida",
-         "instante": "2026-09-14T02:51:44.068429+00:00", "texto": "2020", "sender_role": "lead"},
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_2_recebida",
-         "instante": "2026-09-14T02:51:44.069186+00:00", "texto": "[REDIGIDO]", "sender_role": "lead"},
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
-         "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead"},
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
-         "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv_plano", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "mensagem_enviada", "conversation_id": "conv_plano", "id": "m_env",
+         "instante": "2026-09-13T10:00:01",
+         "texto": "Plano Completo: R$ 313,80/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
+         "decisao_id": "dec_01", "regra_aplicada": "explicar_cotacao", "origem_do_texto": "redator_deterministico:v1"},
+        {"evento": "decisao", "conversation_id": "conv_plano", "id": "dec_01",
+         "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
     ]
 
-    html = tela_conversas.render(eventos)
-
-    previa = re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
-    assert previa == "[REDIGIDO]"
-
-
-def test_previa_de_conversa_so_com_respostas_vazias_cai_no_status_nao_no_vazio():
-    """Quando NENHUMA mensagem do lead tem conteúdo (só respostas vazias), a prévia não mostra o
-    marcador de resposta vazia — cai no mesmo fallback de sempre (resumo da cotação, senão o
-    status). Aqui não há `mensagem_enviada` nem `decisao`/`status_alterado`, então cai no rótulo
-    do estado inicial ("Com o agente")."""
-    eventos = [
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
-         "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead"},
-        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
-         "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead"},
-    ]
-
-    html = tela_conversas.render(eventos)
-
-    assert "ausente na trilha: texto" not in html
-    previa = re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
-    assert previa == "Com o agente"
+    assert _previa_de(eventos) == "Completo · R$ 313,80/mês"
 
 
 def test_secao_conversa_mensagem_recebida_com_texto_vazio_nao_vira_buraco():

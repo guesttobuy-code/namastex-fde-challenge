@@ -117,20 +117,13 @@ def _resumo_da_ultima_cotacao(eventos_conversa: list[dict]) -> str | None:
 def _previa_da_conversa(eventos_conversa: list[dict], estado: str) -> str:
     """UI-B5 (achado da coordenação testando o conserto do UI-B4): sem fallback, toda conversa do
     chat guiado (cuja única `mensagem_recebida` é o resumo `sistema`, issue #39) caía no buraco
-    técnico — a mesma marcação usada pra falha REAL de gravação. Prioridade: (1) última mensagem
-    de verdade do lead, com CONTEÚDO (issue #93, ajuste pós-#94: a resposta vazia — Enter num
-    campo opcional, quase sempre a ÚLTIMA mensagem de uma conversa da CLI — nunca vira a prévia,
-    senão toda conversa da CLI mostraria "sem resposta" na lista em vez do resumo da cotação; ela
-    continua aparecendo nos balões, `_secao_conversa`, só a prévia da lista a ignora); (2) resumo
-    da última cotação respondida (formato estável do redator); (3) rótulo do status (dono único:
+    técnico — a mesma marcação usada pra falha REAL de gravação. issue #93 (2º ajuste, achado da
+    coordenação testando o 1º): a mensagem do LEAD saiu de vez da prévia — uma resposta de
+    formulário ("[REDIGIDO]", "80", "2020") não diz nada ao corretor na lista, e ela continua
+    inteira nos balões (`_secao_conversa`) e no Rastreio. Prioridade: (1) resumo da última cotação
+    respondida com sucesso (formato estável do redator); (2) rótulo do status (dono único:
     `agrupar.rotulo_de_exibicao`); buraco só quando a conversa não tem NENHUM evento de mensagem —
     aí sim é perda de dado, não falta de teor."""
-    mensagens_do_lead_com_conteudo = [
-        e for e in eventos_conversa
-        if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema" and e.get("texto")
-    ]
-    if mensagens_do_lead_com_conteudo:
-        return campo(mensagens_do_lead_com_conteudo[-1], "texto")
     resumo = _resumo_da_ultima_cotacao(eventos_conversa)
     if resumo:
         return esc(resumo)
