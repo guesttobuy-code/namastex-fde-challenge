@@ -35,7 +35,7 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 |---|---|---|
 | `/` | **chat guiado e determinístico** na coleta (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado; sem LLM até o card de preço, de propósito (decisão da coordenação: quem avalia não precisa de chave para chegar na cotação). O campo de dúvida DEPOIS do card usa a IA opcional (issue #58, ver abaixo) | funcional |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
-| `/painel/` | o painel de rastreio (cinco telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
+| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
 
 Pelo chat: aviso de privacidade antes das perguntas, nome + WhatsApp obrigatórios (e-mail opcional),
 idade (menor de 18 não cota — ver [limite conhecido](#10-limites-conhecidos)), veículo, **CEP
@@ -113,7 +113,8 @@ preço desta cotação. Para outras perguntas, toque em \"Falar com um corretor\
 (`src/aplicacao/servico_resposta_orientada.py:53-57`, `ORIGEM_TEXTO_FORA_DE_ESCOPO`). **Com chave
 mas sem nenhuma ficha publicada** (ou se as tentativas de resposta reprovarem a validação), aí sim
 entra o encaminhamento ao corretor, nunca um número inventado
-(`src/aplicacao/servico_resposta_orientada.py:171-172,178-189`,
+(`src/aplicacao/servico_resposta_orientada.py:218,223,239`, os `return` de encaminhamento dentro de
+`montar_e_responder`,
 `src/infra/adaptador_de_linguagem.py:345-360`). Limites medidos desta função: [§10](#10-limites-conhecidos).
 
 ### Ligando a IA real que responde objeção de preço (issue #81)
@@ -395,12 +396,14 @@ ambíguo do cliente), que continuam sem frente aberta.
 ## 5. Dá pra rastrear o que aconteceu?
 
 Sim — cada evento vira uma linha JSONL, gravada por `ServicoDeTrilha`, o **único** portão de escrita
-(`src/aplicacao/CONTRACT.md:11-12`: nenhum código grava direto no `RepositorioDeTrilha`). Todo evento
-carrega `id`, `conversation_id` e `instante` (`src/dominio/eventos_trilha.py:18-22`); os 7 tipos
+(`src/aplicacao/CONTRACT.md:18`, invariante I-1: nenhum código grava direto no `RepositorioDeTrilha`). Todo evento
+carrega `id`, `conversation_id` e `instante` (`src/dominio/eventos_trilha.py:18-22`); os 8 tipos
 possíveis são `mensagem_recebida`, `mensagem_enviada` (com `decisao_id`/`regra_aplicada`/
 `origem_do_texto`/`quote_attempt_id` — proveniência, não só o texto), `tentativa_de_cotacao` (uma por
 chamada HTTP, não por cotação — com `http_status`, `classificacao`, `latencia_ms`,
-`orcamento_restante_ms`), `decisao`, `handoff`, e dois para correção de erro (`erro_marcado`,
+`orcamento_restante_ms`), `decisao`, `handoff`, `status_alterado` (`src/dominio/eventos_trilha.py:96`,
+`MudancaDeStatus` — issue #57, dono único da escrita é `registrar_mudanca_de_status`,
+`src/aplicacao/CONTRACT.md:362`, invariante I-12) e dois para correção de erro (`erro_marcado`,
 `correcao_registrada`) que os três exemplos em `examples/` não exercitam.
 
 **A coleta determinística (sem LLM) também grava pergunta a pergunta na trilha** — antes só o
@@ -482,7 +485,8 @@ qualquer outra PII, mas nunca decide nada.
 antiga) e nome próprio conhecido — casando pelo **formato** do valor, nunca pela palavra-rótulo (o
 gerador do dataset baixa `CPF`/`CEP` para minúsculo quando não é a primeira palavra do bloco;
 [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md) documenta a medição). Tanto a trilha quanto a transcrição
-de `examples/*.log` passam por esse redator antes de serem salvas (`src/interfaces/cli.py:40-41,52`) —
+de `examples/*.log` passam por esse redator antes de serem salvas (`src/interfaces/cli.py:65`,
+`redigir_texto(linha) if deve_redigir else linha`) —
 os dois são commitados num repo público.
 
 Limite conhecido e declarado, não escondido: a extração não usa NER — um nome que não esteja na lista
@@ -615,7 +619,7 @@ PLANO), não por escolha da frente. Aprovado assim mesmo, com a ressalva registr
 - **O mascaramento de PII não usa NER** — só redige nomes de uma lista conhecida; um nome fora dela passa intacto (`docs/PRIVACIDADE.md`).
 - **Sem projeto Python instalável** (sem `pip install -e .`) — decisão deliberadamente adiada (nota R9/#16); por isso rodar exige `PYTHONPATH=src`, documentado no comando acima.
 - **`.arch-layers.json` não existe** — a fronteira de camadas é cobrada de verdade pelo `.importlinter` no CI, mas o guard `docs-required` do kit ainda não confere essa fronteira automaticamente (nota registrada no `CHANGELOG.md`).
-- **Menor de 18 anos: a recusa é só do lado do cliente.** `src/interfaces/chat/_corpo.html:288`
+- **Menor de 18 anos: a recusa é só do lado do cliente.** `src/interfaces/chat/_corpo.html:316`
   (`if (n < 18) return menorDeIdade();`) bloqueia na tela, com mensagem acolhedora — mas nem
   `dominio.validacao` nem `aplicacao.servico_conversa` repetem a regra no servidor. Um
   `POST /api/chat/cotar` direto, fora da tela, com `idade < 18`, não é recusado por essa camada —
@@ -630,9 +634,9 @@ PLANO), não por escolha da frente. Aprovado assim mesmo, com a ressalva registr
   ADR-0004 — zero dependência nova) é single-threaded por padrão; duas pessoas cotando ao mesmo
   tempo esperam uma pela outra. Sem medição de quanto isso custa em latência sob carga — não é o
   cenário desta entrega (`src/interfaces/servidor.py:1`, `make_server` em
-  `src/interfaces/servidor.py:573`).
+  `src/interfaces/servidor.py:584`).
 - **Estado da conversa em memória, sem expiração.** `_ESTADOS_EM_MEMORIA`
-  (`src/interfaces/servidor.py:91`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
+  (`src/interfaces/servidor.py:83`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
   e nunca limpo (uma conversa abandonada fica ocupando memória para sempre). Limite aceito e
   declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
   deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
