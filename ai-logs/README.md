@@ -1,7 +1,8 @@
 # `ai-logs/` — índice das conversas com IA
 
-Exportação real de 14/09/2026, sanitizada por `scripts/sanitizar_ai_logs.py` — saída completa em
-["Como foi sanitizado"](#como-foi-sanitizado), abaixo.
+Exportação real de 14/09/2026 (rodada mais recente, S1-S5), sanitizada por
+`scripts/sanitizar_ai_logs.py` — saída completa em ["Como foi sanitizado"](#como-foi-sanitizado),
+abaixo.
 
 Este projeto foi construído por várias sessões de IA, cada frente numa worktree própria (seção
 "A esteira" do `CLAUDE.md`: 1 chat = 1 frente = 1 branch = 1 worktree = 1 PR — com exceções
@@ -22,7 +23,7 @@ script, que recusa exportar se a checagem não puder rodar (`scripts/sanitizar_a
 
 | Sessão | Arquivos | Papel | O que produziu |
 |---|---|---|---|
-| `coordenacao/` | 32 | Planeja, audita entre frentes, decide prioridade, aprova merge | Todo o roteamento das frentes abaixo; decisões registradas na issue-diário [#16](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16) |
+| `coordenacao/` | 34 | Planeja, audita entre frentes, decide prioridade, aprova merge | Todo o roteamento das frentes abaixo; decisões registradas na issue-diário [#16](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16) |
 | `auditoria-fria/` | 1 | Auditoria adversarial periódica do projeto inteiro (fora do fluxo de PR) | Achado do vazamento de dado pessoal em `esteira.json` ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)) |
 | `sondagem-inicial/` | 1 | Primeira leitura do desafio, antes de qualquer código | Levantamento inicial que virou a base do roadmap ([issue #3](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/3)) |
 | `fundacao-python/` | 2 | F1 — fundação do projeto | Config Python, guards que substituem os do kit JS/TS ([PR #25](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/25), mergeado) |
@@ -38,11 +39,12 @@ script, que recusa exportar se a checagem não puder rodar (`scripts/sanitizar_a
 | `texto-ao-lead/` | 1 | Formato brasileiro de preço e recusa educada | `_valor_br`, `nomes_cobertura` ([PR #60](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/60), mergeado) |
 | `correcoes-contratos/` | 1 | 3º contrato de camadas | `aplicacao` não importa `infra`/`interfaces` ([PR #61](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/61), mergeado) |
 | `status-conversa/` | 1 | Pedido explícito de humano (chat 17); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | `LEAD_PEDIU_HUMANO` ([PR #63](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63), mergeado); depois `status-da-conversa` ([PR #87](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/87), mergeado), `precommit-enxuto` ([PR #73](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/73), mergeado) e `robustez-quote-entrada` (issue #67/#68/#69, aberta, sem PR ainda) |
-| `trilha-coleta/` | 12 | Trilha da coleta determinística + 3 achados de auditoria (chat 16); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76), mergeado), `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85), mergeado) e `relatorio-crm` ([PR #80](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/80), mergeado) |
-| `entrega/` | 17 | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77), mergeado) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice. `atendimento-chat-lead` (issue #86) foi aberta nesta sessão e depois **retirada do escopo desta entrega por decisão do dono** — sem commit nem PR |
+| `trilha-coleta/` | 14 | Trilha da coleta determinística + 3 achados de auditoria (chat 16); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76), mergeado), `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85), mergeado) e `relatorio-crm` ([PR #80](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/80), mergeado) |
+| `entrega/` | 23 | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77), mergeado) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice. `atendimento-chat-lead` (issue #86) foi aberta nesta sessão e depois **retirada do escopo desta entrega por decisão do dono** — sem commit nem PR |
+| `planos-indisponivel/` | 3 | Rota de encaminhamento quando `GET /api/planos` fica indisponível (issue #95) | `POST /api/chat/planos-indisponivel`, nunca cota de verdade pro lead ([PR #100](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/100), mergeado) |
 | `codex/` | 1 | Auditoria externa (Codex), antes de qualquer código | Red-team do roadmap — [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md) |
 
-**Total: 18 pastas de sessão, 81 arquivos `.jsonl`, ~222MB (exportação real de 14/09/2026).**
+**Total: 19 pastas de sessão + `codex/`, 94 arquivos `.jsonl` (exportação real de 14/09/2026).**
 
 Cada pasta de sessão tem o `.jsonl` principal (a conversa) e, quando a sessão usou subagentes, uma
 subpasta `subagents/` com a transcrição de cada um — a varredura cobre os dois (achado da issue #15:
@@ -84,10 +86,18 @@ em `_local/`, nunca versionado):
    conserto na mão), então o script passou a SUBSTITUIR também. O script imprime só a contagem por
    índice da lista (`padrão #N: <contagem> substituição(ões)`), nunca o valor nem a que padrão
    corresponde em texto.
-5. **Verificação final, fail-closed, sobre uma pasta de staging temporária (fora de `ai-logs/`):**
+5. **Prefixos de segredo OpenRouter/Anthropic trocados por `[CHAVE REMOVIDA]`, sem piso de
+   comprimento** — achado ao vivo: um trecho de só 4 caracteres depois de `sk-or-v1-` (mensão de
+   formato ou fragmento de chave, indistinguível sem abrir o arquivo) abortou a verificação final.
+   Chave real de 64 caracteres ou trecho de 4, os dois somem antes da verificação rodar; a
+   verificação final (item 6) não afrouxou — continua sem piso nenhum, exatamente como antes.
+6. **Verificação final, fail-closed, sobre uma pasta de staging temporária (fora de `ai-logs/`):**
    conta ocorrências dos padrões de segredo conhecidos (prefixos de chave de API, token `Bearer`
-   longo), dos padrões PESSOAIS remanescentes (esperado zero, já que o item 4 os substitui — fica
-   como rede de segurança) e de blocos de imagem remanescentes; qualquer ocorrência **aborta a
+   longo), dos padrões PESSOAIS remanescentes (esperado zero, já que os itens 4/5 os substituem —
+   fica como rede de segurança) e de blocos de imagem remanescentes; confere também que toda
+   "linha" continua JSON válido, separando por `\n` REAL em bytes (achado ao vivo: `json.dumps` não
+   escapa U+0085/U+2028/U+2029, e o antigo `str.splitlines()` tratava esses caracteres como quebra
+   de linha, fragmentando 1 registro válido em "linhas" falsas). Qualquer ocorrência **aborta a
    exportação inteira**, citando os arquivos — nunca o valor — e `ai-logs/` nunca chega a ser
    tocado. **Se `_local/padroes_pessoais.txt` não existir, a exportação recusa rodar.** Só se a
    verificação passar, o script troca em `ai-logs/` **apenas as pastas de sessão exportadas** —
@@ -95,17 +105,25 @@ em `_local/`, nunca versionado):
    comando da exportação real: a versão anterior apagava `ai-logs/` inteira antes de escrever,
    derrubando este README do disco por um instante — recuperado pelo git, nunca perdido, mas
    corrigido para não acontecer de novo).
+7. **Antes de sanitizar, tira um RETRATO de cada arquivo** (`shutil.copy2` pra uma pasta temporária)
+   e sanitiza só o retrato, nunca o arquivo vivo — achado ao vivo: uma sessão ainda ativa no
+   instante da exportação causou linhas finais quebradas porque o script lia o arquivo enquanto ele
+   crescia. Se a última linha do retrato não termina em `\n` (escrita pela metade no instante exato
+   da cópia), só ela é descartada, com aviso da contagem.
 
-**Exportação real, 14/09/2026** — 18 pastas de sessão, 81 arquivos `.jsonl`, ~222MB:
+**Exportação real, 14/09/2026 (rodada mais recente, S1-S5)** — 19 pastas de sessão + `codex/`, 94
+arquivos `.jsonl`:
 ```
-[sanitizar_ai_logs] 81 arquivo(s) sanitizado(s) (staging, fora de ai-logs)
+[sanitizar_ai_logs] 94 arquivo(s) sanitizado(s) (staging, fora de ai-logs)
 [sanitizar_ai_logs] verificacao final: zero padrao de segredo, zero padrao pessoal (chave ou valor), zero bloco de imagem, 100% das linhas JSON validas.
 [sanitizar_ai_logs] padrao #3: 2 substituicao(oes)
 [sanitizar_ai_logs] padrao #14: 6 substituicao(oes)
 [sanitizar_ai_logs] padrao #15: 4 substituicao(oes)
+[sanitizar_ai_logs] padrao #18: 19 substituicao(oes)
 ```
 Segunda verificação, independente do script (`git grep`, direto no que foi escrito): 0 arquivo com
-qualquer padrão de `_local/padroes_pessoais.txt`; 0 ocorrência de `sk-or-` em `ai-logs/`.
+qualquer padrão de `_local/padroes_pessoais.txt`; 0 ocorrência de `sk-or-v1-` em `ai-logs/` (sem
+piso de comprimento, `git grep -c -P "sk-or-v1-" -- ai-logs/`).
 
 ## O que ficou de fora, e por quê
 
