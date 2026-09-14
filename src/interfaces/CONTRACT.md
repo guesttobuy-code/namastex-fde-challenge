@@ -302,6 +302,14 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   concorrente com a escrita). `escrever_atomico` absorve com até 20 tentativas / 10ms — a janela
   medida dura microssegundos, nunca precisou da 2ª tentativa em execução normal.
 
+### Limite conhecido
+
+- `escrever_atomico`: se as 20 tentativas de `os.replace` esgotarem (nunca visto em execução
+  normal — ver achado acima), o arquivo temporário `<caminho>.tmp-<pid>-<thread_id>` fica órfão no
+  disco em vez de ser removido. Aceito nesta entrega: o nome carrega `pid`+`thread_id`, não colide
+  com uma escrita futura, e cada esgotamento já levanta uma exceção que aparece no log/teste — não
+  falha em silêncio.
+
 ### O que NÃO é responsabilidade desta seção
 
 - Trocar `_ESTADOS_EM_MEMORIA`/`_PRECOS_EM_MEMORIA` por outra estrutura de dado, sessão HTTP,
