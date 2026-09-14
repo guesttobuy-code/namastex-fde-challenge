@@ -1,0 +1,18 @@
+{
+  "argumentos_permitidos": [
+    "carencia",
+    "coberturas"
+  ],
+  "atualizado_em": "2026-09-14T00:46:39.951396+00:00",
+  "frases_do_lead": [
+    "pago e ainda tenho que esperar pra ter cobertura",
+    "por que roubo só depois de um tempo",
+    "se roubarem amanhã não cobre"
+  ],
+  "id": "caro-com-carencia",
+  "nome": "Caro e ainda tem carência",
+  "resposta_orientada": "Entendo a preocupação. No plano {{plano_nome}}, a carência de {{carencia_dias}} dias vale só para roubo e furto. Colisão e as demais coberturas do plano não têm essa espera.\n\nA carência existe no mercado para proteger todos os segurados contra fraude. Se quiser, um corretor explica como funciona no seu caso.",
+  "status": "publicado",
+  "tentativas_antes_do_corretor": 1,
+  "versao": 1
+}

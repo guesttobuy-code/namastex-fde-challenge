@@ -1,0 +1,21 @@
+{
+  "argumentos_permitidos": [
+    "coberturas",
+    "franquia_por_plano",
+    "comparacao_entre_planos"
+  ],
+  "atualizado_em": "2026-09-14T00:46:35.816348+00:00",
+  "frases_do_lead": [
+    "vi mais barato na concorrente",
+    "a outra seguradora me ofereceu menos",
+    "no aplicativo saiu mais barato",
+    "a Porto Seguro me ofereceu menos",
+    "por que o de vocês é mais caro"
+  ],
+  "id": "mais-barato-na-concorrente",
+  "nome": "Vi mais barato em outra seguradora",
+  "resposta_orientada": "Obrigado por me contar, comparar é o certo. Para a comparação ser justa, vale conferir se a outra proposta tem as mesmas coberturas e a mesma franquia, porque preço parecido pode esconder proteção bem diferente.\n\nNo plano {{plano_nome}}, você tem {{coberturas}}, com franquia de {{franquia}}, por {{premio_mensal}} por mês.\n\nA outra cotação inclui tudo isso? Se ela cobre menos, a gente também tem o plano Essencial, com mensalidade menor e franquia de {{franquia_essencial}}. E se você quiser, um corretor compara as duas propostas lado a lado com você.",
+  "status": "publicado",
+  "tentativas_antes_do_corretor": 1,
+  "versao": 1
+}
