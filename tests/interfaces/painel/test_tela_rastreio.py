@@ -55,6 +55,37 @@ def test_sem_conversas_mostra_buraco_em_vez_de_pagina_vazia():
     assert "ausente na trilha" in html
 
 
+def test_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
+    """issue #93: evento REAL de `examples/trilha_conv-198a633b.jsonl` (`msg_coleta_4_recebida`)
+    — resposta vazia explícita (Enter no campo opcional), nunca o buraco de falha de gravação."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
+        "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead",
+    }]
+
+    html = _html(eventos)
+
+    assert "ausente na trilha: texto" not in html
+    assert "(sem resposta — seguiu o padrão)" in html
+
+
+def test_mensagem_recebida_sender_role_sistema_mostra_resumo_nao_lead():
+    """issue #93: evento REAL `msg_ce3e6950` (`sender_role="sistema"`) é o resumo sintético da
+    coleta (issue #39) — nunca deve sair rotulado como fala do lead."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_ce3e6950",
+        "instante": "2026-09-14T02:51:44.071200+00:00",
+        "texto": "idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None",
+        "sender_role": "sistema",
+    }]
+
+    html = _html(eventos)
+
+    assert "Resumo dos dados coletados" in html
+    assert "idade=80; veiculo_ano=2020" not in html
+    assert '<span class="quem">lead</span>' not in html
+
+
 def test_numeracao_com_buraco_no_meio_mostra_buraco_visivel_na_posicao_certa():
     """Achado da coordenação: sem `cotacao_id` na ESPECIFICACAO, o grupo é inferido pela ordem de
     `numero_da_tentativa` — uma trilha parcial (1, 3, sem o 2) não pode juntar em silêncio o que

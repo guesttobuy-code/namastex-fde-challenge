@@ -34,7 +34,7 @@ import re
 from dominio.contato_lead import ContatoLead
 from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa, rotulo_de_exibicao
-from interfaces.painel.campos import buraco, campo, esc
+from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA, buraco, campo, esc, texto_da_resposta
 from interfaces.painel.layout import css_extra_da_tela, pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
@@ -126,7 +126,7 @@ def _previa_da_conversa(eventos_conversa: list[dict], estado: str) -> str:
         if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema"
     ]
     if mensagens_do_lead:
-        return campo(mensagens_do_lead[-1], "texto")
+        return texto_da_resposta(mensagens_do_lead[-1])
     resumo = _resumo_da_ultima_cotacao(eventos_conversa)
     if resumo:
         return esc(resumo)
@@ -289,9 +289,9 @@ def _secao_conversa(
             # `.estado-interno` (já existe no mock pra exatamente isto: marcar um evento do sistema
             # no meio do fluxo, nunca um balão) em vez de inventar uma classe nova — escolha
             # declarada no corpo do PR.
-            balões.append('<div class="estado-interno">Resumo dos dados coletados</div>')
+            balões.append(f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>')
         elif tipo == "mensagem_recebida":
-            balões.append(f"""<div class="msg lead"><div class="balao">{campo(evento, "texto")}</div>
+            balões.append(f"""<div class="msg lead"><div class="balao">{texto_da_resposta(evento)}</div>
               <div class="rodape-msg"><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
         elif tipo == "mensagem_enviada":
             balões.append(f"""<div class="msg agente"><div class="balao">{campo(evento, "texto")}</div>

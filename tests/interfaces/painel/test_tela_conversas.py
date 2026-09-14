@@ -253,3 +253,52 @@ def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
     html = tela_conversas.render(eventos)
 
     assert '<span class="previa"><span class="falta">⚠ ausente na trilha: mensagem_recebida</span></span>' in html
+
+
+def test_previa_de_conversa_com_ultima_resposta_vazia_nao_mostra_buraco():
+    """issue #93: eventos REAIS de `examples/trilha_conv-198a633b.jsonl` (`msg_coleta_3/4_recebida`)
+    — a última mensagem do lead é uma resposta vazia explícita (Enter num campo opcional), nunca o
+    buraco técnico de falha de gravação."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
+         "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead"},
+        {"evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_4_recebida",
+         "instante": "2026-09-14T02:51:44.070706+00:00", "texto": "", "sender_role": "lead"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert "ausente na trilha: texto" not in html
+    assert '<span class="previa"><span class="vazio">(sem resposta — seguiu o padrão)</span></span>' in html
+
+
+def test_secao_conversa_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
+    """issue #93: mesmo achado do preview, agora no balão da conversa aberta (`_secao_conversa`,
+    L294) — achado da coordenação: a caixa de entrada (primeira tela do avaliador) mostrava
+    "ausente na trilha" pra cada resposta em branco de um campo opcional."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
+        "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "ausente na trilha: texto" not in html
+    assert "(sem resposta — seguiu o padrão)" in html
+
+
+def test_secao_conversa_sistema_usa_rotulo_compartilhado_de_campos():
+    """issue #93: o rótulo do resumo sintético (L292) passa a vir de `campos.ROTULO_RESUMO_DO_SISTEMA`
+    — um rótulo, um dono só (LEI 11) — em vez de uma string solta duplicada."""
+    from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA
+
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_ce3e6950",
+        "instante": "2026-09-14T02:51:44.071200+00:00",
+        "texto": "idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None",
+        "sender_role": "sistema",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>' in html

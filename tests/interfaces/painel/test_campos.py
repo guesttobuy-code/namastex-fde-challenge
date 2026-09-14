@@ -1,6 +1,6 @@
 """As duas regras que não se negociam do escopo #13: escape sempre, buraco visível nunca vazio."""
 
-from interfaces.painel.campos import buraco, campo, esc, lista
+from interfaces.painel.campos import buraco, campo, esc, lista, texto_da_resposta
 
 
 def test_esc_escapa_tag_perigosa():
@@ -46,3 +46,28 @@ def test_lista_escapa_cada_item():
     assert "<b>" not in saida
     assert "&lt;b&gt;" in saida
     assert "estado.veiculo_ano" in saida
+
+
+def test_texto_da_resposta_com_chave_vazia_nao_vira_buraco():
+    """issue #93: evento REAL de `examples/trilha_conv-198a633b.jsonl`, linha `msg_coleta_3_recebida`
+    — o lead apertou Enter sem responder um campo opcional (plano). `texto=""` é resposta vazia
+    EXPLÍCITA, nunca o buraco reservado para falha real de gravação."""
+    evento = {
+        "evento": "mensagem_recebida", "conversation_id": "conv-198a633b", "id": "msg_coleta_3_recebida",
+        "instante": "2026-09-14T02:51:44.069951+00:00", "texto": "", "sender_role": "lead",
+    }
+    saida = texto_da_resposta(evento)
+    assert "ausente na trilha" not in saida
+    assert saida == '<span class="vazio">(sem resposta — seguiu o padrão)</span>'
+
+
+def test_texto_da_resposta_com_chave_ausente_continua_buraco():
+    """Chave `texto` de fato ausente (falha real de gravação) continua o buraco — só a string
+    vazia PRESENTE vira resposta explícita."""
+    saida = texto_da_resposta({"evento": "mensagem_recebida"})
+    assert "ausente na trilha" in saida
+
+
+def test_texto_da_resposta_com_texto_de_verdade_e_igual_a_campo():
+    evento = {"texto": "80"}
+    assert texto_da_resposta(evento) == campo(evento, "texto")
