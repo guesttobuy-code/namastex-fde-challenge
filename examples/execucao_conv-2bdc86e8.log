@@ -1,0 +1,18 @@
+=== Agente de cotação — conversa conv-2bdc86e8 ===
+iniciado em 2026-09-14T02:51:36.595926+00:00
+
+Qual a sua idade?
+> 35
+Ano do veículo?
+> 2020
+Qual o seu CEP? (formato 00000-000)
+> [REDIGIDO]
+Qual plano? (essencial/completo/premium — Enter para essencial)
+> (em branco)
+Data de início? (AAAA-MM-DD — Enter para não informar)
+> (em branco)
+
+Consultando a /quote...
+
+decisão: explicar_cotacao
+agente: Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.
