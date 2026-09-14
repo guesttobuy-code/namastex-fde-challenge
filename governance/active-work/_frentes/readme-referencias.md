@@ -10,7 +10,7 @@ session_title: "Trilha Coleta análise e planejamento - chat 16"
 status: aberta
 opened_at: 2026-09-14T02:06:11.0672590-03:00
 last_seen: 2026-09-14T02:06:11.0672590-03:00
-pr: ""
+pr: "103"
 github_frente: "frente:readme-referencias"
 closed_at: ""
 ---
