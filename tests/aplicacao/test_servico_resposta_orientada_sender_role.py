@@ -1,4 +1,4 @@
-"""`sender_role` de `MensagemEnviada` em `processar_mensagem_livre` (issue #86, PR a; I-16,
+"""`sender_role` de `MensagemEnviada` em `processar_mensagem_livre` (issue #86, PR a; I-17,
 `dominio/CONTRACT.md`) — extraído de `test_servico_resposta_orientada.py` pelo `file-loc-ceiling`
 (arquivo original bateu no teto de 600 linhas). Reusa os MESMOS dublês/helpers daquele arquivo
 (LEI 11 — nunca duplicados), mesma disciplina de `tests/interfaces/test_rotas_resposta_orientada.py`
@@ -23,7 +23,7 @@ from tests.aplicacao.test_servico_resposta_orientada import (
 
 
 def test_trilha_grava_sender_role_ia_quando_vem_do_llm():
-    """issue #86 (I-16): a resposta que vem mesmo do LLM (origem_do_texto começa com
+    """issue #86 (I-17): a resposta que vem mesmo do LLM (origem_do_texto começa com
     "llm_resposta:") grava sender_role="ia" — nunca confundida com o texto fixo determinístico."""
     repositorio_trilha = RepositorioDeTrilhaMemoria()
     trilha = ServicoDeTrilha(repositorio_trilha)
@@ -44,7 +44,7 @@ def test_trilha_grava_sender_role_ia_quando_vem_do_llm():
 
 
 def test_trilha_grava_sender_role_agente_quando_e_texto_fixo():
-    # issue #86 (I-16): texto fixo (fora de escopo OU encaminhamento) nunca é "ia".
+    # issue #86 (I-17): texto fixo (fora de escopo OU encaminhamento) nunca é "ia".
     repositorio_trilha = RepositorioDeTrilhaMemoria()
     trilha = ServicoDeTrilha(repositorio_trilha)
     processar_mensagem_livre(

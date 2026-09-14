@@ -43,7 +43,7 @@ def test_mensagem_enviada_tem_os_campos_de_proveniencia_da_especificacao():
         "sender_role",
     }
     assert campos == esperado
-    assert evento.to_dict()["sender_role"] == "agente"  # default, issue #86 (I-16)
+    assert evento.to_dict()["sender_role"] == "agente"  # default, issue #86 (I-17)
 
 
 def test_tentativa_de_cotacao_tem_status_latencia_e_classificacao():
@@ -127,7 +127,7 @@ def test_mensagem_recebida_e_decisao_tem_os_campos_comuns():
     assert COMUNS.issubset(decisao.to_dict())
 
 
-# ── I-16 (issue #86): sender_role é lista fechada ───────────────────────────
+# ── I-17 (issue #86): sender_role é lista fechada ───────────────────────────
 
 
 def test_sender_role_so_aceita_a_lista_fechada():

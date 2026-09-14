@@ -225,7 +225,7 @@ acréscimo à seção da F4, sem editar nenhuma linha dela).
 | # | invariante | teste que a cobre | exceção |
 |---|---|---|---|
 | I-15 | `normalizar_cep` devolve `#####-###` para qualquer CEP que `cep_valido` aceite (com ou sem hífen), e `None` para qualquer CEP que `cep_valido` recuse — as duas funções nunca divergem sobre o mesmo valor | `tests/dominio/test_validacao.py::test_normalizar_cep` | — |
-| I-16 | `sender_role` (`MensagemRecebida`/`MensagemEnviada`, `dominio.eventos_trilha`) só assume um dos 5 valores fechados: `lead`, `sistema`, `agente`, `ia`, `corretor` — issue #86 (atendimento contínuo), decisão da coordenação: lista fechada para o painel/relatório traduzirem por rótulo, nunca por string solta | `tests/dominio/test_eventos_trilha.py::test_sender_role_so_aceita_a_lista_fechada` | — |
+| I-17 | `sender_role` (`MensagemRecebida`/`MensagemEnviada`, `dominio.eventos_trilha`) só assume um dos 5 valores fechados: `lead`, `sistema`, `agente`, `ia`, `corretor` — issue #86 (atendimento contínuo), decisão da coordenação: lista fechada para o painel/relatório traduzirem por rótulo, nunca por string solta | `tests/dominio/test_eventos_trilha.py::test_sender_role_so_aceita_a_lista_fechada` | — |
 
 ### Decisões registradas
 

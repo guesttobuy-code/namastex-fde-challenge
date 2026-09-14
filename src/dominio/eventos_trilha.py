@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 # issue #86 (PR a, atendimento contínuo), decisão da coordenação: lista FECHADA de quem escreveu
-# uma mensagem — dono único (I-16, `dominio/CONTRACT.md`), nunca uma string solta. `lead`/`sistema`
+# uma mensagem — dono único (I-17, `dominio/CONTRACT.md`), nunca uma string solta. `lead`/`sistema`
 # já existiam em `MensagemRecebida` (issue #39); `agente`/`ia`/`corretor` são o vocabulário de
 # `MensagemEnviada` (texto fixo/determinístico, resposta da IA, e a mensagem digitada pelo humano).
 SENDER_ROLES_VALIDOS = frozenset({"lead", "sistema", "agente", "ia", "corretor"})
@@ -23,7 +23,7 @@ SENDER_ROLES_VALIDOS = frozenset({"lead", "sistema", "agente", "ia", "corretor"}
 def _validar_sender_role(sender_role: str) -> None:
     if sender_role not in SENDER_ROLES_VALIDOS:
         raise ValueError(
-            f"sender_role {sender_role!r} não está na lista fechada (I-16): "
+            f"sender_role {sender_role!r} não está na lista fechada (I-17): "
             f"{sorted(SENDER_ROLES_VALIDOS)}"
         )
 
