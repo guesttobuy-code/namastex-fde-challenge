@@ -109,6 +109,22 @@ mesmo texto fixo oferecendo um corretor** — nunca um número inventado
 (`src/aplicacao/servico_resposta_orientada.py:171-172,178-189`,
 `src/infra/adaptador_de_linguagem.py:345-360`). Limites medidos desta função: [§10](#10-limites-conhecidos).
 
+### Ligando a IA real que responde objeção de preço (issue #81)
+
+`docker compose up --build` funciona sem nenhuma configuração extra — sem `.env`, o agente
+responde qualquer dúvida de preço com um texto fixo, nunca trava nem some. Para a resposta vir do
+LLM de verdade (lendo a base de conhecimento e preenchendo o preço real), crie um `.env` na raiz
+(nunca versionado) a partir de `.env.example`:
+
+```bash
+LLM_PROVEDOR=openrouter
+OPENROUTER_API_KEY=<sua chave da OpenRouter>
+```
+
+O `docker compose` repassa essas duas variáveis para o container `app` em tempo de execução (nunca
+entram na imagem nem no log) — o mesmo `.env` funciona rodando o servidor direto no host, sem
+Docker (`PYTHONPATH=src python -m interfaces.servidor`).
+
 ---
 
 ## 2. Funciona de ponta a ponta?
@@ -395,7 +411,7 @@ não tem:
 
 | Ficou de fora | Estado | Issue |
 |---|---|---|
-| Docker compose oficial repassando a chave do LLM para o `app` (hoje `docker compose up --build` nunca liga a IA, mesmo com `.env` preenchido — `src/interfaces/servidor.py` nunca chama `carregar_dotenv_no_ambiente()`, diferente de `interfaces/cli.py:261`; só via variável de ambiente real do shell, fora do `.env`) | `[PENDENTE: #81]` — sem PR ainda | [#81](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/81) |
+| Tela Relatório (`src/interfaces/painel/tela_relatorio.py`, CSV com telefone/histórico) existe mas não tem menu nem rota — `interfaces.painel.gerar`/`layout` não a referenciam ainda, então não é alcançável pela navegação | `[PENDENTE: #59]` — PR 1/2 mergeado (a tela), PR 2/2 (menu + `gerar.py`) ainda não | [#59](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/59) |
 | Coleta pelo **chat web** não grava pergunta/resposta na trilha com id e status (a coleta pela CLI já grava — [§5](#5-dá-pra-rastrear-o-que-aconteceu), PR #64) | `[PENDENTE: #51]` — parte 2 (chat web), sem PR ainda | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
 | Status/estado da conversa na Fila humana, além do motivo do handoff (o motivo em si já está resolvido — ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável), `LEAD_PEDIU_HUMANO`) | `[PENDENTE: #57]` — issue #57 segue aberta para essa parte | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
