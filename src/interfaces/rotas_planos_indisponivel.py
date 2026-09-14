@@ -16,6 +16,7 @@ from aplicacao.portas.repositorio_contato import RepositorioDeContato
 from aplicacao.servico_conversa import encaminhar_planos_indisponiveis, montar_estado
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.validacao import normalizar_cep
+from infra.trava_por_conversa import trava_da_conversa
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
 from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
@@ -51,8 +52,11 @@ def responder_planos_indisponivel(
             "campos_faltantes": sorted(estado.campos_faltantes),
         })
 
-    trilha = ServicoDeTrilha(RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl"))
-    turno = encaminhar_planos_indisponiveis(trilha, estado)
+    # issue #110: mesma trava por conversa que as outras rotas do chat, mesmo esta nunca tocando
+    # `_ESTADOS_EM_MEMORIA` (ver docstring do módulo) — protege a trilha desta conversa.
+    with trava_da_conversa(conversation_id):
+        trilha = ServicoDeTrilha(RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl"))
+        turno = encaminhar_planos_indisponiveis(trilha, estado)
 
     gerar_paineis(trilha_dir, painel_dir, repositorio_contato=repositorio_contato)
 

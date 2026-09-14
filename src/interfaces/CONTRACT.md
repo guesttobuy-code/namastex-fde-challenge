@@ -20,6 +20,7 @@ linha alheia (R2, #16).
 | I-2 | `servidor.py` nunca escreve em `conhecimento/` diretamente — sempre via `aplicacao.servico_conhecimento` | `tests/interfaces/test_servidor.py` (usa dublê de repositório, nunca grava fora dele) |
 | I-3 | Toda rota estática (`/painel/...`) resolve o caminho e confere contra a raiz do diretório antes de ler — nenhum `id`/caminho vindo de fora escapa do diretório servido | `tests/interfaces/test_servidor.py::test_painel_recusa_escapar_do_diretorio` |
 | I-4 | Só `cli.py`, `servidor.py` e `painel/gerar.py` são raízes de composição — só eles podem importar `infra` direto. Telas do painel (`painel/tela_*.py`) recebem dado pronto por parâmetro, nunca importam `infra`. | `tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto` (varre `painel/*.py` exceto `gerar.py`; `.importlinter` não restringe `interfaces`→`infra`, achado da auditoria do PR #64) |
+| I-5 | Nenhum pedido HTTP trava por causa de outro (1 conexão ociosa, 1 resposta lenta) nem corrompe o que outro pedido escreve ao mesmo tempo (painel, contato, trilha) — e nenhuma dessas proteções é 1 trava global em volta da requisição inteira (2 conversas DIFERENTES continuam em paralelo) | `tests/interfaces/test_servidor_concorrente.py` (S1-S4 do roteiro de aceite da issue #110) |
 
 ## Entradas e saídas públicas
 
@@ -261,3 +262,59 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   `ClienteQuoteHTTP` são 3×3s com orçamento de 10s), isso cotaria de verdade pro plano "essencial"
   sem o lead ter escolhido nada. A rota nova constrói `ENCAMINHAR`/`QUOTE_INDISPONIVEL` direto, sem
   nunca tentar a `/quote`.
+
+---
+
+## Seção da issue #110 (frente `servidor-concorrente`) — servidor concorrente (append)
+
+### O que esta frente acrescenta
+
+- `infra.servidor_http_concorrente.ServidorHTTPConcorrente` (novo): `ThreadingMixIn` + `WSGIServer`
+  da stdlib, `daemon_threads=True` — 1 thread por pedido HTTP, em vez do `WSGIServer` padrão de
+  thread única que travava TODOS os pedidos com 1 conexão ociosa ou 1 resposta lenta.
+  `interfaces.servidor.main()` passa `server_class=ServidorHTTPConcorrente` pro `make_server`
+  (único chamador). ADR-0004 continua valendo — zero dependência nova.
+- `infra.escrita_atomica.escrever_atomico` (novo): escreve num temporário no mesmo diretório e
+  troca com `os.replace` (atômico em POSIX e Windows, com retry curto pro `PermissionError` que o
+  Windows devolve quando o destino está aberto por outro leitor no mesmo instante). Usado por
+  `interfaces.painel.gerar.gerar_paineis` (as 7 escritas), `infra.repositorio_contato_json.
+  RepositorioDeContatoJSON.salvar` e `infra.repositorio_configuracao_comercial_json.
+  RepositorioDeConfiguracaoComercialJSON.salvar` — nenhum leitor concorrente pega um arquivo pela
+  metade. `gerar_paineis` ganhou também `_TRAVA_DA_GERACAO` (lock de módulo): 1 geração por vez
+  entre os 3 chamadores concorrentes de hoje (`/api/chat/cotar`, `/api/chat/contratar` e a thread de
+  `interfaces.painel_inicial.aquecer_painel_em_segundo_plano`, issue #89).
+- `infra.trava_por_conversa.trava_da_conversa` (novo): 1 `threading.Lock` por `conversation_id`
+  (registro que só cresce nesta entrega, mesmo padrão de `_ESTADOS_EM_MEMORIA`). Envolve, em
+  `servidor._responder_chat_cotar`/`_responder_chat_contratar`,
+  `rotas_resposta_orientada.responder_chat_responder` e
+  `rotas_planos_indisponivel.responder_planos_indisponivel`, o trecho que lê/muta
+  `_ESTADOS_EM_MEMORIA`/`_PRECOS_EM_MEMORIA` e grava/lê a trilha desta conversa — 2 pedidos da
+  MESMA conversa esperam um pelo outro; conversas DIFERENTES nunca esperam (não é lock global; a
+  proibição de travar `app(environ, start_response)` inteiro veio da coordenação, no `## PLANO`
+  publicado na issue antes do código).
+
+### Achado medido durante esta frente
+
+- `os.replace` pode devolver `PermissionError: [WinError 5] Acesso negado` no Windows quando o
+  arquivo de destino está aberto por outra thread NO MESMO INSTANTE (POSIX deixa trocar um arquivo
+  aberto; o Windows, sem `FILE_SHARE_DELETE`, não) — reproduzido ao vivo pelo teste S3
+  (`test_duas_chamadas_a_gerar_paineis_ao_mesmo_tempo_nao_deixam_html_pela_metade`, leitor em loop
+  concorrente com a escrita). `escrever_atomico` absorve com até 20 tentativas / 10ms — a janela
+  medida dura microssegundos, nunca precisou da 2ª tentativa em execução normal.
+
+### Limite conhecido
+
+- `escrever_atomico`: se as 20 tentativas de `os.replace` esgotarem (nunca visto em execução
+  normal — ver achado acima), o arquivo temporário `<caminho>.tmp-<pid>-<thread_id>` fica órfão no
+  disco em vez de ser removido. Aceito nesta entrega: o nome carrega `pid`+`thread_id`, não colide
+  com uma escrita futura, e cada esgotamento já levanta uma exceção que aparece no log/teste — não
+  falha em silêncio.
+
+### O que NÃO é responsabilidade desta seção
+
+- Trocar `_ESTADOS_EM_MEMORIA`/`_PRECOS_EM_MEMORIA` por outra estrutura de dado, sessão HTTP,
+  cookie assinado ou Redis — ADR-0005 decisão 1 continua valendo; esta frente só protege o acesso
+  concorrente ao que já existe.
+- Travar a escrita de `infra.repositorio_configuracao_comercial_json` além da escrita atômica —
+  arquivo único, git-ignorado, só o admin grava; 2 salvamentos simultâneos do MESMO admin não está
+  no roteiro de aceite S1-S5 da issue #110.

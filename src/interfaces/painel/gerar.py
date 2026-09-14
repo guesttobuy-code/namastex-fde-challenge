@@ -8,6 +8,7 @@ dependência externa, CSS embutido. `python -m interfaces.painel.gerar <trilha.j
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 from aplicacao.portas.repositorio_contato import RepositorioDeContato
@@ -19,6 +20,7 @@ from infra.cliente_quote import (
     TIMEOUT_POR_TENTATIVA_SEGUNDOS,
 )
 from infra.config import url_quote_service
+from infra.escrita_atomica import escrever_atomico
 from infra.planos_http import buscar_planos
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.painel import (
@@ -37,6 +39,13 @@ _ARQUIVOS = {
     "rastreio.html": lambda eventos, **kw: tela_rastreio.render(eventos, **kw),
     "cotacoes.html": lambda eventos, **kw: tela_cotacoes.render(eventos, **kw),
 }
+
+# issue #110: 3 chamadores concorrentes hoje (`/api/chat/cotar`, `/api/chat/contratar` e a thread
+# de aquecimento de `interfaces.painel_inicial`) — 1 geração de painel por vez, pra ninguém ler um
+# conjunto de arquivos misturado de 2 gerações diferentes. `escrever_atomico` (abaixo, por arquivo)
+# já garante que nenhum arquivo INDIVIDUAL fica pela metade mesmo sem esta trava; a trava é pra
+# gerações inteiras não se intercalarem.
+_TRAVA_DA_GERACAO = threading.Lock()
 
 
 def _ler_eventos(caminho_trilha: Path) -> list[dict]:
@@ -84,57 +93,59 @@ def gerar_paineis(
 
     `repositorio_contato` (issue #46, PR 2 de 2, ADR-0005): aditivo, default `None` — todo chamador
     existente continua funcionando igual. Quando passado, `index.html` (Histórico) ganha nome/
-    WhatsApp do lead ao lado de cada conversa encaminhada, lido fora da trilha."""
-    eventos = _ler_eventos(caminho_trilha)
+    WhatsApp do lead ao lado de cada conversa encaminhada, lido fora da trilha.
 
-    dir_saida = Path(dir_saida)
-    dir_saida.mkdir(parents=True, exist_ok=True)
+    issue #110: com o servidor concorrente, 2+ chamadores podem cair aqui ao mesmo tempo — a
+    função inteira roda sob `_TRAVA_DA_GERACAO` (1 geração por vez) e cada arquivo é escrito com
+    `escrever_atomico` (temporário + `os.replace`), pra nenhum leitor concorrente (outro pedido
+    HTTP servindo `/painel/*.html`) pegar um arquivo pela metade."""
+    with _TRAVA_DA_GERACAO:
+        eventos = _ler_eventos(caminho_trilha)
 
-    contatos = _contatos_das_conversas(eventos, repositorio_contato)
+        dir_saida = Path(dir_saida)
+        dir_saida.mkdir(parents=True, exist_ok=True)
 
-    escritos = []
-    for nome_arquivo, render in _ARQUIVOS.items():
-        html = render(eventos, caminho_ui_css=caminho_ui_css)
-        caminho = dir_saida / nome_arquivo
-        caminho.write_text(html, encoding="utf-8")
-        escritos.append(caminho)
+        contatos = _contatos_das_conversas(eventos, repositorio_contato)
 
-    caminho_index = dir_saida / "index.html"
-    caminho_index.write_text(
-        tela_conversas.render(eventos, caminho_ui_css=caminho_ui_css, contatos=contatos), encoding="utf-8"
-    )
-    escritos.append(caminho_index)
+        escritos = []
+        for nome_arquivo, render in _ARQUIVOS.items():
+            html = render(eventos, caminho_ui_css=caminho_ui_css)
+            caminho = dir_saida / nome_arquivo
+            escrever_atomico(caminho, html)
+            escritos.append(caminho)
 
-    planos = buscar_planos(url_quote_service())
-    caminho_regras = dir_saida / "regras.html"
-    caminho_regras.write_text(
-        tela_regras.render(
-            planos=planos,
-            orcamento_total_segundos=ORCAMENTO_TOTAL_SEGUNDOS,
-            timeout_por_tentativa_segundos=TIMEOUT_POR_TENTATIVA_SEGUNDOS,
-            max_tentativas=MAX_TENTATIVAS,
-            esperas_entre_tentativas_segundos=ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
-            caminho_ui_css=caminho_ui_css,
-        ),
-        encoding="utf-8",
-    )
-    escritos.append(caminho_regras)
+        caminho_index = dir_saida / "index.html"
+        escrever_atomico(caminho_index, tela_conversas.render(eventos, caminho_ui_css=caminho_ui_css, contatos=contatos))
+        escritos.append(caminho_index)
 
-    caminho_avaliacao = dir_saida / "avaliacao.html"
-    caminho_avaliacao.write_text(tela_avaliacao.render(caminho_ui_css=caminho_ui_css), encoding="utf-8")
-    escritos.append(caminho_avaliacao)
+        planos = buscar_planos(url_quote_service())
+        caminho_regras = dir_saida / "regras.html"
+        escrever_atomico(
+            caminho_regras,
+            tela_regras.render(
+                planos=planos,
+                orcamento_total_segundos=ORCAMENTO_TOTAL_SEGUNDOS,
+                timeout_por_tentativa_segundos=TIMEOUT_POR_TENTATIVA_SEGUNDOS,
+                max_tentativas=MAX_TENTATIVAS,
+                esperas_entre_tentativas_segundos=ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS,
+                caminho_ui_css=caminho_ui_css,
+            ),
+        )
+        escritos.append(caminho_regras)
 
-    linhas_relatorio = tela_relatorio.montar_linhas(eventos, contatos=contatos)
-    caminho_relatorio = dir_saida / "relatorio.html"
-    caminho_relatorio.write_text(
-        tela_relatorio.render(linhas_relatorio, caminho_ui_css=caminho_ui_css), encoding="utf-8"
-    )
-    escritos.append(caminho_relatorio)
-    caminho_relatorio_csv = dir_saida / "relatorio.csv"
-    caminho_relatorio_csv.write_bytes(tela_relatorio.gerar_csv(linhas_relatorio))
-    escritos.append(caminho_relatorio_csv)
+        caminho_avaliacao = dir_saida / "avaliacao.html"
+        escrever_atomico(caminho_avaliacao, tela_avaliacao.render(caminho_ui_css=caminho_ui_css))
+        escritos.append(caminho_avaliacao)
 
-    return escritos
+        linhas_relatorio = tela_relatorio.montar_linhas(eventos, contatos=contatos)
+        caminho_relatorio = dir_saida / "relatorio.html"
+        escrever_atomico(caminho_relatorio, tela_relatorio.render(linhas_relatorio, caminho_ui_css=caminho_ui_css))
+        escritos.append(caminho_relatorio)
+        caminho_relatorio_csv = dir_saida / "relatorio.csv"
+        escrever_atomico(caminho_relatorio_csv, tela_relatorio.gerar_csv(linhas_relatorio))
+        escritos.append(caminho_relatorio_csv)
+
+        return escritos
 
 
 def main(argv: list[str] | None = None) -> int:

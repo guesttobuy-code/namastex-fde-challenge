@@ -20,6 +20,7 @@ from aplicacao.servico_resposta_orientada import processar_mensagem_livre
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.preco_cotado import PrecoCotado
+from infra.trava_por_conversa import trava_da_conversa
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
 from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
@@ -64,26 +65,30 @@ def responder_chat_responder(
     if not isinstance(texto, str) or not texto.strip():
         return _json("400 Bad Request", {"erro": "campo texto é obrigatório"})
 
-    estado = estados_em_memoria.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
-    preco_atual = precos_em_memoria.get(conversation_id)
     catalogo = buscar_planos()
     planos = catalogo.get("planos", []) if catalogo else []
     configuracao = servico_configuracao.obter()
 
-    repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
-    trilha = ServicoDeTrilha(repositorio_trilha)
+    # issue #110: leitura do estado até a gravação da trilha, sob a trava DESTA conversa — mesmo
+    # motivo de interfaces.servidor._responder_chat_cotar.
+    with trava_da_conversa(conversation_id):
+        estado = estados_em_memoria.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
+        preco_atual = precos_em_memoria.get(conversation_id)
 
-    texto_resposta, _origem_do_texto, intencao = processar_mensagem_livre(
-        portal_de_linguagem=portal_de_linguagem,
-        portal_de_resposta=portal_de_resposta_orientada,
-        texto_bruto=texto,
-        estado=estado,
-        preco_atual=preco_atual,
-        planos=planos,
-        servico_conhecimento=servico,
-        configuracao=configuracao,
-        trilha=trilha,
-    )
+        repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
+        trilha = ServicoDeTrilha(repositorio_trilha)
+
+        texto_resposta, _origem_do_texto, intencao = processar_mensagem_livre(
+            portal_de_linguagem=portal_de_linguagem,
+            portal_de_resposta=portal_de_resposta_orientada,
+            texto_bruto=texto,
+            estado=estado,
+            preco_atual=preco_atual,
+            planos=planos,
+            servico_conhecimento=servico,
+            configuracao=configuracao,
+            trilha=trilha,
+        )
     return _json(
         "200 OK",
         {"tratado": True, "texto": texto_resposta, "intent": intencao.value if intencao is not None else None},
