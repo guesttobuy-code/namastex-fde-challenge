@@ -72,6 +72,7 @@ from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_
 from interfaces.http_comum import json_resposta as _json
 from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 from interfaces.painel.gerar import gerar_paineis
+from interfaces.rotas_planos_indisponivel import responder_planos_indisponivel
 from interfaces.rotas_status_conversa import responder_conversa_assumir, responder_conversa_encerrar
 
 _RAIZ = Path(__file__).resolve().parents[2]
@@ -460,6 +461,13 @@ def _rotear_chat(
         return _responder_chat_contratar(
             painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,
             servico_configuracao=servico_configuracao, portal_de_cotacao=portal_de_cotacao,
+            environ=environ, metodo=metodo,
+        )
+    if caminho == "/api/chat/planos-indisponivel":
+        # issue #95: handler em rotas_planos_indisponivel.py (file-loc-ceiling) — NUNCA recebe
+        # portal_de_cotacao, de propósito (a rota não pode chamar a /quote de verdade).
+        return responder_planos_indisponivel(
+            painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,
             environ=environ, metodo=metodo,
         )
     if caminho in ("/api/conversa/assumir", "/api/conversa/encerrar"):
