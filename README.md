@@ -33,7 +33,7 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 
 | Rota | O que é | Estado |
 |---|---|---|
-| `/` | **chat guiado e determinístico** (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado. Sem LLM de propósito (decisão da coordenação: quem avalia não tem chave) | funcional |
+| `/` | **chat guiado e determinístico** na coleta (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado; sem LLM até o card de preço, de propósito (decisão da coordenação: quem avalia não precisa de chave para chegar na cotação). O campo de dúvida DEPOIS do card usa a IA opcional (issue #58, ver abaixo) | funcional |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
 | `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
 
@@ -42,12 +42,14 @@ idade (menor de 18 não cota — ver [limite conhecido](#10-limites-conhecidos))
 obrigatório** (decisão do dono, 13/09 — o cálculo da `/quote` cobre até 30% a menos sem ele, em
 silêncio, e o protótipo original que sugeria "pode pular" nunca tinha conferido essa regra), plano
 em cards com coberturas/franquia lidas de `GET /api/planos` (nunca escritas à mão na tela) e resumo
-final editável. "Quero contratar" e "Falar com um corretor" caem no mesmo endpoint
-(`POST /api/chat/contratar`) — hoje o domínio só tem um sinal de escalonamento explícito do lead
-(`Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, incondicional,
-[§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável)); a tela não decide nada, só chama
-o mesmo caso de uso. Detalhe completo (as 5 rotas, o contrato, os achados da auditoria) no
-`CHANGELOG.md`.
+final editável. **O domínio já distingue "quero contratar" de "quero falar com um humano" desde o
+PR #63** (`Intencao.QUER_FALAR_COM_HUMANO` → `MotivoHandoff.LEAD_PEDIU_HUMANO`, mesmo grau
+incondicional de `Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, nunca reaproveita
+um pelo outro — [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável)). **O que ainda
+não mudou é a TELA:** os botões "Quero contratar" e "Falar com um corretor" caem no mesmo endpoint
+(`POST /api/chat/contratar`), com o mesmo `Intencao.QUER_CONTRATAR` para os dois — a tela passar a
+mandar o sinal certo para cada botão é o PR #87 (issue #57 PR 2), ainda não mergeado. Detalhe
+completo (as 5 rotas, o contrato, os achados da auditoria) no `CHANGELOG.md`.
 
 **A CLI continua funcionando** como caminho alternativo de terminal — o mesmo agente, a mesma
 trilha, a mesma `/quote`:
@@ -259,15 +261,21 @@ patamar de sucesso.
 `5xx` e timeout de tentativa **repetem** (se sobrar orçamento); `422` (recusa de negócio ou validação)
 e `400` (payload inválido) são **terminais** — repetir um erro de payload não muda o resultado.
 
-**O timeout de 3s não é parede dura por tentativa** — é o `timeout` do `urllib`, que vale por operação
-de socket, não por um cronômetro de parede sobre a chamada inteira. Uma tentativa real chegou a
-**3617ms**, ~600ms além do nominal
+**O timeout de 3s POR TENTATIVA é parede dura de verdade, desde o PR #71.** Antes do #71, era só o
+`timeout` do `urllib`, que vale por operação de socket — e `getaddrinfo` (resolução de DNS) não
+respeitava esse timeout neste ambiente; uma tentativa real chegou a **3617ms**, ~600ms além do
+nominal, medição **anterior ao #71**
 (`git show 8c35203:examples/trilha_conv-7c44f694.jsonl` — arquivo existiu em `examples/` e foi
-substituído quando os exemplos acima foram regenerados; só é acessível pelo sha antigo hoje). O que
-segura de verdade é o **orçamento total de 10s**, provado com tempo de parede real (não só relógio
-falso): contra um `quote-service` dedicado sempre-lento (8s), o cliente levou **10,016s reais** e
-desistiu — nunca os **~24s** que 3 tentativas de 8s dariam sem orçamento
-(`src/infra/CONTRACT.md:57`, invariante I-5; o mesmo comportamento em relógio falso está em
+substituído quando os exemplos acima foram regenerados; só é acessível pelo sha antigo hoje). Desde
+o #71, `ClienteQuoteHTTP._chamar_com_prazo_de_parede` (`src/infra/cliente_quote.py:163`) roda a
+chamada num worker próprio (`ThreadPoolExecutor`, `:174`) e usa o RELÓGIO DE PAREDE real como
+árbitro final (`futuro.result(timeout=timeout_segundos)`, `:177`) — se o worker não responde a
+tempo, a tentativa conta como timeout (retentável, mesma regra de sempre) e a thread fica
+abandonada, terminando sozinha depois sem efeito colateral. O **orçamento total de 10s** também é
+parede dura, provado com tempo de parede real (não só relógio falso): contra um `quote-service`
+dedicado sempre-lento (8s), o cliente levou **10,016s reais** e desistiu — nunca os **~24s** que 3
+tentativas de 8s dariam sem orçamento (`src/infra/CONTRACT.md:57`, invariante I-5; o mesmo
+comportamento em relógio falso está em
 `tests/infra/test_cliente_quote.py::test_200_lento_alem_do_orcamento_respeita_o_deadline_de_10s_em_vez_de_esperar_para_sempre`).
 
 Duas trilhas reais mostram os dois caminhos: `502→502→200` acima (sucesso por retry) e
@@ -285,7 +293,8 @@ decisão `ENCAMINHAR` exige um motivo — nunca existe handoff silencioso.**
 
 `MotivoHandoff` é um Enum fechado — vocabulário único que atravessa domínio (decide), trilha (grava
 `.value`) e tela (mostra), decisão da coordenação na issue #16 (R5) para não nascerem três grafias da
-mesma coisa. **Tinha 3 valores, ganhou mais 3 nas issues #42 e #57:**
+mesma coisa. **Tinha 3 valores, ganhou mais 3 nas issues #42 e #57, e mais 1 na #58 — 7 hoje**
+(`src/dominio/decisao.py:22-33`):
 
 | `StatusCotacao` (resultado da `/quote`) | `MotivoHandoff` | Decisão |
 |---|---|---|
@@ -297,6 +306,7 @@ mesma coisa. **Tinha 3 valores, ganhou mais 3 nas issues #42 e #57:**
 | `ERRO_DE_PAYLOAD` (400/422 de validação) | `QUOTE_ERRO_DE_PAYLOAD` | `ENCAMINHAR` |
 | lead diz explicitamente que quer contratar (`Intencao.QUER_CONTRATAR`, checado **antes** de qualquer outro ramo, sem esperar dado completo nem cotação) | `LEAD_QUER_CONTRATAR` | `ENCAMINHAR` — fechamento é sempre de um corretor |
 | lead pede explicitamente para falar com um atendente (`Intencao.QUER_FALAR_COM_HUMANO` — "quero falar com um atendente", "me passa pra uma pessoa" — mesmo grau incondicional de `QUER_CONTRATAR`, nunca reaproveita aquele motivo) | `LEAD_PEDIU_HUMANO` | `ENCAMINHAR` |
+| a IA não conseguiu responder a objeção de preço com segurança — sem chave, sem ficha publicada para a intenção, ou as 2 tentativas de geração reprovaram na validação de marcador/frase proibida (issue #58) | `RESPOSTA_ORIENTADA_INDISPONIVEL` | `ENCAMINHAR` |
 
 Timeout e erro de payload viram `ENCAMINHAR` pelo mesmo motivo prático: nenhum dos dois é culpa do
 lead, e nos dois um humano precisa saber que a cotação não saiu (decisão R5/#16). A recusa de negócio
@@ -311,9 +321,10 @@ humano classificadas certo, e os 3 controles negativos ("quero contratar", uma f
 uma pergunta de preço) não confundidos com pedido de humano
 ([veredito de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63#issuecomment-5656183650)).
 
-O mock de design (`docs/design/handoffs.html`) lista 8 motivos; o Enum real tem **6** hoje (era 3) —
-o gap fechou em 3, os 2 que faltam (mídia não suportada, dado ambíguo do cliente) não têm frente
-aberta ainda.
+O mock de design (`docs/design/handoffs.html`) lista 8 motivos; o Enum real tem **7** hoje (era 3).
+O 7º motivo (`RESPOSTA_ORIENTADA_INDISPONIVEL`, issue #58) é da IA de objeção — fora do escopo
+original do mock, não fecha nenhum dos 2 gaps que já existiam lá (mídia não suportada, dado
+ambíguo do cliente), que continuam sem frente aberta.
 
 ---
 
@@ -462,8 +473,8 @@ fingir que não aconteceu:
 - **Vazamento de dado pessoal pego pela auditoria, não pelo autor**
   ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)): o `esteira.json`
   gravava o nome real do dono do projeto dentro de um campo marcado "privado" — commitado no fork
-  público. A auditoria fria reprovou a frente por isso; o campo saiu do arquivo e o nome saiu do
-  histórico visível.
+  público. A auditoria fria reprovou a frente por isso; o campo saiu do arquivo versionado (a
+  limpeza do histórico de commits não foi feita).
 - **Uma regra de segurança foi corrigida duas vezes, a segunda vez pela própria frente que a
   escreveu**
   ([comentário de coordenação](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16#issuecomment-5646987147)):
@@ -500,7 +511,6 @@ não tem:
 | Ficou de fora | Estado | Issue |
 |---|---|---|
 | Tela Relatório (`src/interfaces/painel/tela_relatorio.py`, CSV com telefone/histórico) existe mas não tem menu nem rota — `interfaces.painel.gerar`/`layout` não a referenciam ainda, então não é alcançável pela navegação | `[PENDENTE: #59]` — PR 1/2 mergeado (a tela), PR 2/2 (menu + `gerar.py`) ainda não | [#59](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/59) |
-| Coleta pelo **chat web** não grava pergunta/resposta na trilha com id e status (a coleta pela CLI já grava — [§5](#5-dá-pra-rastrear-o-que-aconteceu), PR #64) | `[PENDENTE: #51]` — parte 2 (chat web), sem PR ainda | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
 | Status/estado da conversa na Fila humana, além do motivo do handoff (o motivo em si já está resolvido — ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável), `LEAD_PEDIU_HUMANO`) | `[PENDENTE: #57]` — issue #57 segue aberta para essa parte | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
@@ -514,11 +524,16 @@ O guard `plano-na-issue` ficou **vermelho** no PR #35 — troca consciente: essa
 "regime enxuto", autorizado explicitamente pelo dono no comentário de escopo, sem a rodada normal de
 PLANO antes do código. 28 dos 29 checks daquele PR passaram (o único vermelho foi esse, de propósito).
 
+O mesmo guard também ficou vermelho no PR #77 (issue #70, fichas de objeção) — o `## PLANO` foi
+publicado DEPOIS do primeiro commit, por ordem de execução da coordenação (codar antes de exigir o
+PLANO), não por escolha da frente. Aprovado assim mesmo, com a ressalva registrada no veredito
+([comentário de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77#issuecomment-5657606176)).
+
 ---
 
 ## 10. Limites conhecidos
 
-- **O timeout de 3s por tentativa não é parede dura** (ver [§3](#3-o-que-ele-faz-quando-a-quote-falha-o-ponto-que-mais-separa-diz-o-enunciado)) — 3617ms medidos numa tentativa real. **O orçamento total de 10s é** parede dura, medido em tempo de parede real.
+- **O timeout de 3s por tentativa É parede dura, desde o PR #71** (ver [§3](#3-o-que-ele-faz-quando-a-quote-falha-o-ponto-que-mais-separa-diz-o-enunciado)) — o relógio de parede real arbitra via `futuro.result(timeout=...)`; os 3617ms medidos numa tentativa real são de ANTES do #71. **O orçamento total de 10s também é** parede dura, medido em tempo de parede real.
 - **O mascaramento de PII não usa NER** — só redige nomes de uma lista conhecida; um nome fora dela passa intacto (`docs/PRIVACIDADE.md`).
 - **Sem projeto Python instalável** (sem `pip install -e .`) — decisão deliberadamente adiada (nota R9/#16); por isso rodar exige `PYTHONPATH=src`, documentado no comando acima.
 - **`.arch-layers.json` não existe** — a fronteira de camadas é cobrada de verdade pelo `.importlinter` no CI, mas o guard `docs-required` do kit ainda não confere essa fronteira automaticamente (nota registrada no `CHANGELOG.md`).
