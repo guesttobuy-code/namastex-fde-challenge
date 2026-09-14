@@ -136,6 +136,8 @@ def test_uma_tentativa_de_cotacao_por_tentativa_http_de_verdade_nao_por_cotacao(
     assert [t["classificacao"] for t in tentativas] == ["indisponivel", "sucesso"]
     assert tentativas[0]["quote_attempt_id"] != tentativas[1]["quote_attempt_id"]
     assert tentativas[1]["premio_mensal"] == 241.38
+    assert tentativas[1]["plano_nome"] == "Completo"  # issue #59 (Relatório)
+    assert tentativas[0]["plano_nome"] is None  # tentativa sem sucesso não grava plano
 
 
 def test_sem_trilha_conduzir_conversa_continua_funcionando_igual_a_antes():

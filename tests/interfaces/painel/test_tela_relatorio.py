@@ -151,6 +151,44 @@ def test_pendencia_ausente_mostra_traco_nunca_buraco():
     assert "ausente na trilha: pendencia" not in html
 
 
+def _tentativa(classificacao="sucesso", plano_nome="Completo", premio_mensal=241.38, instante="t1"):
+    evento = {"evento": "tentativa_de_cotacao", "classificacao": classificacao, "instante": instante}
+    if classificacao == "sucesso":
+        evento["plano_nome"] = plano_nome
+        evento["premio_mensal"] = premio_mensal
+    return evento
+
+
+def test_plano_cotado_da_conversa_com_sucesso_mostra_nome_e_valor_br():
+    eventos = [_tentativa(plano_nome="Completo", premio_mensal=241.38)]
+
+    assert tela_relatorio.plano_cotado_da_conversa(eventos) == "Completo — R$ 241,38/mês"
+
+
+def test_plano_cotado_da_conversa_so_com_falhas_mostra_ainda_nao_cotado():
+    eventos = [_tentativa(classificacao="indisponivel"), _tentativa(classificacao="timeout")]
+
+    assert tela_relatorio.plano_cotado_da_conversa(eventos) == "ainda não cotado"
+
+
+def test_plano_cotado_da_conversa_sucesso_sem_plano_nome_nunca_diz_ainda_nao_cotado():
+    """Trilha antiga (gravada antes do campo existir) — sucesso real, mas sem o dado estruturado.
+    Não pode dizer 'ainda não cotado' (contradiria o status, que mostraria cotada/aguardando)."""
+    eventos = [{"evento": "tentativa_de_cotacao", "classificacao": "sucesso", "instante": "t1"}]
+
+    assert tela_relatorio.plano_cotado_da_conversa(eventos) == "cotado (plano não registrado nesta trilha)"
+
+
+def test_plano_cotado_da_conversa_duas_cotacoes_usa_a_ultima_com_sucesso():
+    eventos = [
+        _tentativa(plano_nome="Essencial", premio_mensal=119.90, instante="t1"),
+        _tentativa(classificacao="indisponivel", instante="t2"),
+        _tentativa(plano_nome="Premium", premio_mensal=339.90, instante="t3"),
+    ]
+
+    assert tela_relatorio.plano_cotado_da_conversa(eventos) == "Premium — R$ 339,90/mês"
+
+
 def test_montar_historico_ordena_e_identifica_remetente_por_sender_role_com_fallback():
     eventos = [
         {"evento": "mensagem_recebida", "texto": "Quero cotar", "instante": "t1"},

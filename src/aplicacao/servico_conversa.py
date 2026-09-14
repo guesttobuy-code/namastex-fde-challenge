@@ -244,6 +244,8 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
             multiplicadores=corpo.get("multiplicadores") if e_sucesso else None,
             carencia=_resumo_carencia(corpo) if e_sucesso else None,
             pro_rata=_valor_pro_rata(corpo) if e_sucesso else None,
+            plano_id=corpo.get("plano_id") if e_sucesso else None,
+            plano_nome=corpo.get("plano_nome") if e_sucesso else None,
         )
     )
 

@@ -60,6 +60,44 @@ def test_tentativa_de_cotacao_tem_status_latencia_e_classificacao():
     assert campos["latencia_ms"] == 340
 
 
+def test_tentativa_de_cotacao_serializa_com_e_sem_plano():
+    """Decisão registrada em dominio/CONTRACT.md (2026-09-14, issue #59): plano_id/plano_nome são
+    aditivos — trilha antiga
+    (sem os dois campos) continua serializando normalmente, com None."""
+    sem_plano = TentativaDeCotacao(
+        evento="tentativa_de_cotacao",
+        conversation_id="conv_1",
+        id="qa_antiga",
+        instante="2026-09-12T10:00:00",
+        numero_da_tentativa=1,
+        http_status=200,
+        classificacao="sucesso",
+        latencia_ms=340,
+        orcamento_restante_ms=2660,
+        quote_attempt_id="qa_antiga",
+    )
+    assert sem_plano.to_dict()["plano_id"] is None
+    assert sem_plano.to_dict()["plano_nome"] is None
+
+    com_plano = TentativaDeCotacao(
+        evento="tentativa_de_cotacao",
+        conversation_id="conv_1",
+        id="qa_nova",
+        instante="2026-09-13T10:00:00",
+        numero_da_tentativa=1,
+        http_status=200,
+        classificacao="sucesso",
+        latencia_ms=340,
+        orcamento_restante_ms=2660,
+        quote_attempt_id="qa_nova",
+        plano_id="completo",
+        plano_nome="Completo",
+    )
+    campos = com_plano.to_dict()
+    assert campos["plano_id"] == "completo"
+    assert campos["plano_nome"] == "Completo"
+
+
 def test_handoff_guarda_reason_code_como_string_nunca_enum():
     evento = Handoff(
         evento="handoff",

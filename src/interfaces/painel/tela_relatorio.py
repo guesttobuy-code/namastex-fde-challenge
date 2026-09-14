@@ -38,6 +38,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+from dominio.redator import valor_br
 from interfaces.painel.campos import campo, esc
 from interfaces.painel.layout import pagina
 
@@ -178,6 +179,23 @@ def _remetente_da_mensagem(evento: dict[str, Any]) -> str:
     if origem.startswith("llm:"):
         return _ROTULO_REMETENTE["ia"]
     return _ROTULO_REMETENTE["agente"]
+
+
+def plano_cotado_da_conversa(eventos_da_conversa: list[dict[str, Any]]) -> str:
+    """A ÚLTIMA `tentativa_de_cotacao` com sucesso decide — nunca a primeira nem uma escolhida por
+    outro critério (uma conversa pode tentar cotar mais de uma vez, ex.: lead troca de plano).
+    Campo estruturado só (`plano_nome`/`premio_mensal` de `dominio.eventos_trilha.TentativaDeCotacao`,
+    decisão registrada em `dominio/CONTRACT.md`, 2026-09-14) — nunca lê `mensagem_enviada.texto`."""
+    sucessos = [
+        e for e in eventos_da_conversa
+        if e.get("evento") == "tentativa_de_cotacao" and e.get("classificacao") == "sucesso"
+    ]
+    if not sucessos:
+        return _AINDA_NAO_COTADO
+    ultima = sucessos[-1]
+    if not ultima.get("plano_nome"):
+        return "cotado (plano não registrado nesta trilha)"
+    return f"{ultima['plano_nome']} — R$ {valor_br(ultima['premio_mensal'])}/mês"
 
 
 def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:

@@ -55,6 +55,11 @@ class TentativaDeCotacao(EventoTrilha):
     multiplicadores: dict[str, float] | None = None
     carencia: str | None = None
     pro_rata: float | None = None
+    # issue #59 (Relatório): plano_id/plano_nome vêm da MESMA resposta 200 da /quote que já dá
+    # premio_mensal/franquia — aditivos, default None, para trilha antiga (gravada antes desta
+    # frente) continuar válida sem os dois campos.
+    plano_id: str | None = None
+    plano_nome: str | None = None
 
 
 @dataclass(frozen=True)
