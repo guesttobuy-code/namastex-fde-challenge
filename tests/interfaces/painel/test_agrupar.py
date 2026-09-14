@@ -4,6 +4,7 @@ from interfaces.painel.agrupar import (
     classe_chip_do_estado,
     estado_da_conversa,
     numeros_de_tentativa_ausentes,
+    rotulo_de_exibicao,
 )
 
 
@@ -24,15 +25,31 @@ def test_agrupar_por_conversa_de_lista_vazia():
     assert agrupar_por_conversa([]) == {}
 
 
-def test_estado_handoff_vence_mesmo_com_decisao_antes():
+def test_estado_le_o_ultimo_status_alterado_quando_existe():
+    """Issue #57, P14 (condição 1 do veredito): `estado_da_conversa` não infere mais de
+    `decisao`/`handoff` quando a trilha JÁ tem `status_alterado` — lê direto o campo `para`."""
     eventos = [
         {"evento": "decisao", "tipo": "coletar_informacao"},
+        {"evento": "status_alterado", "de": None, "para": "com_o_agente"},
+        {"evento": "decisao", "tipo": "encaminhar"},
+        {"evento": "handoff", "reason_code": "quote_timeout"},
+        {"evento": "status_alterado", "de": "com_o_agente", "para": "aguardando_corretor"},
+    ]
+    assert estado_da_conversa(eventos) == "aguardando_corretor"
+
+
+def test_estado_reconstroi_pelo_ultimo_decisao_quando_a_trilha_e_antiga():
+    """Trilha SEM `status_alterado` (gravada antes desta frente, ex. `examples/*.jsonl`) — a
+    reconstrução usa a MESMA tabela do domínio (dominio.status_conversa), não uma regra própria."""
+    eventos = [
+        {"evento": "decisao", "tipo": "coletar_informacao"},
+        {"evento": "decisao", "tipo": "encaminhar"},
         {"evento": "handoff", "reason_code": "quote_timeout"},
     ]
-    assert estado_da_conversa(eventos) == "handoff"
+    assert estado_da_conversa(eventos) == "aguardando_corretor"
 
 
-def test_estado_le_o_ultimo_decisao_quando_nao_ha_handoff():
+def test_estado_le_o_ultimo_decisao_quando_nao_ha_status_alterado():
     eventos = [
         {"evento": "decisao", "tipo": "coletar_informacao"},
         {"evento": "decisao", "tipo": "explicar_cotacao"},
@@ -40,12 +57,20 @@ def test_estado_le_o_ultimo_decisao_quando_nao_ha_handoff():
     assert estado_da_conversa(eventos) == "cotada"
 
 
-def test_estado_sem_decisao_nem_handoff_e_em_andamento():
-    assert estado_da_conversa([{"evento": "mensagem_recebida"}]) == "em andamento"
+def test_estado_sem_nenhum_sinal_e_com_o_agente():
+    assert estado_da_conversa([{"evento": "mensagem_recebida"}]) == "com_o_agente"
+
+
+def test_rotulo_de_exibicao_traduz_os_5_status_oficiais():
+    assert rotulo_de_exibicao("com_o_agente") == "Com o agente"
+    assert rotulo_de_exibicao("cotada") == "Cotada"
+    assert rotulo_de_exibicao("aguardando_corretor") == "Aguardando corretor"
+    assert rotulo_de_exibicao("em_atendimento_humano") == "Em atendimento humano"
+    assert rotulo_de_exibicao("encerrada") == "Encerrada"
 
 
 def test_classe_chip_cobre_todo_estado_conhecido():
-    for estado in ("cotada", "handoff", "recusada", "cotando", "coletando dados", "em andamento"):
+    for estado in ("com_o_agente", "cotada", "aguardando_corretor", "em_atendimento_humano", "encerrada"):
         assert classe_chip_do_estado(estado)
 
 

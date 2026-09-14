@@ -546,10 +546,20 @@ def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     assert resposta["decisao"]["reason_code"] == "lead_quer_contratar"
     assert "corretor" in resposta["texto"].lower()
 
-    handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
-    assert "conv-contrata" in handoffs_html
-    assert "lead_quer_contratar" in handoffs_html
+    # issue #57 (P14, PR 2 de 2, pré-auditoria do PR #87): `handoffs.html` não existe mais — a
+    # trilha real é a fonte de verdade do reason_code (a tela traduz para linguagem simples, não
+    # mostra o código cru).
+    eventos = RepositorioDeTrilhaJSONL(trilha_dir / "trilha_conv-contrata.jsonl").eventos_da_conversa("conv-contrata")
+    (handoff,) = [e for e in eventos if e["evento"] == "handoff"]
+    assert handoff["reason_code"] == "lead_quer_contratar"
+    index_html = (painel_dir / "index.html").read_text(encoding="utf-8")
+    assert "conv-contrata" in index_html
 
+
+# catraca-reduz-de-proposito: test_chat_contratar_com_motivo_humano_grava_lead_pediu_humano_nao_
+# lead_quer_contratar e test_chat_contratar_com_motivo_invalido_e_recusado_com_400 mudaram para
+# tests/interfaces/test_rotas_status_conversa.py (issue #57, P14, PR 2 de 2) -- este arquivo bateu
+# no teto do file-loc-ceiling depois do merge com a main. Nenhum caso sumiu.
 
 
 def test_servidor_importa_carregar_dotenv_no_ambiente_como_a_cli():

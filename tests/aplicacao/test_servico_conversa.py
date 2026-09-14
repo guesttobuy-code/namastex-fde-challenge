@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import pytest
 
-from aplicacao.servico_conversa import conduzir_conversa, montar_estado
+from aplicacao.portas.repositorio_de_trilha import RepositorioDeTrilha
+from aplicacao.servico_conversa import conduzir_conversa, montar_estado, registrar_status_do_turno
+from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio.configuracao_comercial import ConfiguracaoComercial
-from dominio.decisao import MotivoHandoff, TipoDecisao
+from dominio.decisao import Decisao, MotivoHandoff, TipoDecisao
 from dominio.estado_conversa import EstadoDaConversa
 from dominio.intencao import Intencao
 from dominio.preco_cotado import PrecoCotado
 from dominio.redator import montar_mensagem
 from dominio.resultado_cotacao import ResultadoDaCotacao, StatusCotacao
+from dominio.status_conversa import StatusDaConversa
 from infra.cliente_quote import FakePortalDeCotacao
 
 DADOS_COMPLETOS = {"idade": 30, "veiculo_ano": 2020, "cep": "01310-100", "plano_id": "completo"}
@@ -303,3 +306,56 @@ def test_texto_ao_lead_num_handoff_nunca_contem_nenhum_valor_de_motivohandoff(re
     assert turno.decisao.tipo == TipoDecisao.ENCAMINHAR
     for motivo in MotivoHandoff:
         assert motivo.value not in turno.texto, f"{motivo.value!r} vazou pro texto ao lead: {turno.texto!r}"
+
+
+class _RepositorioEspiao(RepositorioDeTrilha):
+    """Mesmo dublê de `tests/aplicacao/test_servico_trilha.py` — repetido aqui de propósito (LEI
+    11, borda de teste, não regra de negócio): compartilhar um dublê entre arquivos de teste
+    exigiria um módulo de fixtures novo só para isto."""
+
+    def __init__(self, eventos_existentes: list[dict] | None = None):
+        self.gravados: list[dict] = list(eventos_existentes or [])
+
+    def registrar(self, evento: dict) -> None:
+        self.gravados.append(evento)
+
+    def eventos_da_conversa(self, conversation_id: str) -> list[dict]:
+        return [e for e in self.gravados if e["conversation_id"] == conversation_id]
+
+
+def test_registrar_status_do_turno_grava_status_alterado_automatico_com_de_e_para():
+    """`registrar_status_do_turno` (issue #57, PR 2 de 2) ainda NÃO é chamado por
+    `conduzir_conversa` (condição 2 do veredito — a #58 mexe no mesmo caso de uso e ainda não
+    mergeou); este teste chama a função isoladamente, como o futuro `conduzir_conversa` vai
+    chamar numa única linha."""
+    repositorio = _RepositorioEspiao(
+        [
+            {
+                "evento": "status_alterado", "conversation_id": "conv_1", "id": "st_0",
+                "instante": "2026-09-13T10:00:00", "de": None, "para": "com_o_agente", "origem": "automatico",
+            }
+        ]
+    )
+    trilha = ServicoDeTrilha(repositorio)
+    decisao = Decisao(tipo=TipoDecisao.EXPLICAR_COTACAO)
+
+    novo_status = registrar_status_do_turno(trilha, "conv_1", decisao, resultado=None)
+
+    assert novo_status == StatusDaConversa.COTADA
+    (gravado,) = [e for e in repositorio.gravados if e["id"] != "st_0"]
+    assert gravado["evento"] == "status_alterado"
+    assert gravado["de"] == "com_o_agente"
+    assert gravado["para"] == "cotada"
+    assert gravado["origem"] == "automatico"
+
+
+def test_registrar_status_do_turno_de_e_none_quando_conversa_nao_tinha_status_ainda():
+    repositorio = _RepositorioEspiao()
+    trilha = ServicoDeTrilha(repositorio)
+    decisao = Decisao(tipo=TipoDecisao.COLETAR_INFORMACAO)
+
+    registrar_status_do_turno(trilha, "conv_novo", decisao, resultado=None)
+
+    (gravado,) = repositorio.gravados
+    assert gravado["de"] is None
+    assert gravado["para"] == "com_o_agente"

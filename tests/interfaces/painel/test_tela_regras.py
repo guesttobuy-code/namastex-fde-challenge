@@ -17,11 +17,25 @@ def test_sem_quote_service_de_pe_mostra_buraco_nos_planos():
 
 
 def test_regra_de_regras_motivos_de_handoff_e_exatamente_o_enum():
+    """Escopo #13, prova exigida: a lista de reason_code na tela é igual a
+    `[m.value for m in MotivoHandoff]` — se alguém acrescentar um motivo ao Enum, a tela acompanha
+    sem edição. Migrado de `test_tela_fila_humana.py` (issue #57, P14, PR 2 de 2, pré-auditoria do
+    PR #87): `tela_fila_humana` removida, e `tela_regras` já mostrava o mesmo catálogo — só faltava
+    a descrição, que ganhou nesta frente (`interfaces.painel.motivos.descricao_do_motivo`)."""
     html = tela_regras.render(planos=None)
 
-    exibidos = set(re.findall(r'<div class="regra"><code>([^<]+)</code></div>', html))
+    exibidos = set(re.findall(r'<div class="regra"><code>([^<]+)</code>', html))
 
     assert exibidos == {m.value for m in MotivoHandoff}
+
+
+def test_regra_de_regras_mostra_a_descricao_de_cada_motivo():
+    from interfaces.painel.motivos import descricao_do_motivo
+
+    html = tela_regras.render(planos=None)
+
+    for motivo in MotivoHandoff:
+        assert descricao_do_motivo(motivo.value) in html
 
 
 def test_retry_le_as_constantes_reais_de_cliente_quote():

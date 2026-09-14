@@ -347,7 +347,7 @@ def test_texto_do_lead_chega_no_contexto_da_resposta():
     """Bloqueante B2 do veredito da auditoria do PR #75: sem o texto do lead no contexto, o LLM
     não tinha como escolher a ficha certa — media 4 de 4 respostas idênticas, sempre a primeira
     publicada, mesmo com a ficha certa disponível."""
-    portal = _PortalFixo("Posso ajustar a franquia para {{franquia}}.")
+    portal = _PortalFixo("No plano Completo, a franquia é {{franquia}}.")
     montar_e_responder(
         portal=portal,
         preco=_preco(),
@@ -429,7 +429,7 @@ def test_texto_bruto_nunca_chega_cru_ao_portal_de_linguagem_cep_e_mascarado():
     portal_linguagem = _PortalDeLinguagemComIntent("objecao_de_preco")
     processar_mensagem_livre(
         portal_de_linguagem=portal_linguagem,
-        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        portal_de_resposta=_PortalFixo("No plano Completo, a franquia é {{franquia}}."),
         texto_bruto="achei caro, meu CEP é 01310-100",
         estado=_estado(),
         preco_atual=_preco(),
@@ -444,7 +444,7 @@ def test_c10_texto_do_lead_no_contexto_da_resposta_vai_mascarado():
     """C10 do roteiro de aceite: o payload que chega ao portal de resposta (via `texto_do_lead`)
     nunca contém dígitos de WhatsApp — mesma disciplina de `redigir_texto` já aplicada antes de
     chamar o portal de linguagem."""
-    portal_resposta = _PortalFixo("Posso ajustar a franquia para {{franquia}}.")
+    portal_resposta = _PortalFixo("No plano Completo, a franquia é {{franquia}}.")
     processar_mensagem_livre(
         portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
         portal_de_resposta=portal_resposta,
@@ -528,7 +528,7 @@ def test_trilha_grava_dados_usados_com_id_e_versao_da_ficha():
     trilha = ServicoDeTrilha(repositorio_trilha)
     processar_mensagem_livre(
         portal_de_linguagem=_PortalDeLinguagemComIntent("objecao_de_preco"),
-        portal_de_resposta=_PortalFixo("Posso ajustar a franquia para {{franquia}}."),
+        portal_de_resposta=_PortalFixo("No plano Completo, a franquia é {{franquia}}."),
         texto_bruto="achei caro",
         estado=_estado(),
         preco_atual=_preco(),
@@ -577,3 +577,6 @@ def test_trilha_nunca_grava_handoff_quando_resposta_e_valida():
     )
     eventos = repositorio_trilha.eventos_da_conversa("conv-1")
     assert not any(e["evento"] == "handoff" for e in eventos)
+    assert not any(e["evento"] == "status_alterado" for e in eventos), (
+        "resposta válida não é handoff — não deveria mudar o status da conversa"
+    )
