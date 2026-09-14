@@ -65,6 +65,7 @@ from interfaces import rotas_resposta_orientada
 from interfaces.chat import tela_chat
 from interfaces.chat_mensagem import responder_chat_mensagem
 from interfaces.conhecimento import tela_edicao
+from interfaces.dotenv_loader import carregar_dotenv_no_ambiente
 from interfaces.http_comum import CONVERSATION_ID_VALIDO as _CONVERSATION_ID_VALIDO
 from interfaces.http_comum import METODO_NAO_SUPORTADO as _METODO_NAO_SUPORTADO
 from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_400
@@ -564,4 +565,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Carregar o `.env` é a primeira coisa que o processo faz (issue #9, F6; issue #81) — mesma
+    # linha de `interfaces.cli`, para quem roda o servidor direto no host (sem Docker) também
+    # poder usar LLM_PROVEDOR/OPENROUTER_API_KEY do `.env` da raiz. No Docker, o compose já popula
+    # essas variáveis via `env_file` antes do processo nascer — esta chamada é inofensiva aí
+    # (só preenche o que ainda não está definido).
+    carregar_dotenv_no_ambiente()
     raise SystemExit(main())

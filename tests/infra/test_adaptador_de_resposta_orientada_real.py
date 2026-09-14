@@ -23,6 +23,8 @@ resolvido para 30.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from aplicacao.servico_conhecimento import ServicoDeConhecimento
@@ -31,8 +33,10 @@ from dominio.configuracao_comercial import ConfiguracaoComercial
 from dominio.ficha_objecao import validar_frases_proibidas
 from dominio.preco_cotado import PrecoCotado
 from infra.adaptador_de_linguagem import AdaptadorDeRespostaOrientadaOpenRouter, criar_adaptador_de_resposta_orientada
-from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoMemoria
+from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON, RepositorioDeConhecimentoMemoria
 from interfaces.dotenv_loader import carregar_dotenv_no_ambiente
+
+_RAIZ = Path(__file__).resolve().parents[2]
 
 pytestmark = pytest.mark.llm_real
 
@@ -270,7 +274,12 @@ def test_llm_real_objecao_de_carencia_usa_a_ficha_certa_com_carencia_dias_preenc
     """Roteiro de aceite da #78: a resposta a "pago e ainda tenho que esperar pra ter cobertura"
     precisa vir da ficha `caro-com-carencia`, com `{{carencia_dias}}` resolvido para 30 — antes do
     prompt v3, essa frase nem chegava a `objecao_de_preco` (virava `quer_falar_com_humano`), então
-    a ficha nunca era usada."""
+    a ficha nunca era usada.
+
+    Ressalva 1 do veredito do PR #82 (issue #81): exige `motivo_handoff is None` — antes este
+    teste aceitava o encaminhamento como um dos dois desfechos válidos, então uma regressão que
+    fizesse a IA SEMPRE encaminhar passaria verde. A prova da #78 é a ficha ser usada de verdade,
+    não "usada ou encaminhada"."""
     adaptador = criar_adaptador_de_resposta_orientada(provedor="openrouter")
 
     texto, origem, motivo_handoff, dados_usados = montar_e_responder(
@@ -285,9 +294,40 @@ def test_llm_real_objecao_de_carencia_usa_a_ficha_certa_com_carencia_dias_preenc
 
     assert "{{" not in texto
     validar_frases_proibidas(texto)
-    if motivo_handoff is None:
-        assert "30" in texto, f"esperava {{{{carencia_dias}}}} resolvido para 30 no texto: {texto!r}"
-        assert dados_usados == ("ficha:caro-com-carencia@1",)
-        assert origem.startswith("llm_resposta:")
-    else:
-        assert texto == "Logo um corretor vai entrar em contato para te dar todo o suporte."
+    assert motivo_handoff is None, f"esperava sucesso (ficha usada), encaminhou: texto={texto!r}"
+    assert "30" in texto, f"esperava {{{{carencia_dias}}}} resolvido para 30 no texto: {texto!r}"
+    assert dados_usados == ("ficha:caro-com-carencia@1",)
+    assert origem.startswith("llm_resposta:")
+
+
+def test_llm_real_objecao_de_carencia_escolhe_a_ficha_certa_entre_as_4_fichas_reais():
+    """Ressalva 2 do veredito do PR #82 (issue #81): o teste ponta a ponta da #78 só tinha a
+    ficha de carência no contexto — não prova que o LLM ESCOLHE ela quando as outras 3 fichas
+    reais (#70) também estão publicadas, do jeito que a tela real serve. Lê
+    `conhecimento/objecoes/*.json` de verdade (mesmo caminho de produção,
+    `RepositorioDeConhecimentoJSON`), não uma cópia de teste."""
+    adaptador = criar_adaptador_de_resposta_orientada(provedor="openrouter")
+    servico = ServicoDeConhecimento(RepositorioDeConhecimentoJSON(_RAIZ / "conhecimento" / "objecoes"))
+    ids_publicados = {f["id"] for f in servico.listar_objecoes() if f.get("status") == "publicado"}
+    assert ids_publicados == {"caro-com-carencia", "franquia-alta", "mais-barato-na-concorrente", "preco-salgado"}, (
+        f"esperava as 4 fichas da #70 publicadas em conhecimento/objecoes/, achei: {ids_publicados!r}"
+    )
+
+    texto, origem, motivo_handoff, dados_usados = montar_e_responder(
+        portal=adaptador,
+        preco=_preco_com_carencia(),
+        planos=_PLANOS,
+        servico_conhecimento=servico,
+        configuracao=ConfiguracaoComercial(),
+        texto_do_lead="por que roubo só depois de um tempo",
+    )
+    print(f"\n[prova-real-81] texto={texto!r} origem={origem!r} motivo={motivo_handoff!r} dados_usados={dados_usados!r}")
+
+    assert "{{" not in texto
+    validar_frases_proibidas(texto)
+    assert motivo_handoff is None, f"esperava sucesso (ficha certa escolhida), encaminhou: texto={texto!r}"
+    assert "30" in texto, f"esperava {{{{carencia_dias}}}} resolvido para 30 — sinal de que caro-com-carencia foi a ficha usada: {texto!r}"
+    assert set(dados_usados) == {
+        "ficha:caro-com-carencia@1", "ficha:franquia-alta@1",
+        "ficha:mais-barato-na-concorrente@1", "ficha:preco-salgado@1",
+    }, f"esperava as 4 fichas reais no contexto (dados_usados lista o que foi oferecido ao LLM): {dados_usados!r}"

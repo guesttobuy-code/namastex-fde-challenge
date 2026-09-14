@@ -20,6 +20,15 @@ services:
     build: .
     ports:
       - "8080:8080"
+    # issue #81: LLM_PROVEDOR/OPENROUTER_API_KEY/LLM_MODELO vem do .env da raiz do host, se
+    # existir -- `required: false` (compose v2.24+) faz o compose subir normal sem ele (clone
+    # limpo, K1). env_file so define variavel de ambiente do CONTAINER em runtime, nunca entra no
+    # Dockerfile/build -- a chave nunca aparece em `docker history`/`docker image inspect` (K3).
+    # Sem LLM_PROVEDOR definido, os adaptadores (infra/adaptador_de_linguagem.py) ja caem em
+    # "deterministico" por padrao, sem ler chave nenhuma -- nenhum erro de chave ausente (K1).
+    env_file:
+      - path: ./.env
+        required: false
     environment:
       QUOTE_SERVICE_URL: "http://quote-api:8000"
       CONHECIMENTO_DIR: "/app/conhecimento/objecoes"

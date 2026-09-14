@@ -550,3 +550,15 @@ def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     assert "conv-contrata" in handoffs_html
     assert "lead_quer_contratar" in handoffs_html
 
+
+
+def test_servidor_importa_carregar_dotenv_no_ambiente_como_a_cli():
+    """issue #81: quem roda o servidor sem Docker (`python -m interfaces.servidor`) precisa do
+    `.env` da raiz carregado, mesma disciplina de `interfaces.cli` (#9) — sem isso,
+    LLM_PROVEDOR/OPENROUTER_API_KEY do `.env` nunca chegam ao processo fora do compose. Prova por
+    import: antes desta frente, `interfaces.servidor` não importava `carregar_dotenv_no_ambiente`
+    (ImportError)."""
+    from interfaces.dotenv_loader import carregar_dotenv_no_ambiente as _original
+    from interfaces.servidor import carregar_dotenv_no_ambiente
+
+    assert carregar_dotenv_no_ambiente is _original
