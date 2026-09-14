@@ -170,7 +170,7 @@ decisão `ENCAMINHAR` exige um motivo — nunca existe handoff silencioso.**
 
 `MotivoHandoff` é um Enum fechado — vocabulário único que atravessa domínio (decide), trilha (grava
 `.value`) e tela (mostra), decisão da coordenação na issue #16 (R5) para não nascerem três grafias da
-mesma coisa. **Tinha 3 valores, ganhou mais 2 na issue #42:**
+mesma coisa. **Tinha 3 valores, ganhou mais 3 nas issues #42 e #57:**
 
 | `StatusCotacao` (resultado da `/quote`) | `MotivoHandoff` | Decisão |
 |---|---|---|
@@ -181,6 +181,7 @@ mesma coisa. **Tinha 3 valores, ganhou mais 2 na issue #42:**
 | `TIMEOUT` (timeout esgotado) | `QUOTE_TIMEOUT` | `ENCAMINHAR` |
 | `ERRO_DE_PAYLOAD` (400/422 de validação) | `QUOTE_ERRO_DE_PAYLOAD` | `ENCAMINHAR` |
 | lead diz explicitamente que quer contratar (`Intencao.QUER_CONTRATAR`, checado **antes** de qualquer outro ramo, sem esperar dado completo nem cotação) | `LEAD_QUER_CONTRATAR` | `ENCAMINHAR` — fechamento é sempre de um corretor |
+| lead pede explicitamente para falar com um atendente (`Intencao.QUER_FALAR_COM_HUMANO` — "quero falar com um atendente", "me passa pra uma pessoa" — mesmo grau incondicional de `QUER_CONTRATAR`, nunca reaproveita aquele motivo) | `LEAD_PEDIU_HUMANO` | `ENCAMINHAR` |
 
 Timeout e erro de payload viram `ENCAMINHAR` pelo mesmo motivo prático: nenhum dos dois é culpa do
 lead, e nos dois um humano precisa saber que a cotação não saiu (decisão R5/#16). A recusa de negócio
@@ -188,9 +189,16 @@ lead, e nos dois um humano precisa saber que a cotação não saiu (decisão R5/
 decide se um lead fora do padrão de aceitação da seguradora vai pra um corretor ou só recebe uma
 recusa educada — editável em [`/conhecimento`](#1-em-uma-frase-e-como-rodar) (`/api/configuracao-comercial`).
 
-O mock de design (`docs/design/handoffs.html`) lista 8 motivos; o Enum real tem **5** hoje (era 3) —
-o gap fechou em 2, os 3 que faltam (mídia não suportada, dado ambíguo do cliente, pedido humano
-direto) não têm frente aberta ainda.
+A distinção entre `QUER_CONTRATAR` e `QUER_FALAR_COM_HUMANO` não é regra de palavra-chave — é o
+mesmo `PortalDeLinguagem` que extrai idade/CEP decidindo pelo texto livre do lead. Medido contra o
+modelo real (OpenRouter `deepseek/deepseek-chat-v3.1`), não simulado: **5 de 5** frases pedindo
+humano classificadas certo, e os 3 controles negativos ("quero contratar", uma frase de dado comum,
+uma pergunta de preço) não confundidos com pedido de humano
+([veredito de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63#issuecomment-5656183650)).
+
+O mock de design (`docs/design/handoffs.html`) lista 8 motivos; o Enum real tem **6** hoje (era 3) —
+o gap fechou em 3, os 2 que faltam (mídia não suportada, dado ambíguo do cliente) não têm frente
+aberta ainda.
 
 ---
 
@@ -204,6 +212,21 @@ possíveis são `mensagem_recebida`, `mensagem_enviada` (com `decisao_id`/`regra
 chamada HTTP, não por cotação — com `http_status`, `classificacao`, `latencia_ms`,
 `orcamento_restante_ms`), `decisao`, `handoff`, e dois para correção de erro (`erro_marcado`,
 `correcao_registrada`) que os dois exemplos em `examples/` não exercitam.
+
+**A coleta determinística (sem LLM) também grava pergunta a pergunta na trilha** — antes só o
+caminho por LLM fazia isso. `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/
+`registrar_resposta_de_coleta` são o dono único da escrita (LEI 11), usadas pelos dois caminhos de
+coleta (`interfaces.cli` não importa mais `dominio.eventos_trilha` diretamente). O evento de estado
+consolidado que fecha a coleta ganha `sender_role="sistema"` — para não parecer fala literal do
+lead na trilha quando na verdade é o sistema resumindo os campos.
+
+Dois achados de higiene corrigidos no mesmo PR: o prompt fixo do sistema ("Qual o seu CEP?") não é
+mais mascarado como se fosse PII do lead (`_Transcricao.emitir(..., redigir=False)` só na linha do
+prompt — a resposta do lead continua sempre redigida; teste ponta a ponta em
+`tests/interfaces/test_cli.py` prova os dois lados); e `painel/tela_regras.py` deixa de importar
+`infra` direto — quem busca os dados agora é `painel/gerar.py` (raiz de composição), com a
+invariante nova `I-4` (`src/interfaces/CONTRACT.md`) coberta por teste dedicado
+(`tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto`).
 
 **O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em HTML
 estático, sem servidor e sem JavaScript, geradas do mesmo `.jsonl` acima:
@@ -347,11 +370,8 @@ não tem:
 | Ficou de fora | Estado | Issue |
 |---|---|---|
 | IA respondendo o lead usando a base de conhecimento (hoje o `/conhecimento` só edita; nada ainda consome as fichas numa conversa) | `[PENDENTE: #58]` — sem PR ainda | [#58](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/58) |
-| `interfaces` falando com `infra` fora das raízes de composição (`painel/tela_regras.py`); CLI orquestrando a trilha | `[PENDENTE: #55]` — violação de arquitetura declarada, sem PR ainda (P7 do roadmap #3) | [#55](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/55) |
-| Coleta padrão (sem LLM) não grava cada pergunta/resposta na trilha com id e status | `[PENDENTE: #51]` — sem PR ainda (P2) | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
-| Trilha grava estado da conversa como se fosse fala literal do lead | `[PENDENTE: #39]` — sem PR ainda (P3) | [#39](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/39) |
-| CLI mascara o próprio texto fixo do prompt de CEP no log, como se fosse PII do lead (over-redaction) | `[PENDENTE: #38]` — sem PR ainda | [#38](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/38) |
-| Pedido explícito de humano ("quero falar com um atendente") — vai pra Fila humana? | `[PENDENTE: #57]` — decisão de escopo ainda não tomada pelo dono (P9) | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
+| Coleta pelo **chat web** não grava pergunta/resposta na trilha com id e status (a coleta pela CLI já grava — [§5](#5-dá-pra-rastrear-o-que-aconteceu), PR #64) | `[PENDENTE: #51]` — parte 2 (chat web), sem PR ainda | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
+| Status/estado da conversa na Fila humana, além do motivo do handoff (o motivo em si já está resolvido — ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável), `LEAD_PEDIU_HUMANO`) | `[PENDENTE: #57]` — issue #57 segue aberta para essa parte | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |

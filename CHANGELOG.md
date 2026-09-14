@@ -6,6 +6,24 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Corrigido
+- **README atualizado com o PR #64 (issue #15):** §5 ganha a nota de que a coleta determinística
+  também grava pergunta a pergunta na trilha (`registrar_pergunta_de_coleta`/
+  `registrar_resposta_de_coleta`, dono único), o `sender_role="sistema"` no evento de estado
+  consolidado, o prompt do CEP deixando de ser mascarado como PII do lead, e `tela_regras.py`
+  deixando de importar `infra` direto (invariante I-4, com teste próprio). "O que ficou de fora"
+  perde as linhas de #39/#38/#55 (resolvidas) e reduz a de #51 só à parte 2 (chat web) — a parte 1
+  (CLI) já está feita
+
+### Corrigido
+- **README atualizado com o `LEAD_PEDIU_HUMANO` do PR #63 (issue #15):** `MotivoHandoff` na tabela
+  do §4 ganha a 6ª linha (era 3, já tinha ido a 5 com o #62); número real com fonte — 5 de 5 frases
+  pedindo humano classificadas certo contra o OpenRouter de verdade, 3 controles negativos corretos
+  ([veredito de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63#issuecomment-5656183650)).
+  Linha do "o que ficou de fora" sobre #57 reescrita — o motivo do handoff já está resolvido, só a
+  parte de status/estado da conversa continua pendente naquela issue (não removida, só reduzida ao
+  que ainda falta)
+
 ### Adicionado
 - **Pedido explícito de humano encaminha para um corretor (issue #57, P9, decisão do dono):** nova intenção `dominio.intencao.Intencao.QUER_FALAR_COM_HUMANO` e novo motivo `dominio.decisao.MotivoHandoff.LEAD_PEDIU_HUMANO` — `dominio.politica.decidir` encaminha incondicionalmente, mesmo grau de `QUER_CONTRATAR` (issue #42), sem reaproveitar o motivo de "quero contratar" (são pedidos diferentes do lead). Texto ao lead reusa a mesma frase já aprovada para `LEAD_QUER_CONTRATAR` (decisão da coordenação: texto novo exigiria aprovação do dono, indisponível no momento desta frente) — os dois `case` de `aplicacao.servico_conversa._texto_da_decisao` apontam para uma única constante (LEI 11). `interfaces.painel.tela_fila_humana._DESCRICAO_MOTIVO` ganha a entrada correspondente (consequência mecânica do Enum, cobrada por `test_todo_motivohandoff_tem_descricao_registrada`). Nova invariante I-12 em `dominio/CONTRACT.md`. PR 1 de 2 da frente `status-conversa`; o PR 2 troca o botão "Falar com um corretor" do chat (issue #46/#62) para usar o motivo novo (#57)
 
