@@ -132,6 +132,30 @@ O `docker compose` repassa essas duas variáveis para o container `app` em tempo
 entram na imagem nem no log) — o mesmo `.env` funciona rodando o servidor direto no host, sem
 Docker (`PYTHONPATH=src python -m interfaces.servidor`).
 
+### Rodar os testes
+
+Dependências de desenvolvimento (`ruff`, `pytest`, `import-linter`) vêm do `[dependency-groups]`
+do `pyproject.toml`, não do Docker — instale com [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --group dev
+PYTHONPATH=src uv run python -m pytest -q
+PYTHONPATH=src uv run lint-imports
+uv run ruff check .
+```
+
+Saída esperada (rodada nesta máquina, contra o HEAD desta branch):
+
+```
+611 passed, 38 deselected
+Contracts: 3 kept, 0 broken
+All checks passed!
+```
+
+Os 38 testes `deselected` são marcados `llm_real` (`pyproject.toml:56`) — chamam a API OpenRouter
+de verdade e só rodam com `OPENROUTER_API_KEY` no ambiente (`pytest -m llm_real`, explícito; sem
+isso o `addopts` da linha 61 os exclui por padrão, para CI e clones sem `.env` continuarem verdes).
+
 ---
 
 ## 2. Funciona de ponta a ponta?
@@ -140,29 +164,33 @@ Sim — três execuções reais, sem edição, ficaram em `examples/` como entre
 enunciado), geradas por um roteiro reproduzível
 (`PYTHONPATH=src python scripts/gerar_examples.py`, contra o `quote-api` real):
 
-- [`examples/execucao_conv-2bdc86e8.log`](examples/execucao_conv-2bdc86e8.log) (E1) — cotação sai
+- [`examples/execucao_conv-c2c205cd.log`](examples/execucao_conv-c2c205cd.log) (E1) — cotação sai
   de primeira: `decisão: explicar_cotacao` / `Plano Essencial: R$ 137,88/mês...`. A trilha
-  ([`trilha_conv-2bdc86e8.jsonl`](examples/trilha_conv-2bdc86e8.jsonl)) mostra uma única tentativa
-  `200` (125ms, orçamento restante 9875ms).
-- [`examples/execucao_conv-c254c560.log`](examples/execucao_conv-c254c560.log) (E2) — a `/quote`
+  ([`trilha_conv-c2c205cd.jsonl`](examples/trilha_conv-c2c205cd.jsonl)) mostra uma única tentativa
+  `200` (308ms, orçamento restante 9692ms), já com `plano_nome`/`premio_mensal` estruturados
+  (issue #59 PR 2/2) — é o que o Histórico de atendimentos lê para a prévia "Essencial · R$
+  137,88/mês" ([§5](#5-dá-pra-rastrear-o-que-aconteceu)).
+- [`examples/execucao_conv-acca9633.log`](examples/execucao_conv-acca9633.log) (E2) — a `/quote`
   está indisponível (porta morta na sonda, nunca o serviço real) e o agente encaminha: `decisão:
   encaminhar (reason_code=quote_indisponivel)`. A trilha
-  ([`trilha_conv-c254c560.jsonl`](examples/trilha_conv-c254c560.jsonl)) mostra três tentativas
-  `indisponivel` (2054ms, 2028ms, 2041ms) até o orçamento não comportar mais uma tentativa (7,335s
-  de parede), e o `handoff` gravado com o motivo — nenhum preço inventado.
-- [`examples/execucao_conv-198a633b.log`](examples/execucao_conv-198a633b.log) (E3) — a `/quote`
+  ([`trilha_conv-acca9633.jsonl`](examples/trilha_conv-acca9633.jsonl)) mostra três tentativas
+  `indisponivel` (2035ms, 2034ms, 2041ms) até o orçamento não comportar mais uma tentativa, e o
+  `handoff` gravado com o motivo — nenhum preço inventado.
+- [`examples/execucao_conv-453a5245.log`](examples/execucao_conv-453a5245.log) (E3) — a `/quote`
   recusa a cotação por idade (80 anos, acima do limite de 75): `decisão: encaminhar
   (reason_code=recusa_regra_de_aceitacao)`. A trilha
-  ([`trilha_conv-198a633b.jsonl`](examples/trilha_conv-198a633b.jsonl)) mostra a tentativa `422`
-  (recusa_de_negocio, 31ms) e o `handoff` com o mesmo motivo.
+  ([`trilha_conv-453a5245.jsonl`](examples/trilha_conv-453a5245.jsonl)) mostra a instabilidade
+  simulada da `/quote` de verdade: duas tentativas `timeout` (3002ms, 3010ms) antes da tentativa 3
+  `422` (recusa_de_negocio, 15ms) — e o `handoff` com o mesmo motivo.
 
 ---
 
 ## Roteiro de teste (5 minutos)
 
-Cobre só o que está mergeado na `main` agora (`9099560` ou mais nova) — status/estado da conversa
-além do motivo do handoff, atendimento contínuo (corretor respondendo na mesma conversa) e o menu
-da tela Relatório **ainda não entraram** (ver [§9](#9-o-que-ficou-de-fora-e-por-quê)).
+Cobre só o que está mergeado na `main` agora — status/estado da conversa, filtro por status e os
+botões Assumir/Encerrar **já entraram** (issue #57 PR 2/2); a tela Relatório, com seu item de menu,
+também **já entra**. **Fica de fora:** atendimento contínuo, o corretor respondendo ao lead na
+mesma conversa (ver [§9](#9-o-que-ficou-de-fora-e-por-quê)).
 
 **(a) Sem `.env` — fluxo guiado até o card, sem IA**
 ```bash
@@ -226,9 +254,9 @@ docker compose exec app cat /app/examples/trilha_<conversation_id>.jsonl
 `classificacao` (`sucesso`/`indisponivel`/`timeout`) — testado ao vivo (`docker exec` no container
 já rodando). É a MESMA trilha que alimenta o painel do passo (d) — nada no painel é inventado.
 
-**Status/estado da conversa (além do motivo do handoff), atendimento contínuo (corretor
-respondendo na mesma conversa) e o menu da tela Relatório: seções acrescentadas aqui quando
-entrarem na `main`.**
+**Status/estado da conversa, filtro por status, Assumir/Encerrar (issue #57 PR 2/2) e a tela
+Relatório com seu item de menu (issue #59) já estão na `main`.** Atendimento contínuo (o corretor
+respondendo ao lead na mesma conversa) fica fora desta entrega — ver [§9](#9-o-que-ficou-de-fora-e-por-quê).
 
 ---
 
@@ -343,7 +371,7 @@ possíveis são `mensagem_recebida`, `mensagem_enviada` (com `decisao_id`/`regra
 `origem_do_texto`/`quote_attempt_id` — proveniência, não só o texto), `tentativa_de_cotacao` (uma por
 chamada HTTP, não por cotação — com `http_status`, `classificacao`, `latencia_ms`,
 `orcamento_restante_ms`), `decisao`, `handoff`, e dois para correção de erro (`erro_marcado`,
-`correcao_registrada`) que os dois exemplos em `examples/` não exercitam.
+`correcao_registrada`) que os três exemplos em `examples/` não exercitam.
 
 **A coleta determinística (sem LLM) também grava pergunta a pergunta na trilha** — antes só o
 caminho por LLM fazia isso. `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/
@@ -360,8 +388,8 @@ prompt — a resposta do lead continua sempre redigida; teste ponta a ponta em
 invariante nova `I-4` (`src/interfaces/CONTRACT.md`) coberta por teste dedicado
 (`tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto`).
 
-**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — cinco telas em
-HTML estático geradas do mesmo `.jsonl` acima; quatro sem servidor nem JavaScript, e a de
+**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em
+HTML estático geradas do mesmo `.jsonl` acima; cinco sem servidor nem JavaScript, e a de
 Conversas ganhou os botões Assumir/Encerrar (issue #57 PR 2, #87), que dependem do
 `interfaces.servidor` rodando para funcionar (neste snapshot standalone eles aparecem, mas não
 respondem):
@@ -396,10 +424,13 @@ duas formas do comando acima). Uma tela por link no topo:
 - **Avaliação** (`avaliacao.html`) — mostra **"eval/casos.jsonl não encontrado"** de propósito: o
   conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
   declarado aparecendo onde o avaliador olha.
+- **Relatório** (`relatorio.html`, issue #59 PR 2/2) — uma linha por conversa (lead, status, data
+  de entrada, pendência, plano cotado), com **Exportar CSV** (`relatorio.csv`, também commitado) —
+  leitura e priorização para o corretor, nunca edição.
 
-**Um número real, com a fonte:** nestes 3 exemplos, as 4 tentativas que falharam (3
-`indisponivel` do E2, 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na mesma
-cotação — **0% (0 de 4) absorvidas por retry**
+**Um número real, com a fonte:** nestes 3 exemplos, as 6 tentativas que falharam (3
+`indisponivel` do E2, 2 `timeout` + 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na
+mesma cotação — **0% (0 de 6) absorvidas por retry**
 ([`examples/painel/cotacoes.html`](examples/painel/cotacoes.html), calculado por
 `_absorcao_por_retry` em `src/interfaces/painel/tela_cotacoes.py` a partir das trilhas reais de
 `examples/`). O KPI é real, não fixo — quando um exemplo tiver uma tentativa que falha e a mesma
@@ -528,7 +559,7 @@ não tem:
 
 | Ficou de fora | Estado | Issue |
 |---|---|---|
-| Tela Relatório (`src/interfaces/painel/tela_relatorio.py`, CSV com telefone/histórico) existe mas não tem menu nem rota — `interfaces.painel.gerar`/`layout` não a referenciam ainda, então não é alcançável pela navegação | `[PENDENTE: #59]` — PR 1/2 mergeado (a tela), PR 2/2 (menu + `gerar.py`) ainda não | [#59](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/59) |
+| Atendimento contínuo — o corretor responde o lead na mesma conversa (servidor, continuidade no chat do lead, caixa de resposta do corretor) | fora desta entrega por prazo, decisão do dono em 14/09; parte do backend preservada no branch `claude/atendimento-backend` | [#86](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/86) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |

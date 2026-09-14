@@ -99,6 +99,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
        border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:18px}
 
 .falta{color:var(--alerta)}
+.vazio{color:var(--texto-mais-fraco);font-style:italic}
+.estado-interno{align-self:center;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco);border:1px dashed var(--borda);border-radius:999px;padding:3px 12px}
 button[disabled]{opacity:.45;cursor:not-allowed}
 [hidden]{display:none!important}
 .botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
@@ -120,6 +122,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
     <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/relatorio.html"><span class="ic">🗂️</span> Relatório </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html" aria-current="page"><span class="ic">📈</span> Cotações </a>
@@ -145,52 +148,66 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 <div class="kpis">
       <div class="kpi"><div class="rotulo">Sucesso</div><div class="valor">33.3%</div>
         <div class="nota">1 de 3 cotações</div></div>
-      <div class="kpi"><div class="rotulo">Latência (mediana)</div><div class="valor">2028 ms</div>
-        <div class="nota">máx 2054 ms</div></div>
+      <div class="kpi"><div class="rotulo">Latência (mediana)</div><div class="valor">2035 ms</div>
+        <div class="nota">máx 3010 ms</div></div>
       <div class="kpi"><div class="rotulo">Chamadas por cotação</div>
-        <div class="valor">1.67</div></div>
+        <div class="valor">2.33</div></div>
       <div class="kpi perigo"><div class="rotulo">Absorvidas por retry</div><div class="valor">0.0%</div>
-        <div class="nota">0 de 4 falhas</div></div>
+        <div class="nota">0 de 6 falhas</div></div>
     </div>
 <section class="painel">
-  <header><h2>Tentativas</h2><span class="aux">5 tentativa(s) em 3 cotação(ões)</span></header>
+  <header><h2>Tentativas</h2><span class="aux">7 tentativa(s) em 3 cotação(ões)</span></header>
   <table>
       <thead><tr><th>Classificação</th><th>Id</th><th>Conversa</th><th>Resposta</th><th class="num">Latência</th><th class="num">Orçamento</th></tr></thead>
       <tbody><tr>
+          <td><span class="chip falha">timeout</span></td>
+          <td class="mono">78e8d646a07248fb9fe3f52200f14347·1</td>
+          <td class="mono">conv-453a5245</td>
+          <td class="mono">sem resposta (timeout)</td>
+          <td class="num">3002 ms</td>
+          <td class="num">6998 ms restantes</td>
+        </tr><tr>
+          <td><span class="chip falha">timeout</span></td>
+          <td class="mono">5862fe9cfd274b45b8c9730fac578e6a·2</td>
+          <td class="mono">conv-453a5245</td>
+          <td class="mono">sem resposta (timeout)</td>
+          <td class="num">3010 ms</td>
+          <td class="num">3585 ms restantes</td>
+        </tr><tr>
           <td><span class="chip falha">recusa_de_negocio</span></td>
-          <td class="mono">275ca98323b948d1b2bc2b24d839e00b·1</td>
-          <td class="mono">conv-198a633b</td>
+          <td class="mono">12607f3ae535498e8521c7bc70178a75·3</td>
+          <td class="mono">conv-453a5245</td>
           <td class="mono">422</td>
-          <td class="num">31 ms</td>
-          <td class="num">9969 ms restantes</td>
-        </tr><tr>
-          <td><span class="chip ok">sucesso</span></td>
-          <td class="mono">0d0e1bb0be90443c93c0c48fe48958d8·1</td>
-          <td class="mono">conv-2bdc86e8</td>
-          <td class="mono">200</td>
-          <td class="num">125 ms</td>
-          <td class="num">9875 ms restantes</td>
+          <td class="num">15 ms</td>
+          <td class="num">2768 ms restantes</td>
         </tr><tr>
           <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">5f0a0420c9314897b37a7562d70040b2·1</td>
-          <td class="mono">conv-c254c560</td>
+          <td class="mono">467eddc5fda24505bf0abf284b91b7fa·1</td>
+          <td class="mono">conv-acca9633</td>
           <td class="mono">sem resposta (indisponivel)</td>
-          <td class="num">2054 ms</td>
-          <td class="num">7946 ms restantes</td>
+          <td class="num">2035 ms</td>
+          <td class="num">7965 ms restantes</td>
         </tr><tr>
           <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">050d0684f42d4b2d8489a8029086329f·2</td>
-          <td class="mono">conv-c254c560</td>
+          <td class="mono">258719db3b394867a31729122ac91073·2</td>
+          <td class="mono">conv-acca9633</td>
           <td class="mono">sem resposta (indisponivel)</td>
-          <td class="num">2028 ms</td>
-          <td class="num">5517 ms restantes</td>
+          <td class="num">2034 ms</td>
+          <td class="num">5530 ms restantes</td>
         </tr><tr>
           <td><span class="chip falha">indisponivel</span></td>
-          <td class="mono">c00b07bec3a9401ca34fb184dfe996ed·3</td>
-          <td class="mono">conv-c254c560</td>
+          <td class="mono">7f2e45748e244fa2b003fc462ab4ed3e·3</td>
+          <td class="mono">conv-acca9633</td>
           <td class="mono">sem resposta (indisponivel)</td>
           <td class="num">2041 ms</td>
-          <td class="num">2674 ms restantes</td>
+          <td class="num">2666 ms restantes</td>
+        </tr><tr>
+          <td><span class="chip ok">sucesso</span></td>
+          <td class="mono">86585595bc9248478166ff3b6b144a3f·1</td>
+          <td class="mono">conv-c2c205cd</td>
+          <td class="mono">200</td>
+          <td class="num">308 ms</td>
+          <td class="num">9692 ms restantes</td>
         </tr></tbody>
     </table>
 </section>

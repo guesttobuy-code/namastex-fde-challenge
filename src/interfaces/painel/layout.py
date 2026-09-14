@@ -22,6 +22,21 @@ _RAIZ_DESIGN = Path(__file__).resolve().parents[3] / "docs" / "design"
 # `campos.buraco()`.
 _CSS_BURACO_VISIVEL = ".falta{color:var(--alerta)}"
 
+# issue #93: resposta vazia EXPLÍCITA (o lead apertou Enter sem responder um campo opcional) não é
+# falha de gravação — precisa de um estilo neutro, nunca o vermelho de `.falta`. Nenhum mock tinha
+# esse conceito ainda (o mesmo motivo do `.falta` acima).
+_CSS_VAZIO_EXPLICITO = ".vazio{color:var(--texto-mais-fraco);font-style:italic}"
+
+# issue #93 (achado da coordenação no #91): o resumo sintético da coleta (`sender_role="sistema"`,
+# issue #39) já usa `.estado-interno` na tela de Conversas — a classe vive só no `<style>` de
+# `docs/design/index.html:124-125` (copiada aqui LITERAL, LEI 11: mesma regra, nunca redecidida),
+# porque `docs/design/rastreio.html` nunca precisou dela até o Rastreio também desenhar esse evento.
+_CSS_ESTADO_INTERNO = (
+    ".estado-interno{align-self:center;font-family:var(--mono);font-size:11px;"
+    "color:var(--texto-mais-fraco);border:1px dashed var(--borda);border-radius:999px;"
+    "padding:3px 12px}"
+)
+
 # Idem para botão desabilitado: o mock nunca precisou disso, porque lá os botões só pareciam
 # clicáveis (nenhum tinha `disabled` de verdade). Regra 4 do escopo exige que fiquem VISIVELMENTE
 # desabilitados — o atributo HTML sozinho, sem isto, não basta em todo navegador.
@@ -52,6 +67,10 @@ _ITENS_MENU = (
         # atalho"). Filtra o Histórico de atendimentos pelo status oficial equivalente
         # (`interfaces.painel.tela_conversas`, JS lê `?status=` no carregamento da página).
         ("/painel/index.html?status=aguardando_corretor", "🙋", "Fila humana", "fila"),
+        # issue #59 (PR 2 de 2): ferramenta do corretor pra acompanhar e priorizar leads, não
+        # diagnóstico técnico — decisão da coordenação de ficar em "Atendimento", não em
+        # "Observabilidade".
+        ("/painel/relatorio.html", "🗂️", "Relatório", None),
     )),
     ("Observabilidade", (
         ("/painel/rastreio.html", "🧭", "Rastreio", None),
@@ -115,6 +134,8 @@ def pagina(
 <style>
 {css_embutido(caminho_ui_css)}
 {_CSS_BURACO_VISIVEL}
+{_CSS_VAZIO_EXPLICITO}
+{_CSS_ESTADO_INTERNO}
 {_CSS_BOTAO_DESABILITADO}
 {_CSS_HIDDEN_FUNCIONA}
 {_CSS_BOTAO}

@@ -99,6 +99,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
        border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:18px}
 
 .falta{color:var(--alerta)}
+.vazio{color:var(--texto-mais-fraco);font-style:italic}
+.estado-interno{align-self:center;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco);border:1px dashed var(--borda);border-radius:999px;padding:3px 12px}
 button[disabled]{opacity:.45;cursor:not-allowed}
 [hidden]{display:none!important}
 .botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
@@ -185,6 +187,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
     <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/relatorio.html"><span class="ic">🗂️</span> Relatório </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
@@ -218,86 +221,86 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 <option value="encerrada">Encerrada</option>
       </select>
     </header>
-    <button class="item" data-status="aguardando_corretor" data-alvo="conv-198a633b" onclick="selecionarConversa('conv-198a633b')">
-          <span class="l1"><span class="nome">conv-198a633b</span></span>
-          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
+    <button class="item" data-status="aguardando_corretor" data-alvo="conv-453a5245" onclick="selecionarConversa('conv-453a5245')">
+          <span class="l1"><span class="nome">conv-453a5245</span></span>
+          <span class="previa">Aguardando corretor</span>
           <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
-<button class="item" data-status="cotada" data-alvo="conv-2bdc86e8" onclick="selecionarConversa('conv-2bdc86e8')">
-          <span class="l1"><span class="nome">conv-2bdc86e8</span></span>
-          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
+<button class="item" data-status="aguardando_corretor" data-alvo="conv-acca9633" onclick="selecionarConversa('conv-acca9633')">
+          <span class="l1"><span class="nome">conv-acca9633</span></span>
+          <span class="previa">Aguardando corretor</span>
+          <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
+        </button>
+<button class="item selecionado" data-status="cotada" data-alvo="conv-c2c205cd" onclick="selecionarConversa('conv-c2c205cd')">
+          <span class="l1"><span class="nome">conv-c2c205cd</span></span>
+          <span class="previa">Essencial · R$ 137,88/mês</span>
           <span class="chip ok" style="margin-top:6px">Cotada</span>
-        </button>
-<button class="item selecionado" data-status="aguardando_corretor" data-alvo="conv-c254c560" onclick="selecionarConversa('conv-c254c560')">
-          <span class="l1"><span class="nome">conv-c254c560</span></span>
-          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
-          <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
   </nav>
   <div style="display:grid;gap:16px">
-    <section class="painel conversa" id="conv-198a633b" data-status="aguardando_corretor" hidden>
-      <header><h2>conv-198a633b</h2><span class="aux">Aguardando corretor</span></header>
+    <section class="painel conversa" id="conv-453a5245" data-status="aguardando_corretor" hidden>
+      <header><h2>conv-453a5245</h2><span class="aux">Aguardando corretor</span></header>
       <div class="motivo">A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.</div>
       <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
       <div class="contexto"><b>Já coletado:</b> Idade: 80, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
       <div class="acoes">
-        <button class="botao principal"  onclick="transicaoDeStatus('conv-198a633b', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao"  onclick="transicaoDeStatus('conv-198a633b', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal"  onclick="transicaoDeStatus('conv-453a5245', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao"  onclick="transicaoDeStatus('conv-453a5245', '/api/conversa/encerrar')">Encerrar</button>
       </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.066655+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">80</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.067264+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.067746+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.068429+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.068812+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.069186+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.069507+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.069951+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.070316+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.070706+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.104290+00:00</span><span>msg_ecd1c3fe</span></div></div></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.555752+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">80</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.557102+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.557737+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.558706+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (8 números, com ou sem hífen)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.559297+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.559962+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.560471+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.561133+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.561733+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.562598+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:40.798942+00:00</span><span>msg_b5ce327e</span></div></div></div>
     </section>
-<section class="painel conversa" id="conv-2bdc86e8" data-status="cotada" hidden>
-      <header><h2>conv-2bdc86e8</h2><span class="aux">Cotada</span></header>
-      
-      <div class="acoes">
-        <button class="botao principal" disabled onclick="transicaoDeStatus('conv-2bdc86e8', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao" disabled onclick="transicaoDeStatus('conv-2bdc86e8', '/api/conversa/encerrar')">Encerrar</button>
-      </div>
-      <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.595957+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.596647+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.597084+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.599962+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.600479+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.600879+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.601206+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.601584+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.601898+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.602256+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.729605+00:00</span><span>msg_6785baae</span></div></div></div>
-    </section>
-<section class="painel conversa" id="conv-c254c560" data-status="aguardando_corretor">
-      <header><h2>conv-c254c560</h2><span class="aux">Aguardando corretor</span></header>
+<section class="painel conversa" id="conv-acca9633" data-status="aguardando_corretor" hidden>
+      <header><h2>conv-acca9633</h2><span class="aux">Aguardando corretor</span></header>
       <div class="motivo">Cotação indisponível: o serviço de cotação falhou de forma persistente.</div>
       <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
       <div class="contexto"><b>Já coletado:</b> Idade: 35, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
       <div class="acoes">
-        <button class="botao principal"  onclick="transicaoDeStatus('conv-c254c560', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao"  onclick="transicaoDeStatus('conv-c254c560', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal"  onclick="transicaoDeStatus('conv-acca9633', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao"  onclick="transicaoDeStatus('conv-acca9633', '/api/conversa/encerrar')">Encerrar</button>
       </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.731452+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.732018+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.732393+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.732965+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.733393+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.733771+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.734085+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.734433+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.734742+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.735074+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.062999+00:00</span><span>msg_557fe8f4</span></div></div></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.204239+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.205492+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.206315+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.207354+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (8 números, com ou sem hífen)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.207958+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.208707+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.209333+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.210135+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.210827+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.211618+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:33.549532+00:00</span><span>msg_df9aca80</span></div></div></div>
+    </section>
+<section class="painel conversa" id="conv-c2c205cd" data-status="cotada">
+      <header><h2>conv-c2c205cd</h2><span class="aux">Cotada</span></header>
+      
+      <div class="acoes">
+        <button class="botao principal" disabled onclick="transicaoDeStatus('conv-c2c205cd', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao" disabled onclick="transicaoDeStatus('conv-c2c205cd', '/api/conversa/encerrar')">Encerrar</button>
+      </div>
+      <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.874657+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.875981+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.876710+00:00</span><span>msg_coleta_1_enviada</span></div></div><div class="msg lead"><div class="balao">2020</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.878120+00:00</span><span>msg_coleta_1_recebida</span></div></div><div class="msg agente"><div class="balao">Qual o seu CEP? (8 números, com ou sem hífen)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.878772+00:00</span><span>msg_coleta_2_enviada</span></div></div><div class="msg lead"><div class="balao">[REDIGIDO]</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.879549+00:00</span><span>msg_coleta_2_recebida</span></div></div><div class="msg agente"><div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.880178+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.881206+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.882485+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="vazio">(sem resposta — seguiu o padrão)</span></div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:25.883209+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.</div>
+              <div class="rodape-msg"><span>2026-09-14T04:34:26.197368+00:00</span><span>msg_6f54d2d2</span></div></div></div>
     </section>
   </div>
 </div>

@@ -99,6 +99,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
        border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:18px}
 
 .falta{color:var(--alerta)}
+.vazio{color:var(--texto-mais-fraco);font-style:italic}
+.estado-interno{align-self:center;font-family:var(--mono);font-size:11px;color:var(--texto-mais-fraco);border:1px dashed var(--borda);border-radius:999px;padding:3px 12px}
 button[disabled]{opacity:.45;cursor:not-allowed}
 [hidden]{display:none!important}
 .botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
@@ -123,6 +125,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
     <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/relatorio.html"><span class="ic">🗂️</span> Relatório </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
