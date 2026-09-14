@@ -86,6 +86,10 @@ Este é o fluxo que a bandeirinha "⚑ marcar como erro" abre, nas telas **Conve
 
 ### O caso de avaliação (arquivo versionado, dono: F8 / issue #11)
 
+> **Nota (14/09/2026, issue #115):** a tela Avaliação (que exibiria este conjunto) saiu da
+> entrega por decisão do dono — não tinha função nesta rodada. O desenho abaixo é histórico, não
+> implementado.
+
 `eval/casos.jsonl`, **versionado no repositório** — é a régua, e régua não pode viver só em memória:
 
 | Campo | Observação |
@@ -140,3 +144,6 @@ Três amarras, em ordem de força:
 | Cotações | `tentativa_de_cotacao` | F3 (#6) |
 | Avaliação | `eval/casos.jsonl` + saída do medidor | F8 (#11) |
 | Regras e política | `GET /planos` + política de retry e handoff | F2 (#5) · F3 (#6) |
+
+> **Nota (issue #115):** a tela Avaliação saiu da entrega (decisão do dono, 14/09/2026) — a linha
+> acima é desenho histórico, nunca implementada.

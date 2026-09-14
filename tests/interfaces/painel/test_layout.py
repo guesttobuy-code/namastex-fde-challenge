@@ -92,6 +92,17 @@ def test_item_fila_humana_aponta_para_o_filtro_aguardando_corretor_sem_sumir():
     assert "Fila humana" in html
 
 
+def test_menu_nao_tem_mais_o_item_avaliacao():
+    """issue #115 (decisão do dono: "exclua essa tela que não tem função ainda"): a tela Avaliação
+    só mostrava "eval/casos.jsonl não encontrado" — sai do menu, do gerador e do código."""
+    rotulos = [rotulo for _, itens in _ITENS_MENU for _, _, rotulo, _ in itens]
+    assert "Avaliação" not in rotulos
+
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert "avaliacao.html" not in html
+    assert "Avaliação" not in html
+
+
 def test_item_relatorio_fica_no_grupo_atendimento_logo_abaixo_de_fila_humana():
     """Decisão da coordenação (issue #59, PR 2/2): "Relatório" é ferramenta do corretor para
     acompanhar e priorizar leads, não diagnóstico técnico — fica em "Atendimento", não em

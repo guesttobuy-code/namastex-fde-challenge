@@ -21,18 +21,20 @@ def _sem_rede_real(monkeypatch):
     monkeypatch.setattr("interfaces.painel.gerar.buscar_planos", lambda base_url: None)
 
 
-def test_gerar_paineis_escreve_as_seis_telas_e_o_csv_do_relatorio(tmp_path, trilha_fixture, conftest_caminho_trilha):
+def test_gerar_paineis_escreve_as_cinco_telas_e_o_csv_do_relatorio(tmp_path, trilha_fixture, conftest_caminho_trilha):
     """`handoffs.html` (Fila humana) não é mais gerado (issue #57, P14, PR 2 de 2, pré-auditoria do
     PR #87) — o menu aponta pro Histórico já filtrado, e o catálogo de motivos migrou para
-    `regras.html`. `relatorio.html`/`relatorio.csv` entram nesta frente (issue #59, PR 2/2) — o
+    `regras.html`. `relatorio.html`/`relatorio.csv` entram nesta frente (issue #59, PR 2/2).
+    `avaliacao.html` some (issue #115, decisão do dono — a tela não tinha função nesta entrega). O
     nome do teste não decora número: se o conjunto mudar de novo, o teste é quem afirma qual é."""
     escritos = gerar_paineis(conftest_caminho_trilha, tmp_path)
 
     nomes = {c.name for c in escritos}
     assert nomes == {
-        "index.html", "rastreio.html", "cotacoes.html", "regras.html", "avaliacao.html",
+        "index.html", "rastreio.html", "cotacoes.html", "regras.html",
         "relatorio.html", "relatorio.csv",
     }
+    assert not (tmp_path / "avaliacao.html").exists()
     for caminho in escritos:
         assert caminho.exists()
         if caminho.suffix == ".html":

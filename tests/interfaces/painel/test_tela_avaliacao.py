@@ -1,9 +1,4 @@
-from interfaces.painel import tela_avaliacao
-
-
-def test_sem_eval_casos_jsonl_mostra_buraco_com_o_motivo(tmp_path):
-    html = tela_avaliacao.render(caminho_casos=tmp_path / "nao_existe.jsonl")
-
-    assert "ausente na trilha" in html
-    assert "eval/casos.jsonl" in html
-    assert "F8" in html
+# catraca-reduz-de-proposito: arquivo inteiro removido (issue #115, decisão do dono: "exclua essa
+# tela que não tem função ainda") — a tela Avaliação (`src/interfaces/painel/tela_avaliacao.py`)
+# saiu do painel inteiro, então o teste dela não tem mais o que cobrir. Tombstone exigido pelo
+# guard `testes-catraca` (a catraca só cresce por arquivo).

@@ -6,6 +6,20 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Removido
+- **Tela Avaliação removida do painel — não tinha função nesta entrega (issue #115, decisão do
+  dono: "exclua essa tela que não tem função ainda e não quero entregar nada por se fazer"):** a
+  tela só mostrava "eval/casos.jsonl não encontrado" (o conjunto de avaliação é da F8/#11, fechada
+  fora do escopo desta entrega) — hoje era um buraco entregue como item de menu. Saíram
+  `src/interfaces/painel/tela_avaliacao.py`, `tests/interfaces/painel/test_tela_avaliacao.py`, o
+  item de menu (`layout.py`), a escrita de `avaliacao.html` em `gerar.py`,
+  `examples/painel/avaliacao.html`/`capturas/avaliacao.png`, `docs/design/avaliacao.html` e o item
+  de menu correspondente nos demais protótipos de `docs/design/`. README e
+  `docs/design/ESPECIFICACAO.md` atualizados (a especificação manteve o desenho histórico, só com
+  uma nota apontando a decisão — "não apagar a história"). As 5 telas restantes continuam geradas
+  e servidas normalmente; `test_gerar.py` prova o conjunto (agora sem `avaliacao.html`) e
+  `test_layout.py` prova que o item some do menu.
+
 ### Corrigido
 - **4 defeitos de exibição vistos pelo dono no teste do `main` `957a1df` (issue #109):** (1)
   duplo clique em "Tentar de novo" antes da 1ª chamada de `/api/planos` resolver disparava 2

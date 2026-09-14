@@ -75,7 +75,6 @@ _ITENS_MENU = (
     ("Observabilidade", (
         ("/painel/rastreio.html", "🧭", "Rastreio", None),
         ("/painel/cotacoes.html", "📈", "Cotações", None),
-        ("/painel/avaliacao.html", "🎯", "Avaliação", None),
         ("/painel/index.html", "📚", "Histórico de atendimentos", "conversas"),
     )),
     ("Configuração", (
