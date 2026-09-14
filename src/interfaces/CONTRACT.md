@@ -182,7 +182,46 @@ fiel ao protótipo (que anima tentativa por tentativa). Documentado aqui e no re
   do corpo está dentro do mesmo `try`, com o mesmo tratamento visível de falha e o botão "Tentar de
   novo" que o erro de rede já usava.
 
-### Decisões registradas
-
 - 2026-09-13 — decisão da coordenação: os 3 achados de validação (#67 JS, #68 CEP na rota, #69
   configuração/ficha) entram juntos nesta frente, mesmo módulo de fronteira HTTP, mesmo PR.
+
+---
+
+## Seção da issue #57 (P14, PR 2 de 2) — rotas de status e caixa de entrada (append)
+
+### O que esta frente acrescenta
+
+- `interfaces.rotas_status_conversa` (novo, mesmo padrão de `interfaces.rotas_resposta_orientada`
+  — módulo próprio pelo teto de linhas do `file-loc-ceiling`): `POST /api/conversa/assumir`/
+  `encerrar`, despachadas em `_rotear_chat` numa única entrada (`if caminho in (...)`). Glue HTTP
+  (`_json`/`_ler_corpo_json`/`_conversation_id_ou_400`) vem de `interfaces.http_comum` (PR #76),
+  nunca duplicada.
+- `_responder_chat_contratar` ganha o campo `motivo` (`"contratar"` default | `"humano"`) —
+  `Intencao.QUER_CONTRATAR`/`QUER_FALAR_COM_HUMANO`, cada um com seu `MotivoHandoff` (#63).
+  `_corpo.html::contratar(textoDoLead, motivo)` — os 5 call-sites (3 do card de preço/ENCERRAR + 2
+  de `habilitarCampoDeObjecao`, #75) mandam o campo.
+- `interfaces.painel.tela_conversas` ganha caixa de entrada de verdade (S13, pedido do dono ao
+  testar a tela): lista à esquerda, UMA conversa por vez à direita, seleção por clique + hash da
+  URL, motivo/contato do handoff (S12, `interfaces.painel.motivos`, dono único) e botões Assumir/
+  Encerrar chamando as rotas acima — nunca uma regra de habilitação em JS (o `disabled` vem do
+  `dominio.status_conversa` já calculado no servidor). `interfaces.painel.layout`: item "Fila
+  humana" aponta pro Histórico filtrado (`?status=aguardando_corretor`), rótulo/ícone intactos.
+
+### O que NÃO é responsabilidade desta seção
+
+- A caixa de resposta do corretor, a consulta periódica e a continuidade do chat do lead (issue
+  #86, decisão do dono 13/09/2026 ~22:45) — o cabeçalho da conversa selecionada em `tela_conversas`
+  fica isolado de propósito como ponto de extensão, sem construir nada disso agora.
+- `tela_fila_humana.py` continua existindo nesta versão: o catálogo de "todo motivo com descrição"
+  que ela mostra (`test_regra_de_regras_a_lista_exibida_e_exatamente_a_do_enum`) não tem
+  equivalente em `tela_conversas` (que só mostra o motivo DA conversa aberta, não uma lista de
+  referência de todos os motivos possíveis) — removê-la agora apagaria essa capacidade sem
+  substituto. Decisão desta frente: manter a página (só o menu deixou de apontar pra ela
+  diretamente), sinalizado aqui em vez de removido calado (LEI 9).
+
+### Decisões registradas
+
+- 2026-09-13/14 — issue #57 (P14, PR 2 de 2): status/filtro/botões entram nesta frente; a extração
+  de `_DESCRICAO_MOTIVO` (`interfaces.painel.motivos`) só aconteceu depois do merge do PR #75
+  (#58), que já tinha acrescentado `RESPOSTA_ORIENTADA_INDISPONIVEL` ao mapa — evitando perder essa
+  entrada num conflito de merge, por instrução explícita da coordenação.
