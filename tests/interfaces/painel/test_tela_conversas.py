@@ -74,12 +74,34 @@ def test_item_da_conversa_selecionada_tem_a_classe_selecionado(trilha_fixture):
 
 def test_botoes_assumir_e_encerrar_habilitados_conforme_o_status(trilha_fixture):
     """`conv_b93c` está em Aguardando corretor: Assumir E Encerrar são transições válidas dali
-    (`dominio.status_conversa.pode_assumir`/`pode_encerrar`) — nenhum dos dois vem `disabled`."""
+    (`dominio.status_conversa.pode_assumir`/`pode_encerrar`) — nenhum dos dois vem `disabled`.
+    issue #92: os botões não têm mais `onclick` com o id interpolado numa string JS — o id vem de
+    `data-conversation-id`, lido pelo `addEventListener` delegado no `_JS`."""
     html = tela_conversas.render(trilha_fixture)
-    assert "onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/assumir')\">Assumir</button>" in html
-    assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/assumir')\">" not in html
-    assert "onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">Encerrar</button>" in html
-    assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">" not in html
+    assert 'data-conversation-id="conv_b93c" data-rota="/api/conversa/assumir">Assumir</button>' in html
+    assert 'disabled data-conversation-id="conv_b93c" data-rota="/api/conversa/assumir">' not in html
+    assert 'data-conversation-id="conv_b93c" data-rota="/api/conversa/encerrar">Encerrar</button>' in html
+    assert 'disabled data-conversation-id="conv_b93c" data-rota="/api/conversa/encerrar">' not in html
+    assert "onclick=\"transicaoDeStatus" not in html
+
+
+def test_conversation_id_com_aspa_simples_nao_gera_onclick_perigoso():
+    """issue #92: `conversation_id` malicioso (`x');alert(1);('`) não pode virar uma aspa que
+    escapa de uma string JS dentro de um atributo `onclick=`. O conserto remove TODA interpolação
+    de id em string JS — só sobra em `data-*`, HTML-escapado de verdade (o navegador decodifica o
+    atributo, mas o valor nunca volta a ser interpretado como código)."""
+    payload = "x');alert(1);('"
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": payload, "id": "m1",
+        "instante": "2026-09-13T10:00:00", "texto": "oi",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "onclick=" not in html
+    # esc() escapa a aspa simples pra &#x27; — dentro de data-* isso é seguro (o navegador decodifica
+    # o atributo, mas o valor nunca é reinterpretado como código JS, ao contrário de dentro de onclick=).
+    assert 'data-alvo="x&#x27;);alert(1);(&#x27;"' in html
 
 
 # ── motivo/contato do handoff (S12) — migrado de `test_tela_fila_humana.py` (removida na

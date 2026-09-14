@@ -221,17 +221,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 <option value="encerrada">Encerrada</option>
       </select>
     </header>
-    <button class="item" data-status="aguardando_corretor" data-alvo="conv-453a5245" onclick="selecionarConversa('conv-453a5245')">
+    <button class="item" data-status="aguardando_corretor" data-alvo="conv-453a5245">
           <span class="l1"><span class="nome">conv-453a5245</span></span>
           <span class="previa">Aguardando corretor</span>
           <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
-<button class="item" data-status="aguardando_corretor" data-alvo="conv-acca9633" onclick="selecionarConversa('conv-acca9633')">
+<button class="item" data-status="aguardando_corretor" data-alvo="conv-acca9633">
           <span class="l1"><span class="nome">conv-acca9633</span></span>
           <span class="previa">Aguardando corretor</span>
           <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
-<button class="item selecionado" data-status="cotada" data-alvo="conv-c2c205cd" onclick="selecionarConversa('conv-c2c205cd')">
+<button class="item selecionado" data-status="cotada" data-alvo="conv-c2c205cd">
           <span class="l1"><span class="nome">conv-c2c205cd</span></span>
           <span class="previa">Essencial · R$ 137,88/mês</span>
           <span class="chip ok" style="margin-top:6px">Cotada</span>
@@ -244,8 +244,8 @@ button[disabled]{opacity:.45;cursor:not-allowed}
       <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
       <div class="contexto"><b>Já coletado:</b> Idade: 80, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
       <div class="acoes">
-        <button class="botao principal"  onclick="transicaoDeStatus('conv-453a5245', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao"  onclick="transicaoDeStatus('conv-453a5245', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal"  data-conversation-id="conv-453a5245" data-rota="/api/conversa/assumir">Assumir</button>
+        <button class="botao"  data-conversation-id="conv-453a5245" data-rota="/api/conversa/encerrar">Encerrar</button>
       </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T04:34:33.555752+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">80</div>
@@ -266,8 +266,8 @@ button[disabled]{opacity:.45;cursor:not-allowed}
       <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
       <div class="contexto"><b>Já coletado:</b> Idade: 35, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
       <div class="acoes">
-        <button class="botao principal"  onclick="transicaoDeStatus('conv-acca9633', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao"  onclick="transicaoDeStatus('conv-acca9633', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal"  data-conversation-id="conv-acca9633" data-rota="/api/conversa/assumir">Assumir</button>
+        <button class="botao"  data-conversation-id="conv-acca9633" data-rota="/api/conversa/encerrar">Encerrar</button>
       </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T04:34:26.204239+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
@@ -286,8 +286,8 @@ button[disabled]{opacity:.45;cursor:not-allowed}
       <header><h2>conv-c2c205cd</h2><span class="aux">Cotada</span></header>
       
       <div class="acoes">
-        <button class="botao principal" disabled onclick="transicaoDeStatus('conv-c2c205cd', '/api/conversa/assumir')">Assumir</button>
-        <button class="botao" disabled onclick="transicaoDeStatus('conv-c2c205cd', '/api/conversa/encerrar')">Encerrar</button>
+        <button class="botao principal" disabled data-conversation-id="conv-c2c205cd" data-rota="/api/conversa/assumir">Assumir</button>
+        <button class="botao" disabled data-conversation-id="conv-c2c205cd" data-rota="/api/conversa/encerrar">Encerrar</button>
       </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T04:34:25.874657+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
@@ -338,6 +338,17 @@ function transicaoDeStatus(conversationId, rota) {
     return resposta.json().then(function (corpo) { alert(corpo.erro || "Não foi possível concluir a ação."); });
   }).catch(function () { alert("Não consegui falar com o servidor agora."); });
 }
+// issue #92: um addEventListener delegado só, em vez do atributo inline antigo com o id
+// interpolado numa string JS (o `esc()` HTML-escapa a aspa simples pra `&#x27;`, mas o navegador
+// DECODIFICA o atributo antes de rodar o handler inline como código — a aspa decodificada fechava
+// a string e permitia injetar JS). `data-alvo`/`data-conversation-id`/`data-rota` são atributos
+// HTML comuns: o navegador nunca reinterpreta o valor como código, só como texto em `dataset`.
+document.addEventListener("click", function (evento) {
+  var item = evento.target.closest("[data-alvo]");
+  if (item) { selecionarConversa(item.dataset.alvo); return; }
+  var botao = evento.target.closest("[data-rota]");
+  if (botao && !botao.disabled) transicaoDeStatus(botao.dataset.conversationId, botao.dataset.rota);
+});
 (function () {
   var params = new URLSearchParams(window.location.search);
   var status = params.get("status");
