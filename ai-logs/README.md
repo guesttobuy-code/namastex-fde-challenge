@@ -8,20 +8,19 @@ padrões pós-sanitização da exportação REAL (não do ensaio) e colar a saí
 
 # `ai-logs/` — índice das conversas com IA
 
-Este projeto foi construído por várias sessões de IA, cada frente numa worktree própria (LEI 73 do
-método: 1 chat = 1 branch = 1 worktree = 1 PR — com exceções pontuais, documentadas onde acontecem,
-em que a mesma sessão conduziu mais de uma frente por ordem do dono). Esta pasta guarda a
-transcrição de cada uma, sanitizada — usuário da máquina, sobrenome do dono, e-mail e nome de outro
-projeto do dono removidos; segredos e dados pessoais verificados por script, que recusa exportar se
-a checagem não puder rodar (`scripts/sanitizar_ai_logs.py`).
+Este projeto foi construído por várias sessões de IA, cada frente numa worktree própria (seção
+"A esteira" do `CLAUDE.md`: 1 chat = 1 frente = 1 branch = 1 worktree = 1 PR — com exceções
+pontuais, documentadas onde acontecem, em que a mesma sessão conduziu mais de uma frente por ordem
+do dono). Esta pasta guarda a transcrição de cada uma, sanitizada — usuário da máquina, sobrenome
+do dono, e-mail e nome de outro projeto do dono removidos; segredos e dados pessoais verificados por
+script, que recusa exportar se a checagem não puder rodar (`scripts/sanitizar_ai_logs.py`).
 
 ## Ferramentas usadas
 
 - **Claude Code** — todas as sessões abaixo (coordenação e frentes). É a ferramenta principal deste
   projeto.
 - **Codex** — uma auditoria externa (red-team do roadmap), antes de qualquer código:
-  [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md),
-  idêntico ao original recebido.
+  [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md).
 - **ChatGPT não entra** — por ordem do dono, porque não foi usado no trabalho deste desafio.
 
 ## Índice por papel
@@ -43,10 +42,10 @@ a checagem não puder rodar (`scripts/sanitizar_ai_logs.py`).
 | `conversas-chat/` | F14 — casca única + chat; depois, por ordem do dono, mais 3 frentes na mesma sessão (chat 12) | Menu lateral e chat guiado ligado ao agente real ([PR #47](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/47), [PR #62](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/62), mergeados); depois `ia-responde` ([PR #75](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/75)), `prompt-carencia` ([PR #82](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/82)) e `docker-env-llm` ([PR #84](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/84)) — todos mergeados |
 | `texto-ao-lead/` | Formato brasileiro de preço e recusa educada | `_valor_br`, `nomes_cobertura` ([PR #60](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/60), mergeado) |
 | `correcoes-contratos/` | 3º contrato de camadas | `aplicacao` não importa `infra`/`interfaces` ([PR #61](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/61), mergeado) |
-| `status-conversa/` | Pedido explícito de humano; depois, por ordem do dono, mais 2 frentes na mesma sessão (chat 16) | `LEAD_PEDIU_HUMANO` ([PR #63](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76)) e `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85)) — todos mergeados |
-| `trilha-coleta/` | Trilha da coleta determinística + 3 achados de auditoria; depois, por ordem do dono, `precommit-enxuto` na mesma sessão (chat 17) | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `precommit-enxuto` ([PR #73](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/73)) e, mais tarde, a mesma sessão também assumiu `status-da-conversa` ([PR #87](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/87)) — todos mergeados |
-| `entrega/` | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77)) e `atendimento-chat-lead` (issue #86, em andamento) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice |
-| `codex/` | Auditoria externa (Codex), antes de qualquer código | Red-team do roadmap — [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md), idêntico ao original |
+| `status-conversa/` | Pedido explícito de humano (chat 17); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | `LEAD_PEDIU_HUMANO` ([PR #63](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63), mergeado); depois `status-da-conversa` ([PR #87](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/87), mergeado), `precommit-enxuto` ([PR #73](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/73), mergeado) e `robustez-quote-entrada` (issue #67/#68/#69, aberta, sem PR ainda) |
+| `trilha-coleta/` | Trilha da coleta determinística + 3 achados de auditoria (chat 16); depois, pela mesma sessão e por ordem do dono, mais 3 frentes | Fecha #51/#39/#38/#55 ([PR #64](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/64), mergeado); depois `trilha-chat-web` ([PR #76](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/76), mergeado), `leis-processo` ([PR #85](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/85), mergeado) e `relatorio-crm` ([PR #80](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/80), mergeado) |
+| `entrega/` | F12 — README, smoke test, exportação dos `ai-logs/`; por ordem do dono, também `fichas-objecao` ([PR #77](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/77), mergeado) na mesma sessão | Este README, o roteiro de teste do README, o congelamento, este índice. `atendimento-chat-lead` (issue #86) também está aberta nesta sessão, sem commit nem PR ainda |
+| `codex/` | Auditoria externa (Codex), antes de qualquer código | Red-team do roadmap — [`codex/2026-09-11-red-team-e-parecer-codex.md`](codex/2026-09-11-red-team-e-parecer-codex.md) |
 
 Cada pasta de sessão tem o `.jsonl` principal (a conversa) e, quando a sessão usou subagentes, uma
 subpasta `subagents/` com a transcrição de cada um — a varredura cobre os dois (achado da issue #15:
@@ -98,8 +97,10 @@ vai ter a saída completa do script]`.
 ## O que ficou de fora, e por quê
 
 - **A conversa de configuração do kit (`projeto-base`) não entrou como transcrição.** Ela é a origem
-  de outro projeto do dono e ficaria ilegível depois de sanitizada. Isso foi avisado ao avaliador
-  antes da entrega, como o próprio enunciado orienta.
+  de outro projeto do dono, não é trabalho deste desafio, e ficaria ilegível depois de sanitizada.
+  Se cabe um aviso explícito ao avaliador sobre essa exclusão (como o enunciado orienta para quando
+  a exportação de algo não é viável) é decisão do dono — item C7 da
+  [#89](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/89), ainda "a confirmar".
 - **Uma transcrição de subagente da frente `llm` foi excluída inteira**, não só sanitizada: durante o
   trabalho normal da frente, um subagente abriu o `.env` da máquina sem querer e a chave completa da
   API do OpenRouter ficou gravada na transcrição dele. A chave nunca chegou a ser exposta
@@ -107,8 +108,9 @@ vai ter a saída completa do script]`.
   script cobre transcrições de subagente, não só a conversa principal. A transcrição em questão foi
   excluída inteira da exportação (não redigida — o risco de uma chave real escapar de um script de
   regex era maior que o valor de manter aquele trecho específico legível). O aprendizado e o conserto
-  (varredura de subagentes + checagem final que aborta) estão documentados no `CHANGELOG.md` e na
-  issue [#15](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/15).
+  (varredura de subagentes + checagem final que aborta) estão documentados no `CHANGELOG.md` e no
+  [comentário da coordenação na #15](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/15#issuecomment-5648754665)
+  que mediu o incidente.
 
 ## Como navegar
 
@@ -116,5 +118,5 @@ Um corpus deste tamanho não se lê linear. Sugestão: comece pela issue-diário
 [#16](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/16) (a ata da coordenação —
 tem o resumo de cada decisão importante com o link pra sessão que a tomou), depois entre na sessão
 específica se quiser ver o raciocínio completo por trás de uma decisão. Várias sessões conduziram
-mais de uma frente por ordem do dono (LEI 73, exceção registrada caso a caso) — a tabela acima
+mais de uma frente por ordem do dono (exceção à esteira, registrada caso a caso) — a tabela acima
 declara qual pasta cobre qual frente.
