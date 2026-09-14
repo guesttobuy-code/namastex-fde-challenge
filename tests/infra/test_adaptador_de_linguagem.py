@@ -256,7 +256,7 @@ def test_openrouter_esquema_nao_seguido_nas_duas_chamadas_vira_esclarecimento_se
 
 def test_openrouter_origem_do_texto_carrega_modelo_e_versao_do_prompt():
     adaptador = AdaptadorDeLinguagemOpenRouter(chave="x", modelo="deepseek/deepseek-chat-v3.1")
-    assert adaptador.origem_do_texto == "llm:deepseek/deepseek-chat-v3.1@v2"
+    assert adaptador.origem_do_texto == "llm:deepseek/deepseek-chat-v3.1@v3"
 
 
 # ─── injeção: modelo já enganado, saída validada por esquema segura mesmo assim ──
