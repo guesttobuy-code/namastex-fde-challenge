@@ -7,6 +7,16 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **README com as ressalvas do PR #76 e os limites herdados do comentário de coordenação das 20:34
+  (issue #15):** §6 ganha as duas ressalvas não bloqueantes do veredito de auditoria do #76
+  (classificação de contato pelo nome do campo HTTP, sem autenticação; a pergunta também vira
+  marcador nos 3 campos de contato) e a nota da trilha por mensagem mascarando contato no servidor
+  (#51 parte 2). §9 ganha #1 (lentidão da `/quote` sob paralelismo) e #49 (achado de legibilidade:
+  duas classes `Decisao`, `conduzir_conversa` com 6 responsabilidades); #11 reescrito para dizer o
+  que interessa (dataset original não reprocessado, só medições agregadas). §1 declara "sem nuvem"
+  (#18, já fechada)
+
+### Corrigido
 - **README atualizado com o PR #64 (issue #15):** §5 ganha a nota de que a coleta determinística
   também grava pergunta a pergunta na trilha (`registrar_pergunta_de_coleta`/
   `registrar_resposta_de_coleta`, dono único), o `sender_role="sistema"` no evento de estado

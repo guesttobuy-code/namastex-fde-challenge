@@ -20,7 +20,8 @@ quando dá e encaminha pra um humano com motivo explícito quando não dá. O ca
 dados por texto livre** em vez do roteiro fixo de perguntas, opcional e desligado por padrão — ver
 [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) e a seção sobre coleta livre abaixo.
 
-**Um comando só sobe tudo** (decisão do dono, [ADR-0004](governance/adr/0004-servidor-local-conhecimento-json.md)):
+**Um comando só sobe tudo, tudo local — sem nuvem** (decisão do dono, issue #18,
+[ADR-0004](governance/adr/0004-servidor-local-conhecimento-json.md)):
 
 ```bash
 docker compose up --build
@@ -289,7 +290,19 @@ em `contato/leads/<conversation_id>.json` (`.gitignore`, volume próprio no `doc
 lido só pela Fila humana — dado operacional que o corretor precisa ver de verdade, dono diferente do
 histórico/trilha (LEI 11). Decisão e alternativas descartadas em
 [`docs/PRIVACIDADE.md`](docs/PRIVACIDADE.md#contato-do-lead-fora-do-git-nunca-na-trilha-issue-46-adr-0005)
-e [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md).
+e [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md). Desde a issue #51 (parte 2), a
+trilha por mensagem do chat (`POST /api/chat/mensagem`) troca nome/WhatsApp/e-mail por
+`[contato registrado fora da trilha]` no servidor, incondicional ao texto recebido — a decisão de
+privacidade é sempre do backend, nunca do JavaScript da tela.
+
+**Duas ressalvas não bloqueantes do veredito de auditoria do PR #76, declaradas aqui de propósito:**
+(1) o que conta como "campo de contato" vem do nome do campo que o cliente HTTP manda
+(`campo=nome`/`whatsapp`/`email`) — um cliente que mandasse um nome com outro nome de campo
+gravaria o valor real, e o redator de PII não reconhece nome próprio fora da lista conhecida; o
+fluxo guiado do próprio chat nunca faz isso, é um limite de uma rota sem autenticação
+([§10](#10-limites-conhecidos)); (2) nos 3 campos de contato, a **pergunta** também vira o
+marcador — a trilha perde o texto literal da pergunta ("qual é o seu nome completo?"), mantendo só
+o par com `id` e a ordem.
 
 **Gap declarado, ainda sem conserto:** quando a coleta por texto livre está ligada
 ([§1](#1-em-uma-frase-e-como-rodar)), o CEP é extraído do texto **bruto** antes do mascaramento e
@@ -376,7 +389,9 @@ não tem:
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
 | Especificação formal das 6 telas do mock (inclusive "Avaliação") | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
-| Dataset em camadas (Silver mascarado) | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
+| Dataset em camadas (Silver mascarado) — o `dataset/conversations.parquet` original não é reprocessado nem versionado de novo; o que este repositório usa dele são só medições agregadas (ex. as tabelas do ADR-0002), com qualquer PII mascarada pelo `redigir_texto` na leitura, nunca uma cópia derivada commitada | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
+| Lentidão da `/quote` acima da taxa configurada **sob chamadas em paralelo** (em série, a taxa medida bate com a configuração — [§3](#3-o-que-ele-faz-quando-a-quote-falha-o-ponto-que-mais-separa-diz-o-enunciado)) | investigado, sem conserto nesta entrega | [#1](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/1) |
+| Legibilidade: duas classes chamadas `Decisao` (`dominio/decisao.py` e `dominio/eventos_trilha.py`, esta importada como `DecisaoTrilha`), `conduzir_conversa` com ~80 linhas e 6 responsabilidades, leitura de ambiente espalhada por 4 arquivos | achado de auditoria de arquitetura, classificado como menor — documentado, não escondido | [#49](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/49) |
 
 O guard `plano-na-issue` ficou **vermelho** no PR #35 — troca consciente: essa frente rodou em
 "regime enxuto", autorizado explicitamente pelo dono no comentário de escopo, sem a rodada normal de
