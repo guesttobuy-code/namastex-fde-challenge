@@ -19,7 +19,16 @@ from interfaces.painel.agrupar import (
     estado_da_conversa,
     numeros_de_tentativa_ausentes,
 )
-from interfaces.painel.campos import buraco, campo, esc, lista, resposta_http_textual
+from interfaces.painel.campos import (
+    ROTULO_RESUMO_DO_SISTEMA,
+    buraco,
+    campo,
+    eh_resumo_do_sistema,
+    esc,
+    lista,
+    resposta_http_textual,
+    texto_da_resposta,
+)
 from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
@@ -79,6 +88,8 @@ def _secao_da_conversa(conversation_id: str, eventos: list[dict], estado: str) -
 
 def _linha_do_evento(evento: dict, eventos_da_conversa: list[dict]) -> str:
     tipo = evento.get("evento")
+    if tipo == "mensagem_recebida" and eh_resumo_do_sistema(evento):
+        return _ev_resumo_do_sistema(evento)
     if tipo == "mensagem_recebida":
         return _ev_mensagem(evento, "lead", "lead")
     if tipo == "mensagem_enviada":
@@ -97,7 +108,16 @@ def _linha_do_evento(evento: dict, eventos_da_conversa: list[dict]) -> str:
 def _ev_mensagem(evento: dict, classe: str, quem: str) -> str:
     return f"""<div class="ev {classe}">
       <div class="meta"><span class="quem">{esc(quem)}</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div>
-      <div class="balao">{campo(evento, "texto")}</div>
+      <div class="balao">{texto_da_resposta(evento)}</div>
+    </div>"""
+
+
+def _ev_resumo_do_sistema(evento: dict) -> str:
+    """`sender_role="sistema"` (issue #39): o resumo sintético da coleta, nunca texto do lead —
+    mesmo tratamento da tela de Conversas (issue #93, dono do rótulo em `campos.py`)."""
+    return f"""<div class="ev sistema">
+      <div class="meta"><span class="quem">sistema</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div>
+      <div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>
     </div>"""
 
 

@@ -1,0 +1,20 @@
+# Execução — conv-453a5245
+
+[2026-09-14T04:34:33.555752+00:00] mensagem_enviada id=msg_coleta_0_enviada decisao=dec_coleta_0 regra=coleta:pergunta
+[2026-09-14T04:34:33.557102+00:00] mensagem_recebida id=msg_coleta_0_recebida
+[2026-09-14T04:34:33.557737+00:00] mensagem_enviada id=msg_coleta_1_enviada decisao=dec_coleta_1 regra=coleta:pergunta
+[2026-09-14T04:34:33.558706+00:00] mensagem_recebida id=msg_coleta_1_recebida
+[2026-09-14T04:34:33.559297+00:00] mensagem_enviada id=msg_coleta_2_enviada decisao=dec_coleta_2 regra=coleta:pergunta
+[2026-09-14T04:34:33.559962+00:00] mensagem_recebida id=msg_coleta_2_recebida
+[2026-09-14T04:34:33.560471+00:00] mensagem_enviada id=msg_coleta_3_enviada decisao=dec_coleta_3 regra=coleta:pergunta
+[2026-09-14T04:34:33.561133+00:00] mensagem_recebida id=msg_coleta_3_recebida
+[2026-09-14T04:34:33.561733+00:00] mensagem_enviada id=msg_coleta_4_enviada decisao=dec_coleta_4 regra=coleta:pergunta
+[2026-09-14T04:34:33.562598+00:00] mensagem_recebida id=msg_coleta_4_recebida
+[2026-09-14T04:34:33.563825+00:00] mensagem_recebida id=msg_edcddae8
+[2026-09-14T04:34:36.566618+00:00] tentativa_de_cotacao id=78e8d646a07248fb9fe3f52200f14347 status=0 classificacao=timeout
+[2026-09-14T04:34:39.979438+00:00] tentativa_de_cotacao id=5862fe9cfd274b45b8c9730fac578e6a status=0 classificacao=timeout
+[2026-09-14T04:34:40.796453+00:00] tentativa_de_cotacao id=12607f3ae535498e8521c7bc70178a75 status=422 classificacao=recusa_de_negocio
+[2026-09-14T04:34:40.797806+00:00] decisao id=dec_ebac286d
+[2026-09-14T04:34:40.798942+00:00] mensagem_enviada id=msg_b5ce327e decisao=dec_ebac286d regra=politica.decidir:RECUSA_DE_NEGOCIO->ENCAMINHAR
+[2026-09-14T04:34:40.801030+00:00] handoff id=ho_d703e143 motivo=recusa_regra_de_aceitacao
+[2026-09-14T04:34:40.802021+00:00] status_alterado id=status_2c1bda24

@@ -33,7 +33,7 @@ from dominio.contato_lead import ContatoLead
 from dominio.redator import valor_br
 from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa, rotulo_de_exibicao
-from interfaces.painel.campos import buraco, campo, esc
+from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA, buraco, campo, esc, texto_da_resposta
 from interfaces.painel.layout import css_extra_da_tela, pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
@@ -115,16 +115,13 @@ def _resumo_da_ultima_cotacao(eventos_conversa: list[dict]) -> str | None:
 def _previa_da_conversa(eventos_conversa: list[dict], estado: str) -> str:
     """UI-B5 (achado da coordenação testando o conserto do UI-B4): sem fallback, toda conversa do
     chat guiado (cuja única `mensagem_recebida` é o resumo `sistema`, issue #39) caía no buraco
-    técnico — a mesma marcação usada pra falha REAL de gravação. Prioridade: (1) última mensagem
-    de verdade do lead; (2) resumo da última cotação respondida (formato estável do redator); (3)
-    rótulo do status (dono único: `agrupar.rotulo_de_exibicao`); buraco só quando a conversa não
-    tem NENHUM evento de mensagem — aí sim é perda de dado, não falta de teor."""
-    mensagens_do_lead = [
-        e for e in eventos_conversa
-        if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema"
-    ]
-    if mensagens_do_lead:
-        return campo(mensagens_do_lead[-1], "texto")
+    técnico — a mesma marcação usada pra falha REAL de gravação. issue #93 (2º ajuste, achado da
+    coordenação testando o 1º): a mensagem do LEAD saiu de vez da prévia — uma resposta de
+    formulário ("[REDIGIDO]", "80", "2020") não diz nada ao corretor na lista, e ela continua
+    inteira nos balões (`_secao_conversa`) e no Rastreio. Prioridade: (1) resumo da última cotação
+    respondida com sucesso (formato estável do redator); (2) rótulo do status (dono único:
+    `agrupar.rotulo_de_exibicao`); buraco só quando a conversa não tem NENHUM evento de mensagem —
+    aí sim é perda de dado, não falta de teor."""
     resumo = _resumo_da_ultima_cotacao(eventos_conversa)
     if resumo:
         return esc(resumo)
@@ -287,9 +284,9 @@ def _secao_conversa(
             # `.estado-interno` (já existe no mock pra exatamente isto: marcar um evento do sistema
             # no meio do fluxo, nunca um balão) em vez de inventar uma classe nova — escolha
             # declarada no corpo do PR.
-            balões.append('<div class="estado-interno">Resumo dos dados coletados</div>')
+            balões.append(f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>')
         elif tipo == "mensagem_recebida":
-            balões.append(f"""<div class="msg lead"><div class="balao">{campo(evento, "texto")}</div>
+            balões.append(f"""<div class="msg lead"><div class="balao">{texto_da_resposta(evento)}</div>
               <div class="rodape-msg"><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
         elif tipo == "mensagem_enviada":
             balões.append(f"""<div class="msg agente"><div class="balao">{campo(evento, "texto")}</div>

@@ -114,7 +114,7 @@ def coletar_dados(
         transcricao, conversation_id, 1, "Ano do veículo?", trilha, obrigatorio=True, entrada=entrada
     )
     cep = _perguntar_e_registrar(
-        transcricao, conversation_id, 2, "Qual o seu CEP? (formato 00000-000)", trilha,
+        transcricao, conversation_id, 2, "Qual o seu CEP? (8 números, com ou sem hífen)", trilha,
         obrigatorio=True, valido=validacao.cep_valido, entrada=entrada,
     )
     plano_id = _perguntar_e_registrar(

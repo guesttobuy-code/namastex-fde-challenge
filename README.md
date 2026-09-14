@@ -164,21 +164,24 @@ Sim — três execuções reais, sem edição, ficaram em `examples/` como entre
 enunciado), geradas por um roteiro reproduzível
 (`PYTHONPATH=src python scripts/gerar_examples.py`, contra o `quote-api` real):
 
-- [`examples/execucao_conv-2bdc86e8.log`](examples/execucao_conv-2bdc86e8.log) (E1) — cotação sai
+- [`examples/execucao_conv-c2c205cd.log`](examples/execucao_conv-c2c205cd.log) (E1) — cotação sai
   de primeira: `decisão: explicar_cotacao` / `Plano Essencial: R$ 137,88/mês...`. A trilha
-  ([`trilha_conv-2bdc86e8.jsonl`](examples/trilha_conv-2bdc86e8.jsonl)) mostra uma única tentativa
-  `200` (125ms, orçamento restante 9875ms).
-- [`examples/execucao_conv-c254c560.log`](examples/execucao_conv-c254c560.log) (E2) — a `/quote`
+  ([`trilha_conv-c2c205cd.jsonl`](examples/trilha_conv-c2c205cd.jsonl)) mostra uma única tentativa
+  `200` (308ms, orçamento restante 9692ms), já com `plano_nome`/`premio_mensal` estruturados
+  (issue #59 PR 2/2) — é o que o Histórico de atendimentos lê para a prévia "Essencial · R$
+  137,88/mês" ([§5](#5-dá-pra-rastrear-o-que-aconteceu)).
+- [`examples/execucao_conv-acca9633.log`](examples/execucao_conv-acca9633.log) (E2) — a `/quote`
   está indisponível (porta morta na sonda, nunca o serviço real) e o agente encaminha: `decisão:
   encaminhar (reason_code=quote_indisponivel)`. A trilha
-  ([`trilha_conv-c254c560.jsonl`](examples/trilha_conv-c254c560.jsonl)) mostra três tentativas
-  `indisponivel` (2054ms, 2028ms, 2041ms) até o orçamento não comportar mais uma tentativa (7,335s
-  de parede), e o `handoff` gravado com o motivo — nenhum preço inventado.
-- [`examples/execucao_conv-198a633b.log`](examples/execucao_conv-198a633b.log) (E3) — a `/quote`
+  ([`trilha_conv-acca9633.jsonl`](examples/trilha_conv-acca9633.jsonl)) mostra três tentativas
+  `indisponivel` (2035ms, 2034ms, 2041ms) até o orçamento não comportar mais uma tentativa, e o
+  `handoff` gravado com o motivo — nenhum preço inventado.
+- [`examples/execucao_conv-453a5245.log`](examples/execucao_conv-453a5245.log) (E3) — a `/quote`
   recusa a cotação por idade (80 anos, acima do limite de 75): `decisão: encaminhar
   (reason_code=recusa_regra_de_aceitacao)`. A trilha
-  ([`trilha_conv-198a633b.jsonl`](examples/trilha_conv-198a633b.jsonl)) mostra a tentativa `422`
-  (recusa_de_negocio, 31ms) e o `handoff` com o mesmo motivo.
+  ([`trilha_conv-453a5245.jsonl`](examples/trilha_conv-453a5245.jsonl)) mostra a instabilidade
+  simulada da `/quote` de verdade: duas tentativas `timeout` (3002ms, 3010ms) antes da tentativa 3
+  `422` (recusa_de_negocio, 15ms) — e o `handoff` com o mesmo motivo.
 
 ---
 
@@ -368,7 +371,7 @@ possíveis são `mensagem_recebida`, `mensagem_enviada` (com `decisao_id`/`regra
 `origem_do_texto`/`quote_attempt_id` — proveniência, não só o texto), `tentativa_de_cotacao` (uma por
 chamada HTTP, não por cotação — com `http_status`, `classificacao`, `latencia_ms`,
 `orcamento_restante_ms`), `decisao`, `handoff`, e dois para correção de erro (`erro_marcado`,
-`correcao_registrada`) que os dois exemplos em `examples/` não exercitam.
+`correcao_registrada`) que os três exemplos em `examples/` não exercitam.
 
 **A coleta determinística (sem LLM) também grava pergunta a pergunta na trilha** — antes só o
 caminho por LLM fazia isso. `aplicacao.servico_conversa.registrar_pergunta_de_coleta`/
@@ -385,8 +388,8 @@ prompt — a resposta do lead continua sempre redigida; teste ponta a ponta em
 invariante nova `I-4` (`src/interfaces/CONTRACT.md`) coberta por teste dedicado
 (`tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto`).
 
-**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — cinco telas em
-HTML estático geradas do mesmo `.jsonl` acima; quatro sem servidor nem JavaScript, e a de
+**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em
+HTML estático geradas do mesmo `.jsonl` acima; cinco sem servidor nem JavaScript, e a de
 Conversas ganhou os botões Assumir/Encerrar (issue #57 PR 2, #87), que dependem do
 `interfaces.servidor` rodando para funcionar (neste snapshot standalone eles aparecem, mas não
 respondem):
@@ -421,10 +424,13 @@ duas formas do comando acima). Uma tela por link no topo:
 - **Avaliação** (`avaliacao.html`) — mostra **"eval/casos.jsonl não encontrado"** de propósito: o
   conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
   declarado aparecendo onde o avaliador olha.
+- **Relatório** (`relatorio.html`, issue #59 PR 2/2) — uma linha por conversa (lead, status, data
+  de entrada, pendência, plano cotado), com **Exportar CSV** (`relatorio.csv`, também commitado) —
+  leitura e priorização para o corretor, nunca edição.
 
-**Um número real, com a fonte:** nestes 3 exemplos, as 4 tentativas que falharam (3
-`indisponivel` do E2, 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na mesma
-cotação — **0% (0 de 4) absorvidas por retry**
+**Um número real, com a fonte:** nestes 3 exemplos, as 6 tentativas que falharam (3
+`indisponivel` do E2, 2 `timeout` + 1 `recusa_de_negocio` do E3) nunca tiveram sucesso depois na
+mesma cotação — **0% (0 de 6) absorvidas por retry**
 ([`examples/painel/cotacoes.html`](examples/painel/cotacoes.html), calculado por
 `_absorcao_por_retry` em `src/interfaces/painel/tela_cotacoes.py` a partir das trilhas reais de
 `examples/`). O KPI é real, não fixo — quando um exemplo tiver uma tentativa que falha e a mesma
