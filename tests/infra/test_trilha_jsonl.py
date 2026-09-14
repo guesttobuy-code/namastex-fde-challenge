@@ -6,6 +6,8 @@ despercebido se o teste só checasse "o arquivo existe depois de um registrar()"
 
 import json
 
+import pytest
+
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL, RepositorioDeTrilhaMemoria
 
 
@@ -71,3 +73,77 @@ def test_todos_os_eventos_do_dublê_em_memoria_bate_com_o_do_jsonl(tmp_path):
     duble.registrar({"evento": "x", "conversation_id": "conv_2", "id": "b"})
 
     assert [e["id"] for e in duble.todos_os_eventos()] == ["a", "b"]
+
+
+def _linha(evento: dict) -> str:
+    return json.dumps(evento, ensure_ascii=False)
+
+
+def test_ultima_linha_sem_newline_e_ignorada_por_estar_em_gravacao(tmp_path):
+    """L1 (issue #117): com o servidor concorrente, um leitor pode abrir o arquivo bem no meio de
+    um `registrar()` de outra thread — a ÚLTIMA linha do arquivo pode não ter terminado de ser
+    escrita ainda (sem `\\n` no final). Os dois leitores precisam devolver só o evento completo,
+    nunca levantar `JSONDecodeError` por causa da ponta em gravação."""
+    caminho = tmp_path / "trilha.jsonl"
+    completo = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"})
+    em_gravacao = _linha({"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02"})
+    caminho.write_text(f"{completo}\n{em_gravacao[: len(em_gravacao) // 2]}", encoding="utf-8")
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    assert [e["id"] for e in repositorio.eventos_da_conversa("conv_1")] == ["msg_01"]
+    assert [e["id"] for e in repositorio.todos_os_eventos()] == ["msg_01"]
+
+
+def test_linha_completa_invalida_no_meio_do_arquivo_continua_levantando(tmp_path):
+    """L1 (issue #117): ignorar a ponta em gravação não pode virar desculpa pra engolir corrupção
+    de verdade — uma linha JÁ TERMINADA (com `\\n`) mas com JSON quebrado no MEIO do arquivo
+    continua levantando `JSONDecodeError`, os dois leitores."""
+    caminho = tmp_path / "trilha.jsonl"
+    valido_1 = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"})
+    valido_2 = _linha({"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02"})
+    caminho.write_text(f"{valido_1}\n{{corrompido de verdade\n{valido_2}\n", encoding="utf-8")
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    with pytest.raises(json.JSONDecodeError):
+        repositorio.eventos_da_conversa("conv_1")
+    with pytest.raises(json.JSONDecodeError):
+        repositorio.todos_os_eventos()
+
+
+def test_ultima_linha_cortada_no_meio_de_um_caractere_utf8_e_ignorada(tmp_path):
+    """L1, achado da auditoria do PR #120: `read_text` decodifica o ARQUIVO INTEIRO de uma vez —
+    uma escrita interrompida no meio de um caractere multibyte (ex.: "ã", 2 bytes em UTF-8) quebra
+    a decodificação inteira, mesmo que a ponta cortada nem chegue a ser lida como evento. Texto de
+    lead/IA em português tem acento na maioria das linhas. Corta a segunda linha exatamente no meio
+    dos bytes de "ã" — os dois leitores continuam devolvendo só o evento completo, sem
+    `UnicodeDecodeError`."""
+    caminho = tmp_path / "trilha.jsonl"
+    completo = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"}).encode("utf-8")
+    em_gravacao = _linha(
+        {"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02", "texto": "cotação"}
+    ).encode("utf-8")
+    corte = em_gravacao.index("ã".encode("utf-8")) + 1  # no meio dos 2 bytes de "ã", nunca na fronteira
+    caminho.write_bytes(completo + b"\n" + em_gravacao[:corte])
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    assert [e["id"] for e in repositorio.eventos_da_conversa("conv_1")] == ["msg_01"]
+    assert [e["id"] for e in repositorio.todos_os_eventos()] == ["msg_01"]
+
+
+def test_arquivo_terminado_em_crlf_continua_lendo_igual(tmp_path):
+    """`registrar` abre em modo texto (`newline=None`) — no Windows isso grava `\\r\\n`, não só
+    `\\n` (`arquivo.write(json + "\\n")` sofre a tradução universal-newline na escrita). Escreve os
+    bytes `\\r\\n` direto (sem depender do SO rodando o teste) e confere que a leitura em bytes
+    continua devolvendo os dois eventos — `json.loads` aceita o `\\r` residual no fim da linha."""
+    caminho = tmp_path / "trilha.jsonl"
+    linha_1 = _linha({"evento": "mensagem_recebida", "conversation_id": "conv_1", "id": "msg_01"}).encode("utf-8")
+    linha_2 = _linha({"evento": "mensagem_enviada", "conversation_id": "conv_1", "id": "msg_02"}).encode("utf-8")
+    caminho.write_bytes(linha_1 + b"\r\n" + linha_2 + b"\r\n")
+
+    repositorio = RepositorioDeTrilhaJSONL(caminho)
+
+    assert [e["id"] for e in repositorio.eventos_da_conversa("conv_1")] == ["msg_01", "msg_02"]
+    assert [e["id"] for e in repositorio.todos_os_eventos()] == ["msg_01", "msg_02"]
