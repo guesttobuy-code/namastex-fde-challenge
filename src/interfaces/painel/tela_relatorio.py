@@ -1,13 +1,10 @@
-"""Tela Relatório ("CRM simples de leitura", issue #59) — uma linha por conversa: lead (nome,
-WhatsApp, e-mail), status, data de entrada, pendência, plano cotado e o histórico completo da
-conversa, com exportação em CSV. `render()`/`gerar_csv()` recebem as LINHAS já montadas (status
-como valor string + rótulo prontos) e NUNCA decidem o que é status — só exibem. A montagem real a
-partir da trilha e do módulo oficial de status (`dominio.status_conversa`, issue #57 PR 2/2, ainda
-não mergeada) e a ligação com `layout.py`/`gerar.py` (item de menu, escrita real do CSV em disco)
-ficam para depois do merge: importar `dominio.status_conversa`/`interfaces.painel.agrupar` (as
-funções novas dele) aqui hoje duplicaria a regra antes mesmo dela existir em commit alcançável
-(LEI 11) — por isso `render`/`gerar_csv`/`montar_historico` já valem para a forma final, mas quem
-chama com dado real da trilha só nasce no PR 2/2.
+"""Tela Relatório ("CRM simples de leitura", issue #59) — uma linha por conversa: identificador da
+conversa, lead (nome, WhatsApp, e-mail), status, data de entrada, pendência, plano cotado e o
+histórico completo, com exportação em CSV. `render()`/`gerar_csv()` recebem as LINHAS já montadas
+(status como valor string + rótulo prontos) e NUNCA decidem o que é status — só exibem.
+`montar_linhas` (único chamador esperado: `interfaces.painel.gerar`) monta essas linhas a partir da
+trilha real, consumindo `dominio.status_conversa`/`interfaces.painel.agrupar`/`interfaces.painel.motivos`
+(issue #57 PR 2/2, mergeada) — nunca reimplementa a regra de status/motivo aqui (LEI 11).
 
 Nome/WhatsApp/e-mail do lead (issue #59, comentário 5657857383 — decisão do dono, revoga a
 abreviação provisória do PR 1/2): "o csv precisa ser completo com todos os campos, sem exceção" —
@@ -39,10 +36,12 @@ from datetime import datetime
 from typing import Any
 
 from dominio.redator import valor_br
+from interfaces.painel.agrupar import agrupar_por_conversa, estado_da_conversa, rotulo_de_exibicao
 from interfaces.painel.campos import campo, esc
 from interfaces.painel.layout import pagina
+from interfaces.painel.motivos import descricao_do_motivo
 
-_COLUNAS_CSV = ("lead", "whatsapp", "email", "status", "data_entrada", "pendencia", "plano_cotado", "historico")
+_COLUNAS_CSV = ("conversation_id", "lead", "whatsapp", "email", "status", "data_entrada", "pendencia", "plano_cotado", "historico")
 
 # Injeção de fórmula em CSV aberto no Excel (R4, condição 4 da coordenação — comentário 5657544152):
 # célula que começa com qualquer um destes ganha um `'` na frente.
@@ -101,7 +100,7 @@ def _linha_html(linha: dict[str, Any]) -> str:
       <td>{esc(_data_br(linha.get("data_entrada")))}</td>
       <td>{esc(linha.get("pendencia") or _SEM_PENDENCIA)}</td>
       <td>{esc(linha.get("plano_cotado") or _AINDA_NAO_COTADO)}</td>
-      <td>{_ver_conversa_html(linha.get("historico"))}</td>
+      <td><code>{esc(linha.get("conversation_id"))}</code><br>{_ver_conversa_html(linha.get("historico"))}</td>
     </tr>"""
 
 
@@ -198,6 +197,32 @@ def plano_cotado_da_conversa(eventos_da_conversa: list[dict[str, Any]]) -> str:
     return f"{ultima['plano_nome']} — R$ {valor_br(ultima['premio_mensal'])}/mês"
 
 
+def montar_linhas(eventos: list[dict[str, Any]], *, contatos: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Monta as linhas reais a partir da trilha — único chamador esperado é `interfaces.painel.gerar`.
+    Nunca decide status (`agrupar.estado_da_conversa`/`rotulo_de_exibicao`, dono único desde a
+    #57) nem motivo (`motivos.descricao_do_motivo`) — só consome (LEI 11)."""
+    contatos = contatos or {}
+    linhas = []
+    for conversation_id, eventos_conversa in agrupar_por_conversa(eventos).items():
+        contato = contatos.get(conversation_id)
+        status_valor = estado_da_conversa(eventos_conversa)
+        handoffs = [e for e in eventos_conversa if e.get("evento") == "handoff"]
+        primeiro = eventos_conversa[0] if eventos_conversa else {}
+        linhas.append({
+            "conversation_id": conversation_id,
+            "nome": contato.nome if contato else None,
+            "whatsapp": contato.whatsapp if contato else None,
+            "email": contato.email if contato else None,
+            "status_valor": status_valor,
+            "status_rotulo": rotulo_de_exibicao(status_valor),
+            "data_entrada": primeiro.get("instante"),
+            "pendencia": descricao_do_motivo(handoffs[-1].get("reason_code")) if handoffs else None,
+            "plano_cotado": plano_cotado_da_conversa(eventos_conversa),
+            "historico": montar_historico(eventos_conversa),
+        })
+    return linhas
+
+
 def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
     """`;` (decimal do pt-BR é `,`) e BOM UTF-8 (Excel pt-BR não detecta UTF-8 puro) — por isso
     bytes, não str: BOM é um artefato de byte, não de texto. Todas as colunas da tela, mais o
@@ -208,6 +233,7 @@ def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
     escritor.writerow(_COLUNAS_CSV)
     for linha in linhas:
         escritor.writerow([
+            _neutralizar_formula_csv(linha.get("conversation_id") or ""),
             _neutralizar_formula_csv(linha.get("nome") or _NAO_INFORMADO),
             _neutralizar_formula_csv(linha.get("whatsapp") or _NAO_INFORMADO),
             _neutralizar_formula_csv(linha.get("email") or _NAO_INFORMADO),

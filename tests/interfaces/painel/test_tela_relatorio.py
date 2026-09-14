@@ -241,8 +241,21 @@ def test_csv_tem_todas_as_colunas_da_tela_mais_historico():
     csv_texto = tela_relatorio.gerar_csv(linhas).decode("utf-8-sig")
     cabecalho = csv_texto.splitlines()[0]
 
-    for coluna in ("lead", "whatsapp", "email", "status", "data_entrada", "pendencia", "plano_cotado", "historico"):
+    for coluna in ("conversation_id", "lead", "whatsapp", "email", "status", "data_entrada", "pendencia", "plano_cotado", "historico"):
         assert coluna in cabecalho
+
+
+def test_conversation_id_aparece_na_coluna_conversa_e_no_csv():
+    """Ordem do dono: 'todos os campos, sem exceção' — conversation_id é a chave de rastreio, tem
+    que aparecer na tela E no CSV, não só existir na linha internamente."""
+    linhas = [_linha(conversation_id="conv_abc123")]
+
+    html = tela_relatorio.render(linhas)
+    csv_texto = tela_relatorio.gerar_csv(linhas).decode("utf-8-sig")
+
+    assert "conv_abc123" in html
+    linha_csv = csv_texto.splitlines()[1]
+    assert "conv_abc123" in linha_csv
 
 
 def test_csv_neutraliza_injecao_de_formula():
@@ -277,3 +290,107 @@ def test_render_nao_tem_nenhum_elemento_editavel():
     assert "<button" not in html
     links = re.findall(r'<a[^>]*href="([^"]*)"[^>]*>', html)
     assert "relatorio.csv" in links
+
+
+class _ContatoFake:
+    def __init__(self, nome, whatsapp, email=None):
+        self.nome = nome
+        self.whatsapp = whatsapp
+        self.email = email
+
+
+def test_montar_linhas_reconstroi_status_de_trilha_sem_status_alterado():
+    """R7 — trilha antiga (sem MudancaDeStatus): montar_linhas usa agrupar.estado_da_conversa, que
+    já reconstrói pelo último decisao/handoff — nunca uma segunda regra aqui (LEI 11)."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "2026-09-13T10:00:00", "texto": "oi"},
+        {"evento": "decisao", "conversation_id": "c1", "id": "d1", "instante": "2026-09-13T10:00:01", "tipo": "coletar_informacao"},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert len(linhas) == 1
+    assert linhas[0]["status_valor"] == "com_o_agente"
+    assert linhas[0]["status_rotulo"] == "Com o agente"
+
+
+def test_montar_linhas_preenche_contato_a_partir_do_dict_contatos():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "2026-09-13T10:00:00", "texto": "oi"},
+    ]
+    contatos = {"c1": _ContatoFake(nome="Ana Lima", whatsapp="+5511988887777", email="ana@example.com")}
+
+    linhas = tela_relatorio.montar_linhas(eventos, contatos=contatos)
+
+    assert linhas[0]["nome"] == "Ana Lima"
+    assert linhas[0]["whatsapp"] == "+5511988887777"
+    assert linhas[0]["email"] == "ana@example.com"
+
+
+def test_montar_linhas_sem_contato_nao_inventa_nome():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "2026-09-13T10:00:00", "texto": "oi"},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos, contatos={})
+
+    assert linhas[0]["nome"] is None
+    assert linhas[0]["whatsapp"] is None
+    assert linhas[0]["email"] is None
+
+
+def test_montar_linhas_historico_vem_de_montar_historico():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "t1", "texto": "oi"},
+        {"evento": "mensagem_enviada", "conversation_id": "c1", "id": "m2", "instante": "t2", "texto": "olá",
+         "origem_do_texto": "redator_deterministico:v1"},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert linhas[0]["historico"] == tela_relatorio.montar_historico(eventos)
+
+
+def test_montar_linhas_pendencia_vem_do_motivo_do_ultimo_handoff():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "t1", "texto": "oi"},
+        {"evento": "handoff", "conversation_id": "c1", "id": "h1", "instante": "t2",
+         "reason_code": "quote_indisponivel", "contexto_coletado": {}, "mensagem_ao_lead": ""},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert linhas[0]["pendencia"] == "Cotação indisponível: o serviço de cotação falhou de forma persistente."
+
+
+def test_montar_linhas_sem_handoff_pendencia_e_none():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "t1", "texto": "oi"},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert linhas[0]["pendencia"] is None
+
+
+def test_montar_linhas_data_entrada_e_o_instante_do_primeiro_evento():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "2026-09-13T09:00:00", "texto": "oi"},
+        {"evento": "decisao", "conversation_id": "c1", "id": "d1", "instante": "2026-09-13T09:05:00", "tipo": "coletar_informacao"},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert linhas[0]["data_entrada"] == "2026-09-13T09:00:00"
+
+
+def test_montar_linhas_plano_cotado_delega_para_plano_cotado_da_conversa():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "c1", "id": "m1", "instante": "t1", "texto": "oi"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "c1", "id": "qa1", "instante": "t2",
+         "classificacao": "sucesso", "plano_nome": "Completo", "premio_mensal": 241.38},
+    ]
+
+    linhas = tela_relatorio.montar_linhas(eventos)
+
+    assert linhas[0]["plano_cotado"] == "Completo — R$ 241,38/mês"
