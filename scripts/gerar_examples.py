@@ -13,6 +13,11 @@ E3 — idade 80, recusa de negocio da API (`/quote` real), config comercial defa
 
 Cada rodada usa `interfaces.cli.rodar_conversa` (dono unico da geracao dos dois logs — LEI 11);
 este script so fornece as respostas e o `base_url`, nunca duplica a logica de conversa.
+
+Ressalva: E1 e E3 chamam a `/quote` REAL, que falha de proposito (20% de taxa de falha simulada,
+issue #3). Numa rodada rara (falhas nas 3 tentativas do orcamento de retry), o "E1 sucesso" pode
+sair como `encaminhar` em vez de `explicar_cotacao` — confira a decisao no log gerado antes de
+commitar; se sair diferente do esperado, rode de novo.
 """
 from __future__ import annotations
 
