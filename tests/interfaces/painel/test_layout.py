@@ -53,6 +53,24 @@ def test_titulo_da_tela_bate_com_o_rotulo_do_menu():
     assert f"<title>AutoSeguro · {rotulo_do_menu}</title>" in html
 
 
+def test_item_fila_humana_aponta_para_o_filtro_aguardando_corretor_sem_sumir():
+    """S10 do roteiro de aceite (issue #57, PR 2 de 2): o item "Fila humana" NÃO some do menu —
+    decisão do dono ("não some, vira atalho") — só o `href` muda pro Histórico já filtrado.
+    Afirma o `href`, não a ausência do item (pega quem tentar remover em vez de redirecionar,
+    exatamente a regressão nomeada no PLANO)."""
+    rotulo, icone = next(
+        (rotulo, icone)
+        for _, itens in _ITENS_MENU
+        for arquivo, icone, rotulo, _ in itens
+        if rotulo == "Fila humana"
+    )
+    assert rotulo == "Fila humana"
+    assert icone == "🙋"
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert '<a href="/painel/index.html?status=aguardando_corretor">' in html
+    assert "Fila humana" in html
+
+
 def test_css_extra_da_tela_traz_o_segundo_bloco_de_estilo_do_mock():
     from interfaces.painel.layout import css_extra_da_tela
     extra = css_extra_da_tela("rastreio.html")

@@ -81,6 +81,22 @@ def test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_a_fila_
     assert "+55 21 97224-2584" in handoffs_html
 
 
+def test_gerar_paineis_com_repositorio_contato_leva_nome_e_whatsapp_para_o_historico_tambem(
+    tmp_path, trilha_fixture, conftest_caminho_trilha
+):
+    """S12 do roteiro de aceite (issue #57, PR 2 de 2): o contato do lead que a Fila humana já
+    mostrava aparece agora TAMBÉM no Histórico de atendimentos (`index.html`), na conversa
+    `conv_b93c` (a que tem `handoff`) — não só em `handoffs.html`."""
+    repositorio = RepositorioDeContatoMemoria()
+    repositorio.salvar("conv_b93c", ContatoLead(nome="Ursula Souza", whatsapp="+55 21 97224-2584"))
+
+    escritos = gerar_paineis(conftest_caminho_trilha, tmp_path, repositorio_contato=repositorio)
+
+    index_html = next(c for c in escritos if c.name == "index.html").read_text(encoding="utf-8")
+    assert "Ursula Souza" in index_html
+    assert "+55 21 97224-2584" in index_html
+
+
 def test_gerar_paineis_sem_repositorio_contato_continua_funcionando_igual(
     tmp_path, trilha_fixture, conftest_caminho_trilha
 ):

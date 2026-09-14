@@ -71,6 +71,7 @@ from interfaces.http_comum import conversation_id_ou_400 as _conversation_id_ou_
 from interfaces.http_comum import json_resposta as _json
 from interfaces.http_comum import ler_corpo_json as _ler_corpo_json
 from interfaces.painel.gerar import gerar_paineis
+from interfaces.rotas_status_conversa import responder_conversa_assumir, responder_conversa_encerrar
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _PAISES_JSON = _RAIZ / "docs" / "design" / "paises.json"
@@ -380,11 +381,13 @@ def _responder_chat_contratar(
     environ,
     metodo: str,
 ):
-    """`POST /api/chat/contratar` (issue #46, PR 2 de 2): "Quero contratar" e "Falar com um
-    corretor" (ver relatório do PR — o domínio só tem um sinal de escalonamento explícito do lead)
-    caem aqui. Marca `ultimo_intent=QUER_CONTRATAR` no estado em memória e chama
-    `conduzir_conversa` de novo — `dominio.politica.decidir` já garante (issue #42) que isso vira
-    `ENCAMINHAR`/`LEAD_QUER_CONTRATAR` incondicional, antes de qualquer outra regra."""
+    """`POST /api/chat/contratar` (issue #46, PR 2 de 2; campo `motivo` na issue #57, PR 2 de 2):
+    "Quero contratar" e "Falar com um corretor" caem aqui, distinguidos pelo campo `motivo` do
+    corpo (`"contratar"` default, para não quebrar um cliente antigo que ainda não manda o campo —
+    ou `"humano"`). Marca `ultimo_intent` correspondente no estado em memória e chama
+    `conduzir_conversa` de novo — `dominio.politica.decidir` já garante (issues #42/#57 P9) que
+    cada um vira `ENCAMINHAR`/`LEAD_QUER_CONTRATAR` ou `ENCAMINHAR`/`LEAD_PEDIU_HUMANO`,
+    incondicional, antes de qualquer outra regra."""
     if metodo != "POST":
         return _json(*_METODO_NAO_SUPORTADO)
     dados = _ler_corpo_json(environ)
@@ -393,9 +396,13 @@ def _responder_chat_contratar(
     conversation_id, resposta_erro = _conversation_id_ou_400(dados)
     if resposta_erro is not None:
         return resposta_erro
+    motivo = dados.get("motivo", "contratar")
+    if motivo not in ("contratar", "humano"):
+        return _json("400 Bad Request", {"erro": "motivo precisa ser 'contratar' ou 'humano'"})
+    intencao = Intencao.QUER_FALAR_COM_HUMANO if motivo == "humano" else Intencao.QUER_CONTRATAR
 
     estado = _ESTADOS_EM_MEMORIA.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
-    estado = dataclasses.replace(estado, ultimo_intent=Intencao.QUER_CONTRATAR)
+    estado = dataclasses.replace(estado, ultimo_intent=intencao)
 
     repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
     trilha = ServicoDeTrilha(repositorio_trilha)
@@ -452,6 +459,14 @@ def _rotear_chat(
         return _responder_chat_contratar(
             painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,
             servico_configuracao=servico_configuracao, portal_de_cotacao=portal_de_cotacao,
+            environ=environ, metodo=metodo,
+        )
+    if caminho in ("/api/conversa/assumir", "/api/conversa/encerrar"):
+        # issue #57, P14: as duas rotas só diferem em qual função de aplicacao.servico_status_conversa
+        # chamam — responder_conversa_assumir/encerrar (interfaces/rotas_status_conversa.py) tratam o resto.
+        responder = responder_conversa_assumir if caminho.endswith("assumir") else responder_conversa_encerrar
+        return responder(
+            painel_dir=painel_dir, trilha_dir=trilha_dir, repositorio_contato=repositorio_contato,
             environ=environ, metodo=metodo,
         )
     return None

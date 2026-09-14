@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 from aplicacao.portas.portal_de_cotacao import PortalDeCotacao
 from aplicacao.portas.portal_de_linguagem import PortalDeLinguagem
+from aplicacao.servico_status_conversa import registrar_mudanca_de_status
 from aplicacao.servico_trilha import ServicoDeTrilha
 from dominio import politica, redator_pii, validacao
 from dominio.configuracao_comercial import ConfiguracaoComercial
@@ -29,6 +30,7 @@ from dominio.eventos_trilha import Handoff, MensagemEnviada, MensagemRecebida, T
 from dominio.intencao import Intencao
 from dominio.redator import montar_mensagem
 from dominio.resultado_cotacao import ResultadoDaCotacao
+from dominio.status_conversa import StatusDaConversa, proxima_transicao_automatica
 
 
 @dataclass(frozen=True)
@@ -248,6 +250,23 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
     )
 
 
+def registrar_status_do_turno(
+    trilha: ServicoDeTrilha, conversation_id: str, decisao: Decisao, resultado: ResultadoDaCotacao | None
+) -> StatusDaConversa:
+    """Calcula o status automático do turno (`dominio.status_conversa.proxima_transicao_automatica`,
+    dono único — LEI 11, MESMA tabela usada pelas transições manuais) e grava
+    `MudancaDeStatus(origem="automatico")` via `aplicacao.servico_status_conversa.registrar_mudanca_de_status`
+    — o mesmo gravador que `aplicacao.servico_resposta_orientada.processar_mensagem_livre` usa
+    quando a IA esgota as tentativas (issue #58, S8), pra não ter dois lugares decidindo COMO um
+    `MudancaDeStatus` é gravado.
+
+    Chamada por UMA linha no fim de `conduzir_conversa` (issue #57, PR 2 de 2, condição 2 do
+    veredito do PLANO — liberada depois do merge da #58)."""
+    novo_status = proxima_transicao_automatica(decisao, resultado)
+    registrar_mudanca_de_status(trilha, conversation_id, novo_status, origem="automatico")
+    return novo_status
+
+
 def registrar_pergunta_de_coleta(
     trilha: ServicoDeTrilha, conversation_id: str, indice: int, texto: str, *,
     origem_do_texto: str, regra_aplicada: str = "coleta:pergunta",
@@ -405,5 +424,6 @@ def conduzir_conversa(
                     mensagem_ao_lead=texto,
                 )
             )
+        registrar_status_do_turno(trilha, estado.conversation_id, decisao, resultado)
 
     return TurnoDaConversa(decisao=decisao, resultado=resultado, texto=texto)

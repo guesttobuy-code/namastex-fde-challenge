@@ -550,3 +550,39 @@ def test_chat_contratar_grava_o_handoff_lead_quer_contratar(tmp_path):
     assert "conv-contrata" in handoffs_html
     assert "lead_quer_contratar" in handoffs_html
 
+
+def test_chat_contratar_com_motivo_humano_grava_lead_pediu_humano_nao_lead_quer_contratar(tmp_path):
+    """S4 do roteiro de aceite (issue #57, PR 2 de 2): "Falar com um corretor" (`motivo="humano"`)
+    tem que gravar um `MotivoHandoff` PRÓPRIO (`lead_pediu_humano`, #63), distinto de "Quero
+    contratar" (`motivo="contratar"`, teste acima) — antes desta frente os dois caíam no mesmo
+    motivo por falta do campo `motivo` no corpo do POST."""
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
+
+    status, _, corpo = _chamar(
+        app, "POST", "/api/chat/contratar", {"conversation_id": "conv-humano", "motivo": "humano"}
+    )
+
+    assert status == "200 OK"
+    resposta = json.loads(corpo)
+    assert resposta["decisao"]["tipo"] == "encaminhar"
+    assert resposta["decisao"]["reason_code"] == "lead_pediu_humano"
+
+    handoffs_html = (painel_dir / "handoffs.html").read_text(encoding="utf-8")
+    assert "lead_pediu_humano" in handoffs_html
+
+
+def test_chat_contratar_com_motivo_invalido_e_recusado_com_400(tmp_path):
+    painel_dir = tmp_path / "painel-saida"
+    trilha_dir = tmp_path / "trilha"
+    trilha_dir.mkdir()
+    app = _criar_app(tmp_path=tmp_path, painel_dir=painel_dir, trilha_dir=trilha_dir)
+
+    status, _, corpo = _chamar(
+        app, "POST", "/api/chat/contratar", {"conversation_id": "conv-x", "motivo": "outra-coisa"}
+    )
+
+    assert status == "400 Bad Request"
+    assert "motivo" in json.loads(corpo)["erro"]
+    assert list(trilha_dir.iterdir()) == []

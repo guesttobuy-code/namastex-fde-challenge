@@ -29,11 +29,10 @@ from interfaces.painel import (
     tela_regras,
 )
 
-# handoffs.html sai deste dict (issue #46, PR 2 de 2): precisa receber `contatos`, que as outras
-# telas do loop não usam — mesmo padrão que regras.html/avaliacao.html já seguem, tratadas à parte
-# logo abaixo, fora do loop.
+# handoffs.html e index.html saem deste dict (issue #46 e #57, PR 2 de 2 das duas): precisam
+# receber `contatos`, que as outras telas do loop não usam — mesmo padrão que regras.html/
+# avaliacao.html já seguem, tratadas à parte logo abaixo, fora do loop.
 _ARQUIVOS = {
-    "index.html": lambda eventos, **kw: tela_conversas.render(eventos, **kw),
     "rastreio.html": lambda eventos, **kw: tela_rastreio.render(eventos, **kw),
     "cotacoes.html": lambda eventos, **kw: tela_cotacoes.render(eventos, **kw),
 }
@@ -86,12 +85,20 @@ def gerar_paineis(
     dir_saida = Path(dir_saida)
     dir_saida.mkdir(parents=True, exist_ok=True)
 
+    contatos = _contatos_das_conversas(eventos, repositorio_contato)
+
     escritos = []
     for nome_arquivo, render in _ARQUIVOS.items():
         html = render(eventos, caminho_ui_css=caminho_ui_css)
         caminho = dir_saida / nome_arquivo
         caminho.write_text(html, encoding="utf-8")
         escritos.append(caminho)
+
+    caminho_index = dir_saida / "index.html"
+    caminho_index.write_text(
+        tela_conversas.render(eventos, caminho_ui_css=caminho_ui_css, contatos=contatos), encoding="utf-8"
+    )
+    escritos.append(caminho_index)
 
     planos = buscar_planos(url_quote_service())
     caminho_regras = dir_saida / "regras.html"
@@ -114,11 +121,7 @@ def gerar_paineis(
 
     caminho_handoffs = dir_saida / "handoffs.html"
     caminho_handoffs.write_text(
-        tela_fila_humana.render(
-            eventos,
-            caminho_ui_css=caminho_ui_css,
-            contatos=_contatos_das_conversas(eventos, repositorio_contato),
-        ),
+        tela_fila_humana.render(eventos, caminho_ui_css=caminho_ui_css, contatos=contatos),
         encoding="utf-8",
     )
     escritos.append(caminho_handoffs)

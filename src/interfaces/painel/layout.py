@@ -30,7 +30,11 @@ _CSS_BOTAO_DESABILITADO = "button[disabled]{opacity:.45;cursor:not-allowed}"
 _ITENS_MENU = (
     ("Atendimento", (
         ("/", "💬", "Conversas", None),
-        ("/painel/handoffs.html", "🙋", "Fila humana", "fila"),
+        # issue #57 (P14, S10 do roteiro de aceite): "Fila humana" deixa de ser página própria e
+        # vira atalho — mesmo rótulo/ícone, só o destino muda (decisão do dono: "não some, vira
+        # atalho"). Filtra o Histórico de atendimentos pelo status oficial equivalente
+        # (`interfaces.painel.tela_conversas`, JS lê `?status=` no carregamento da página).
+        ("/painel/index.html?status=aguardando_corretor", "🙋", "Fila humana", "fila"),
     )),
     ("Observabilidade", (
         ("/painel/rastreio.html", "🧭", "Rastreio", None),

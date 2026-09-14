@@ -539,8 +539,8 @@
       mostrarDoca({
         textoLivre: false,
         botoes: [
-          { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar") },
-          { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor") },
+          { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar", "contratar") },
+          { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor", "humano") },
           { rotulo: "Ver outro plano", acao: () => { mensagemLead("Quero ver outro plano"); PASSOS.plano(); } },
         ],
       });
@@ -555,7 +555,7 @@
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
     } else if (turno.decisao && turno.decisao.tipo === "encerrar") {
       mostrarDoca({ textoLivre: false, botoes: [
-        { rotulo: "Falar com um corretor", primaria: true, acao: () => contratar("Quero falar com um corretor") },
+        { rotulo: "Falar com um corretor", primaria: true, acao: () => contratar("Quero falar com um corretor", "humano") },
         { rotulo: "Fazer nova cotação", acao: reiniciar },
       ] });
     } else {
@@ -602,18 +602,18 @@
       textoLivre: true,
       dica: "Ficou com alguma dúvida sobre o preço? Pode escrever aqui.",
       botoes: [
-        { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar") },
-        { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor") },
+        { rotulo: "Quero contratar", primaria: true, acao: () => contratar("Quero contratar", "contratar") },
+        { rotulo: "Falar com um corretor", acao: () => contratar("Quero falar com um corretor", "humano") },
         { rotulo: "Ver outro plano", acao: () => { mensagemLead("Quero ver outro plano"); PASSOS.plano(); } },
       ],
     });
   }
 
-  // ── "Quero contratar" e "Falar com um corretor" caem no MESMO endpoint: o domínio (issue #42)
-  // só tem um sinal de escalonamento explícito do lead (Intencao.QUER_CONTRATAR ->
-  // MotivoHandoff.LEAD_QUER_CONTRATAR), incondicional e antes de qualquer outra regra — não existe
-  // um segundo `reason_code` para "pedir humano" sem contratar. Documentado no relatório do PR.
-  async function contratar(textoDoLead) {
+  // ── "Quero contratar" e "Falar com um corretor" caem no MESMO endpoint (issue #42/#57 P9): o
+  // campo `motivo` ("contratar" | "humano") distingue Intencao.QUER_CONTRATAR de
+  // Intencao.QUER_FALAR_COM_HUMANO no backend, cada um com seu próprio MotivoHandoff — os dois
+  // incondicionais, antes de qualquer outra regra.
+  async function contratar(textoDoLead, motivo) {
     mensagemLead(textoDoLead);
     esconderDoca();
     const status = mensagemBot("Um momento…", { cls: "sistema" });
@@ -622,14 +622,14 @@
       const resposta = await fetch("/api/chat/contratar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId }),
+        body: JSON.stringify({ conversation_id: conversationId, motivo: motivo }),
       });
       // issue #67: mesmo achado de cotar() — `resposta.json()` fora do try travava o card numa
       // resposta 500 com corpo não-JSON.
       corpo = await resposta.json();
     } catch (e) {
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui confirmar agora — tente de novo.';
-      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead) }] });
+      mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead, motivo) }] });
       return;
     }
     status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}<br><span style="font-size:11px;color:var(--alerta)">entra na Fila humana</span>`;
