@@ -6,6 +6,89 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 
 ## [Unreleased]
 
+### Corrigido
+- **README com 7 afirmações que não batiam com a `main` — veredito de auditoria do PR #90 (issue #89), 7 bloqueantes, todos consertados:** (R1) o timeout de 3s por tentativa virou parede dura de verdade desde o PR #71 (`ClienteQuoteHTTP._chamar_com_prazo_de_parede`, `src/infra/cliente_quote.py:163-177`) — os 3617ms medidos ficam datados como ANTES do #71; (R2) `MotivoHandoff` tem 7 motivos, não 6 — faltava `RESPOSTA_ORIENTADA_INDISPONIVEL` (issue #58) na tabela; (R3) o domínio já distingue "quero contratar" de "quero falar com um humano" desde o PR #63 — quem ainda não distingue é a TELA (os dois botões caem no mesmo endpoint), e isso só muda no PR #87 (não mergeado); (R4) a rota `/` não é "sem LLM de propósito" — a coleta é determinística, mas o campo de dúvida depois do card usa IA opcional (issue #58); (R5) removida a linha de "ficou de fora" sobre a trilha do chat web não gravar pergunta/resposta — o PR #76 já mergeou isso; (R6) corrigida a afirmação sobre o vazamento de dado pessoal do #17 — o campo saiu do arquivo versionado, mas o histórico de commits não foi limpo (não dizer que "saiu do histórico"); (R7) declarado também o `plano-na-issue` vermelho do PR #77 (#70), por ordem de execução da coordenação, para a lista de vermelhos aceitos ficar completa.
+
+### Adicionado
+- **README ganha a afirmação explícita de que a `/quote` é a única autoridade de preço (issue #89, C3/A3 do enunciado):** `dominio.politica.decidir` só devolve `EXPLICAR_COTACAO` com `StatusCotacao.SUCESSO` (`src/dominio/politica.py:42-44`) — todo outro status vira `ENCAMINHAR`/`ENCERRAR`, nunca um preço aproximado. Achado ao conferir a #89: a garantia já era real no código, mas nunca tinha uma frase própria no README — só implícita na explicação de retry. **Achado maior, registrado à parte:** o README de `origin/main` (152 linhas) NÃO é mais o enunciado puro — dois PRs anteriores (`f261ecb`/#31 e `24b4a28`/#84) acabaram tocando `README.md` de passagem e deixaram 17 linhas órfãs (um fragmento da seção "Ligando a IA real..." e uma frase sobre `docs/PRIVACIDADE.md`) que não existem no README real da entrega nem no original da Namastex — corrigido automaticamente por este PR, que substitui o arquivo inteiro.
+
+### Adicionado
+- **README ganha `## Roteiro de teste (5 minutos)` (pedido da coordenação, issue #15):** passos
+  (a)-(e) testados ao vivo contra a `main` pós-merge (`0eebcb9`), com servidor isolado numa porta
+  livre consumindo o `quote-api` do dono só por leitura (containers do dono nunca tocados) — (a)
+  fluxo guiado sem `.env` até o card, campo de dúvida com o texto fixo real
+  (`"Por aqui eu consigo tirar dúvidas..."`); (b) com chave, as 4 fichas — não executado nesta
+  rodada (sem `OPENROUTER_API_KEY` nesta worktree), documentado com fonte nos vereditos reais dos
+  PR #75/#82 e no log da #78; (c) "Falar com um corretor" (texto real testado); (d)
+  `/painel/rastreio.html` e `/painel/cotacoes.html`, conferidos com uma conversa real (2 tentativas
+  de cotação, retry incluso); (e) a trilha `.jsonl` — achado no caminho: ela vive DENTRO do
+  container (`TRILHA_DIR=/app/examples`, nunca montada no host, de propósito), README corrigido
+  com o comando `docker compose exec app cat ...` em vez de um caminho de host que não existe.
+  **Divergência achada e corrigida na mesma rodada:** a frase de §1 sobre "sem chave" citava o
+  texto de ENCAMINHAMENTO ao corretor, mas o teste ao vivo mostrou que sem `LLM_PROVEDOR`
+  configurado o extrator nem chega a classificar a mensagem como objeção — o texto real é o de
+  FORA DE ESCOPO (`_TEXTO_FORA_DE_ESCOPO`, `servico_resposta_orientada.py:53-57`), caminho
+  diferente do "sem ficha publicada". §9 também ganhou a troca da linha #81 (mergeado) pela #59
+  (tela Relatório sem menu ainda, confirmado por grep: `gerar.py`/`layout.py` não referenciam
+  `tela_relatorio`).
+
+### Segurança
+- **`scripts/sanitizar_ai_logs.py` ganha rede de segurança independente para padrão pessoal, fail-closed (pedido da coordenação, issue #15):** a verificação final passa a conferir também os 4 padrões pessoais (chave OU valor), lidos de `_local/padroes_pessoais.txt` — arquivo SEPARADO de `_local/ai-logs-config.json` de propósito: criado pelo DONO, não pela sessão que decide a substituição, para ser um segundo par de olhos independente (se os dois vierem da mesma fonte, os dois têm o mesmo ponto cego — foi exatamente o caso do achado anterior). Um padrão LITERAL por linha (não regex), sem caixa; linhas vazias/`#` ignoradas. Arquivo ausente ou vazio: `SystemExit` ANTES de escrever qualquer coisa — "não publico ai-logs sem essa checagem", nunca segue em silêncio (LEI 2). `--self-test` ganha 3 casos novos: padrão fictício numa chave de dict aborta, num valor aborta, arquivo ausente aborta sem escrever nada — os 5 continuam verdes. README (§8) ganha uma linha declarando que a checagem existe, sem citar nenhum padrão.
+- **`scripts/sanitizar_ai_logs.py` não sanitizava CHAVE de dicionário, só valor (achado do ensaio
+  de congelamento, issue #15):** `snapshot.trackedFileBackups` (estrutura interna do Claude Code,
+  presente nas sessões reais) grava o caminho absoluto do arquivo como CHAVE do JSON, nunca como
+  valor — `sanitizar_valor` recursava em `{k: sanitizar_valor(v, ...) for k, v in valor.items()}`
+  e nunca tocava `k`. Isso deixava o usuário do Windows e o nome completo do dono vazando em
+  10+ arquivos do ensaio, mesmo com os 4 padrões pessoais configurados e a verificação final do
+  script (que só confere padrão de SEGREDO, não os padrões pessoais) passando limpo. Medido: com o
+  conserto, os 4 padrões pessoais foram de centenas/milhares de ocorrências para **zero** em todo o
+  corpus (69 sessões reais, ~194MiB), sem regressão no `--self-test`. Chave sanitizada pela MESMA
+  `sanitizar_string` do valor (LEI 11); colisão de chave (duas chaves diferentes virando a mesma
+  string sanitizada) levanta erro em vez de fundir silenciosamente (LEI 2 — dado real ausente nunca
+  se funde/fabrica). Ensaio nunca commitado, saída sempre fora do repositório.
+
+### Corrigido
+- **README atualizado com o conserto da #78 (PR #82) — issue #15:** o limite "ficha
+  `caro-com-carencia` nunca é usada" saiu de §10 (corrigido, prompt v3); entrou no lugar a
+  intermitência medida na auditoria do PR #82 — "pode me passar pra uma pessoa de verdade?" deu
+  `None` em 1 de 4 execuções (não é falso positivo, é falta de classificação), sem issue dedicada
+  ainda. §1 e o bloco das 4 fichas em §10 passam a citar #82/PR #82 junto de #58/#70
+- **README reconciliado com a IA de objeção de preço mergeada (#58/#70, PR #75/#77) — issue #15:**
+  a linha "ficou de fora" da #58 saiu (entregue) e virou a linha do #81 (docker compose oficial não
+  repassa a chave do LLM ao `app` — `servidor.py` nunca chama `carregar_dotenv_no_ambiente()`); a
+  linha "não há fichas de exemplo" saiu (falsa desde o PR #77 — as 4 fichas de preço aprovadas já
+  estão em `conhecimento/objecoes/`); §1 ganhou a subseção da IA de objeção (mesma chave, sem
+  chave/sem ficha → texto fixo, nunca número inventado); §10 ganhou os 3 limites medidos (latência
+  de 6,4s a 13,6s por resposta, `caro-com-carencia` nunca classificada — #78 — e conexão recusada
+  em `localhost` no Windows virando `timeout` em vez de `indisponivel` — #79), os dois últimos
+  citados como "enquanto não mergear"
+- **README com as ressalvas do PR #76 e os limites herdados do comentário de coordenação das 20:34
+  (issue #15):** §6 ganha as duas ressalvas não bloqueantes do veredito de auditoria do #76
+  (classificação de contato pelo nome do campo HTTP, sem autenticação; a pergunta também vira
+  marcador nos 3 campos de contato) e a nota da trilha por mensagem mascarando contato no servidor
+  (#51 parte 2). §9 ganha #1 (lentidão da `/quote` sob paralelismo) e #49 (achado de legibilidade:
+  duas classes `Decisao`, `conduzir_conversa` com 6 responsabilidades); #11 reescrito para dizer o
+  que interessa (dataset original não reprocessado, só medições agregadas). §1 declara "sem nuvem"
+  (#18, já fechada)
+
+### Corrigido
+- **README atualizado com o PR #64 (issue #15):** §5 ganha a nota de que a coleta determinística
+  também grava pergunta a pergunta na trilha (`registrar_pergunta_de_coleta`/
+  `registrar_resposta_de_coleta`, dono único), o `sender_role="sistema"` no evento de estado
+  consolidado, o prompt do CEP deixando de ser mascarado como PII do lead, e `tela_regras.py`
+  deixando de importar `infra` direto (invariante I-4, com teste próprio). "O que ficou de fora"
+  perde as linhas de #39/#38/#55 (resolvidas) e reduz a de #51 só à parte 2 (chat web) — a parte 1
+  (CLI) já está feita
+
+### Corrigido
+- **README atualizado com o `LEAD_PEDIU_HUMANO` do PR #63 (issue #15):** `MotivoHandoff` na tabela
+  do §4 ganha a 6ª linha (era 3, já tinha ido a 5 com o #62); número real com fonte — 5 de 5 frases
+  pedindo humano classificadas certo contra o OpenRouter de verdade, 3 controles negativos corretos
+  ([veredito de auditoria](https://github.com/guesttobuy-code/namastex-fde-challenge/pull/63#issuecomment-5656183650)).
+  Linha do "o que ficou de fora" sobre #57 reescrita — o motivo do handoff já está resolvido, só a
+  parte de status/estado da conversa continua pendente naquela issue (não removida, só reduzida ao
+  que ainda falta)
+
 ### Adicionado
 - **B1 e remoção da Fila humana — a tabela de transições agora vale na gravação, e o catálogo de motivos migrou para Regras e política (issue #57, PR 2 de 2 — parte 5, achados da pré-auditoria do PR #87):** `aplicacao.servico_status_conversa.registrar_mudanca_de_status` passa a aplicar `dominio.status_conversa.transicao_permitida` de verdade (antes só era testada no domínio isolado) — sem isso, "Encerrar" seguido de um turno automático (o lead tocando "Ver outro plano" na mesma conversa) reabria o status para "Cotada". Automática fora da tabela: não grava, não levanta erro (não pode derrubar o turno do lead); manual: `TransicaoDeStatusInvalida`. `de == para` também não grava (evita um `status_alterado` por turno repetindo o mesmo status). Achado no caminho: a checagem precisou do snapshot da trilha ANTES das escritas do próprio turno (`eventos_anteriores`) — sem isso, a reconstrução de status via `decisao`/`handoff` se contaminava com o evento que o MESMO turno tinha acabado de gravar (dois turnos de coleta seguidos gravavam zero `status_alterado`). `interfaces.painel.tela_fila_humana` REMOVIDA: seu catálogo "todo motivo com descrição" migrou para `interfaces.painel.tela_regras` (que já mostrava a mesma lista, só sem descrição); o motivo/contato/contexto POR CONVERSA já tinha migrado para `tela_conversas` (S12). `gerar_paineis` gera cinco telas, não mais seis. ADR-0006 revisado.
 - **ADR-0006 e contratos de status da conversa (issue #57, PR 2 de 2 — parte 4):** `governance/adr/0006-status-conversa-5-estados.md` registra a decisão (dono único do status, tabela compartilhada entre turno automático e reconstrução, `tela_fila_humana.py` mantida por não ter substituto do catálogo de motivos). `dominio/CONTRACT.md` (I-16), `aplicacao/CONTRACT.md` (seção da #57, I-12/I-13) e `interfaces/CONTRACT.md` (seção da #57) ganham os invariantes novos. `governance/IMPACT_MATRIX.md` ganha a linha `dominio.status_conversa`.
@@ -41,6 +124,38 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ### Corrigido
 - **UI-B5, efeito colateral do conserto do UI-B4 (issue #57, PR 2 de 2 — reteste da coordenação em `52b4195`):** sem fallback, a prévia da lista de conversas virava `⚠ ausente na trilha: mensagem_recebida` pra TODA conversa do chat guiado — a única `mensagem_recebida` delas é o resumo sintético (issue #39, `sender_role="sistema"`), que o UI-B4 (corretamente) parou de mostrar como prévia, sem deixar nada no lugar. Nova `_previa_da_conversa` em ordem: (1) última mensagem de verdade do lead; (2) resumo "Plano · R$ valor/mês" extraído do texto do redator determinístico (`dominio.redator.montar_mensagem`, formato estável, `_PADRAO_RESUMO_COTACAO`) quando a última `mensagem_enviada` bate com esse padrão — nunca de texto livre da IA, sem formato garantido; (3) rótulo do status (`agrupar.rotulo_de_exibicao`, dono único). O buraco técnico continua reservado pra conversa sem NENHUM evento de mensagem (perda de dado real).
 - **4 bloqueantes de experiência medidos ao vivo na tela de conversas do PR #87 (issue #57, PR 2 de 2 — parte 6, pré-auditoria em navegador):** (UI-B1) nenhum `docs/design/*` jamais usara o atributo `hidden` — nenhuma folha carregada tinha `[hidden]{display:none!important}` (a docstring de `tela_conversas.py` afirmava o contrário, sem nunca ter sido medido); a "uma conversa por vez" (S13) e o filtro de status (S10) ficavam com `hidden` no HTML mas `display:flex` medido por `getComputedStyle`. Nova `interfaces.painel.layout._CSS_HIDDEN_FUNCIONA`, mesma casca que `_CSS_BURACO_VISIVEL`/`_CSS_BOTAO_DESABILITADO` já usam. (UI-B2) `.botao`/`.botao.principal` (Assumir/Encerrar) também eram classes novas sem regra nenhuma — `background:rgb(240,240,240)` medido, o padrão do navegador; nova `_CSS_BOTAO` na mesma casca, cores do tema. (UI-B3) `_card_contato_e_motivo` mostrava a chave crua da trilha (`veiculo_ano=`, `plano_id`) e `⚠ ausente na trilha` para campo que o lead simplesmente nunca chegou a informar (não é falha de gravação — `_contexto_coletado` grava as 6 chaves sempre): rótulos em português (`_ROTULO_CAMPO_CONTEXTO`), data em `dd/mm/aaaa` (`_data_br`), `plano_id` capitalizado (`_nome_do_plano` — não existe catálogo id→nome no domínio, o nome real só existe dentro de uma `PrecoCotado` já respondida), campo individual ausente vira "não informado". (UI-B4) o resumo sintético do estado coletado (issue #39, `sender_role="sistema"`) era desenhado como balão do lead, tanto na conversa (`_secao_conversa`) quanto na prévia da lista (`render`); passa a reusar `.estado-interno` (já existe no mock pra isto) em vez de balão — escolha registrada aqui: nota discreta "Resumo dos dados coletados", nunca omitida por completo, pra não esconder do corretor que aquele turno existiu.
+- **README atualizado com o chat real do PR #62 (issue #15):** a rota `/` deixa de ser citada como
+  placeholder — vira "chat guiado e determinístico" com as 5 rotas novas (`/api/planos`,
+  `/api/chat/contato`, `/api/chat/cotar`, `/api/chat/contratar`, `/docs/design/paises.json`), o
+  painel passa a "regenerado a cada cotação/handoff, sem reiniciar" ([ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md)
+  decisão 2), e o contato do lead ganha nota em §6 (fora do git, `contato/leads/`, decisão 3 do
+  ADR-0005). Quatro limites novos em §10, cada um com fonte real conferida na `main` pós-merge, não
+  no rascunho pré-merge: menor de 18 só no cliente (`_corpo.html:288`, linha reconferida — o
+  rascunho tinha uma divergência de 7 linhas com o comentário de auditoria), rotas de operação sem
+  autenticação nenhuma na mesma porta (`servidor.py` conferido: zero menção a
+  Authorization/senha/token), `wsgiref` atende uma requisição por vez (decisão do ADR-0004, sem
+  medição de custo sob carga), estado da conversa em memória sem expiração
+  (`_ESTADOS_EM_MEMORIA`, `servidor.py:91`, decisão 1 do ADR-0005). Removida do "o que ficou de
+  fora" a linha do #62, que já não é verdade
+- **README reconciliado com o estado real da `main` (issue #15) — 6 achados da auditoria adversarial
+  do `1573759`, consertados no mesmo push:** rótulo `(padrão)` estava no valor errado de
+  `encaminhar_lead_fora_do_padrao` (era `False`, é `True` — o próprio parágrafo seguinte já dizia
+  `True`); a tela `/` foi citada dizendo algo que não diz (o texto real cita "issue #46", não o
+  PR #62 — corrigido pra não atribuir à tela o que ela não afirma); PR #35 tinha 28 checks passando,
+  não 27 (`gh pr checks 35`: 29 no total, 1 falhou, de propósito); `conhecimento/objecoes/` não existe
+  ainda no repositório (só `conhecimento/.gitkeep` — a pasta nasce em runtime, não é "vazia");
+  `ai-logs/README.md` linkado antes de existir, virou `[PENDENTE: #15]`; três bullets de "como a IA
+  foi usada" sem fonte ganharam o link do comentário de auditoria (issues #16, #17)
+- `scripts/sanitizar_ai_logs.py`: achado ensaiando contra as sessões reais — o CEP de exemplo do
+  enunciado (`01310-100`) sobrevivia à sanitização em transcrições que citam código-fonte, porque a
+  docstring de `interfaces/cli.py` mostra `\n` como texto literal antes do CEP, e o `\b` que
+  `dominio.redator_pii` exige nunca casa entre duas letras/dígitos ("n" e "0" são os dois
+  caracteres de palavra). Não é bug do redator — ele foi desenhado pra texto de conversa, não pra
+  transcrição de sessão de IA citando o próprio código-fonte. Sem mexer em `dominio/redator_pii.py`
+  (dono é a F4/#7), esta exportação ganhou uma segunda passada, sem exigência de fronteira, só para
+  CEP e CPF com pontuação — a checagem final voltou a zero depois. Ensaiado contra as 43 transcrições
+  reais (18 sessões, principal + subagentes) em `_local/` (nunca commitado): e-mail, CPF, CEP e
+  caminho do usuário zerados; nenhum padrão de segredo sobrou
 - **`docker compose up --build` nunca repassava a chave do LLM — a IA nunca respondia pelo caminho do avaliador (issue #81):** `docker-compose.yml` ganha `env_file` opcional (`required: false`) no serviço `app`, repassando `LLM_PROVEDOR`/`OPENROUTER_API_KEY`/`LLM_MODELO` do `.env` da raiz do host como variável de ambiente do container em runtime — nunca entra na imagem nem no build (`docker history`/`docker image inspect` seguem sem a chave, confirmado ao vivo). Sem `.env`, `LLM_PROVEDOR` fica ausente e os adaptadores já caem em `deterministico` por padrão (issue #9) — nenhum erro de chave ausente ao subir (confirmado ao vivo: container sobe e responde HTTP 200 sem nenhuma variável definida). `servidor.py` ganha a mesma linha que `cli.py` já tinha (`carregar_dotenv_no_ambiente()` no `__main__`) — cobre quem roda o servidor direto no host, sem Docker. `.env.example`/README documentam as duas variáveis com valor literal de exemplo. Duas ressalvas do veredito do PR #82 (issue #78) resolvidas no mesmo PR: o teste ponta a ponta de carência passa a exigir `motivo_handoff is None` (antes aceitava o encaminhamento como sucesso válido); novo teste prova a escolha certa (`caro-com-carencia`) com as 4 fichas reais publicadas no contexto, lendo `conhecimento/objecoes/*.json` de verdade. Medição registrada (sem conserto): a taxa de `intent=None` em pedido explícito de humano, ≥10 execuções por frase (item 3 do escopo, comando único no PR para a coordenação rodar).
 - **Objeção de carência classificada como pedido de humano — a ficha `caro-com-carencia` (#70) nunca era usada (issue #78):** `_PROMPT_SISTEMA` de extração (v3) passa a descrever reclamação de carência ("pago e ainda tenho que esperar pra ter cobertura") como `objecao_de_preco` — medido na auditoria da #70: essa frase virava `quer_falar_com_humano`. `VERSAO_DO_PROMPT` vai para `v3`. Prova real: as 3 `frases_do_lead` da ficha chegam a `objecao_de_preco`; a resposta final vem dessa ficha com `{{carencia_dias}}` resolvido para 30; regra geral nova (`test_extracao_real_toda_ficha_publicada_tem_frase_que_chega_a_objecao_de_preco`) — cada ficha publicada em `conhecimento/objecoes/*.json` precisa ter ao menos uma frase reconhecida, `skip` com motivo quando a pasta não existir (antes do merge da #70).
 - **Os 5 bloqueantes do veredito da auditoria do PR #75 (issue #58):** (B1) `_PROMPT_SISTEMA` de
@@ -62,8 +177,6 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **`aplicacao.servico_conversa.conduzir_conversa` gravava o estado consolidado como se fosse fala do lead (issue #39):** o evento `mensagem_recebida` sintético (`"idade=...; veiculo_ano=...; ..."`) agora marca `sender_role="sistema"` (campo já existente no dataclass, nunca lido até esta frente) — a trilha deixa de apresentar um resumo de estado como se o lead tivesse escrito aquilo.
 - **CLI redigia o próprio placeholder do prompt de CEP no log de execução (issue #38):** `_Transcricao.emitir` ganha `redigir: bool = True` por linha; o prompt ("Qual o seu CEP? (formato 00000-000)") é emitido com `redigir=False` — é texto do sistema, nunca dado do lead —, a resposta do lead continua sempre mascarada.
 - **`interfaces.painel.tela_regras` importava `infra.cliente_quote`/`infra.planos_http` direto, fora de qualquer raiz de composição (issue #55, parte 2):** `render()` passa a receber `planos` e a política de retry prontos por parâmetro; quem busca `GET /planos` e lê as constantes de `infra.cliente_quote` é `painel/gerar.py` (raiz de composição). `interfaces/CONTRACT.md` ganha o invariante I-4 (raízes de composição: `cli.py`, `servidor.py`, `painel/gerar.py`; telas do painel nunca importam `infra`), com teste próprio em `tests/arquitetura/test_fronteiras.py` (achado da auditoria do PR #64).
-
-### Corrigido
 - **`/quote` com conexão recusada ou corpo não-JSON derrubava o chat com 500, sem retry nem handoff (achado da auditoria geral, issue #67):** `infra.cliente_quote.ClienteQuoteHTTP._post_via_urllib` deixava `urllib.error.URLError` (que não fosse timeout) subir sem tratamento, e não protegia a decodificação JSON (sucesso ou erro) — um `docker compose stop quote-api` provava isso ao vivo. Agora os dois casos viram `RespostaBruta.falha_de_transporte`, retentável dentro do MESMO orçamento (ADR-0002 intacto). Achado de medição ao vivo com a correção: `getaddrinfo` (DNS) não respeita o `timeout` do `urlopen`/`socket` neste ambiente (uma tentativa levou ~4s contra os 3s configurados) — `_chamar_com_prazo_de_parede` roda cada tentativa num worker com `future.result(timeout=...)` como árbitro de PAREDE real, e o mesmo padrão foi aplicado a `infra.planos_http.buscar_planos` (chamado em todo turno do chat via `gerar_paineis`, somando ~4,4s extras ao handoff). Prova ao vivo: `docker compose stop quote-api` + `POST /api/chat/cotar`, handoff em ≤ ~13s de parede (10s do orçamento do cliente + 2s do prazo de `buscar_planos`), trilha com as 3 tentativas (`classificacao=indisponivel`, `http_status=0`) (#67)
 - **CEP sem hífen aceito como válido mas não mascarado — ficava em claro na trilha (achado da auditoria geral, issue #68):** `dominio.validacao.cep_valido` aceitava CEP de 8 dígitos sem separador, mas `dominio.redator_pii` só reconhecia CEP com hífen ou espaço para mascarar. Nova `dominio.validacao.normalizar_cep` (dono único do formato aceito/normalizado) é chamada por `aplicacao.servico_conversa.montar_estado` antes de gravar o CEP no estado, e pela rota `POST /api/chat/cotar` para recusar com 400 (`abc`, 7 ou 9 dígitos). Rede de segurança adicional em `redator_pii` para CEP sem separador em texto LIVRE, rotulado pela palavra "cep" nas proximidades (nunca 8 dígitos soltos, que mascarariam telefone/id) (#68)
 - **`PUT /api/configuracao-comercial` com `"nao"` virava `true`; `GET /api/objecoes/<id inválido>` dava 500 (achado da auditoria geral, issue #69):** `bool("nao")` é `True` em Python — mandar a string `"nao"` LIGAVA a configuração comercial em silêncio, o oposto do pedido. A rota agora recusa com 400 qualquer valor que não seja `bool` JSON de verdade. `GET /api/objecoes/<id>` não capturava o `ValueError` de `_validar_id` (o `PUT` já capturava) — path traversal já era BLOQUEADO antes de qualquer leitura de arquivo, mas o erro de tratamento virava 500 em vez de 400. Achado ao escrever o teste: o dublê `RepositorioDeConhecimentoMemoria.obter_objecao` não validava o id como a classe real — corrigido para as duas implementações do mesmo `RepositorioDeConhecimento` concordarem (LEI 11) (#69)
@@ -82,6 +195,20 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **`dominio.ficha_objecao.FichaDeObjecao.publicar` lia o relógio do sistema (achado da auditoria de arquitetura #49, issue #53):** `datetime.now(timezone.utc)` direto no domínio violava a doutrina "dominio/ regras puras, sem IO" do roadmap #3 §4. `publicar()` passa a exigir `instante: str` como parâmetro obrigatório; `aplicacao.ServicoDeConhecimento` ganha um relógio injetável (`agora: Callable[[], str]`, default de produção = relógio real) e fornece o instante na chamada. Sem porta `Relogio` formal (decisão de escopo da coordenação) — nova invariante I-11 em `dominio/CONTRACT.md`, seção F13/#43 (#53)
 
 ### Alterado
+- **`README.md` reconciliado com o estado real da `main` (issue #15, pedido da coordenação):** o
+  produto cresceu muito desde a última versão do README (servidor local em `:8080`, base de
+  conhecimento editável, LLM real para coleta por texto livre, política de handoff configurável,
+  formato BR) e o documento ainda descrevia só o CLI. Reescrito medindo contra o código, não por
+  resumo: comando único (`docker compose up --build`) com as 3 rotas do app documentadas — inclusive
+  que `/` é hoje um placeholder honesto (o chat de verdade é o PR #62, ainda não mergeado); seção
+  nova de coleta por texto livre (`LLM_PROVEDOR=openrouter`) com a execução real citada; tabela de
+  `MotivoHandoff` atualizada (3→5 valores) com `ConfiguracaoComercial` e `Intencao.QUER_CONTRATAR`;
+  nota de privacidade sobre dado saindo pro OpenRouter (pendência aberta na ADR-0003, não escondida);
+  3º contrato do `.importlinter` citado; "o que ficou de fora" reescrito com o estado real de
+  #62/#58/#55/#51/#39/#38/#57 (`[PENDENTE: #n]`, nunca adivinhado); limite novo sobre menor de 18 só
+  validado no cliente; números da extração por LLM (0/5→5/5 intenção, PR #44; 2/4→20/20 campos,
+  issue #9) com o link do comentário de auditoria ao lado. Números que a coordenação passou de
+  memória (ex. taxa de acerto) só entraram depois de confirmados contra o comentário real da issue
 - **`docs/DESIGN-PROPOSTA-v1.md` §5.2 desatualizada frente à arquitetura vigente (issue #56):** nota datada declarando a seção superada pelo roadmap #3 §4 (4 camadas planas, não módulos por domínio) e as portas previstas e não criadas (`Relogio`, `RepositorioDeConversa`, `FilaDeHandoff`, `CanalDeMensagem`) como simplificação declarada, não pendência escondida (#56)
 
 ### Corrigido
@@ -114,6 +241,27 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - `src/infra/CONTRACT.md`: `todos_os_eventos`, `infra.config.url_quote_service` e `infra.planos_http.buscar_planos` não estavam declarados como saída pública do módulo — seção F10/#13 acrescentada por append (achado não-bloqueante da auditoria do PR #37) (#13)
 
 ### Adicionado
+- `scripts/sanitizar_ai_logs.py`: exportador/sanitizador dos `ai-logs/` (issue #15) — cobre o `.jsonl`
+  principal de cada sessão **e** as transcrições de `subagents/` (achado da coordenação: uma chave real
+  do OpenRouter vazou numa transcrição de subagente de outra frente, fora do alcance de uma varredura
+  que só olhasse o `.jsonl` da sessão); troca bloco de imagem por texto, aplica os padrões pessoais
+  (lidos de `_local/ai-logs-config.json`, nunca commitado) e o redator de PII sintética
+  (`dominio.redator_pii.redigir_texto`) em todo valor string da árvore; verificação final que **aborta**
+  a exportação inteira (apaga o que foi escrito) se sobrar qualquer padrão de segredo conhecido
+  (`sk-or-v1-`, `sk-ant-`, `ghp_`, `github_pat_`, `nvapi-`, `Bearer `+20 chars) ou bloco de imagem, ou se
+  alguma linha deixar de ser JSON válido — citando os ARQUIVOS, nunca o valor. `--self-test` roda o
+  roteiro de mutação (planta chave falsa, mostra abortando; remove, mostra passando limpo). Ensaiado
+  contra as 11 sessões reais de hoje, saída em `_local/` (nunca commitada nesta leva): 15 arquivos, 40
+  blocos de imagem removidos, milhares de substituições de padrão pessoal aplicadas, zero segredo
+  remanescente. Achado no caminho: a checagem final de `sk-ant-` estava solta demais e reprovava
+  documentação sobre o FORMATO da Admin API (`sk-ant-admin...`, só 5 chars depois do prefixo) como se
+  fosse uma chave de verdade — corrigido para exigir 20+ chars depois do prefixo, como as outras
+  checagens já exigiam
+- `scripts/checklist_definicao_pronto.py`: checklist automático da issue #15 (seção 3) — confere que
+  README.md, docs/DESAFIO.md, os dois exemplos de execução em `examples/` e (quando existir) o índice
+  `ai-logs/README.md` com cada sessão que ele cita estão presentes e não-vazios. Não é guard do
+  `full-check` nem entra em `package.json`/`governance/GUARDS_CATALOG.md` — é prova desta frente,
+  rodada a mão antes do smoke test em clone limpo (#15)
 - **Chat centralizado ligado ao agente real, contato do lead fora do git (issue #46, PR 2 de 2, ADR-0005):** `GET /` passa a servir `interfaces.chat.tela_chat` (novo pacote, mesmo molde de `interfaces.conhecimento.tela_edicao`) — o placeholder honesto do PR 1 sai de cena. O chat é guiado e determinístico, SEM LLM (decisão da coordenação: quem avalia não tem chave), com o fluxo e os textos aprovados na #41: aviso LGPD antes das perguntas (texto exato, sem caixa de aceite), nome+WhatsApp obrigatórios (seletor de país vindo de `GET /docs/design/paises.json`, 245 países via `libphonenumber-js` gerados por `scripts/gerar-paises-whatsapp.mjs`, máscara brasileira, texto do campo por país), e-mail opcional, idade (menor de 18 não cota, mensagem exata), modelo do carro, ano, CEP (pode pular), plano em cards (coberturas/franquia SEMPRE de `GET /api/planos`, nunca escritas à mão — inclui o `<details>` "O que é franquia?" com o texto aprovado), início da vigência, resumo com "alterar" por linha. Rotas novas em `interfaces.servidor`: `GET /api/planos` (proxy só-leitura de `infra.planos_http.buscar_planos`, o MESMO cliente que a base de conhecimento já usa), `GET /docs/design/paises.json` (estático), `POST /api/chat/contato` (`aplicacao.servico_contato.ServicoDeContato`, único caminho de escrita do contato), `POST /api/chat/cotar` (monta/atualiza `EstadoDaConversa`, chama `aplicacao.servico_conversa.conduzir_conversa` — o MESMO caso de uso que a CLI já chama, nunca reimplementado —, grava a trilha e regenera o painel), `POST /api/chat/contratar` ("Quero contratar" e "Falar com um corretor" caem no MESMO endpoint: o domínio só tem um sinal de escalonamento explícito do lead, `Intencao.QUER_CONTRATAR` → `MotivoHandoff.LEAD_QUER_CONTRATAR`, incondicional). Preço só sai de resposta 200 da `/quote` — o JS nunca calcula, só exibe o que o backend devolveu; `/quote` fora do ar vira Fila humana, sem preço. Cotação resolve num único `POST` (sem polling ao vivo — decisão desta frente, documentada em `src/interfaces/CONTRACT.md`); o número de tentativas aparece no resultado final ("tentativa X de 3"), lido da trilha já gravada.
   **ADR-0005** registra as 3 decisões de arquitetura: (1) estado da conversa entre turnos em `_ESTADOS_EM_MEMORIA`, um `dict[str, EstadoDaConversa]` a nível de MÓDULO em `servidor.py` — perdido ao reiniciar, limite aceito e declarado; (2) o painel é regenerado a cada `/api/chat/cotar`/`contratar` bem-sucedido, chamando `interfaces.painel.gerar.gerar_paineis` de novo (não substitui a geração em build-time do `Dockerfile`); (3) o contato real do lead (nome, WhatsApp, e-mail) mora fora do git, em `contato/leads/<conversation_id>.json` (`.gitignore`, volume próprio no `docker-compose.yml`) — `dominio.contato_lead.ContatoLead` (valida só forma) / `aplicacao.portas.repositorio_contato.RepositorioDeContato` / `infra.repositorio_contato_json.RepositorioDeContatoJSON` (mesmo molde de `RepositorioDeConhecimentoJSON`), lido só pela Fila humana. `interfaces.painel.tela_fila_humana.render` ganha `contatos: dict[str, ContatoLead] | None = None` (aditivo) — o card mostra nome/WhatsApp para QUALQUER handoff (decisão desta frente: o corretor precisa ligar de volta em qualquer encaminhamento, não só "quero contratar"), campo sem valor mostra **"não informado"** (nunca `buraco()` — decisão explícita da issue, C.3, diferente do padrão "ausente na trilha" do resto do painel). `interfaces.painel.gerar.gerar_paineis` ganha `repositorio_contato: RepositorioDeContato | None = None` (aditivo); `handoffs.html` sai do dict genérico `_ARQUIVOS` (mesmo padrão que `regras.html`/`avaliacao.html` já seguem) para poder receber `contatos`.
   **Privacidade:** `dominio.redator_pii` ganha um padrão genérico de telefone internacional (`+<DDI 1-3 dígitos><6-14 dígitos>`, ao lado do padrão fixo de `+55`, sem substituí-lo) — nasceu vermelho contra `+1`/`+351`/`+54` antes do conserto. `docs/PRIVACIDADE.md` ganha a seção "Contato do lead: fora do git, nunca na trilha".
@@ -131,6 +279,13 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **Base de conhecimento em JSON versionado + servidor local (issue #43, F13, ADR-0004):** `src/dominio/ficha_objecao.py` (`FichaDeObjecao`, `MARCADORES_CONHECIDOS`, `validar_resposta_orientada`) — invariante: publicar recusa dígito fora de marcador `{{...}}` ou marcador fora do vocabulário conhecido, sem mutar a ficha original. `src/aplicacao/portas/repositorio_conhecimento.py` (porta `RepositorioDeConhecimento`) + `src/aplicacao/servico_conhecimento.py` (`ServicoDeConhecimento`: salvar rascunho nunca valida, salvar como publicado sempre passa por `FichaDeObjecao.publicar`). `src/infra/repositorio_conhecimento_json.py`: adaptador real (um arquivo por ficha em `conhecimento/objecoes/<id>.json`) e dublê em memória, os dois recusando `id` fora do formato de slug seguro (path traversal). `src/interfaces/servidor.py`: servidor WSGI da stdlib (`wsgiref`, zero dependência nova — mesma linha de ADR-0002/0003) com as rotas `GET/PUT /api/objecoes[/<id>]`, a tela de edição em `/` e o painel estático (já gerado por `interfaces.painel.gerar`, sem regredir) em `/painel/`. `docker-compose.yml` ganha o segundo serviço (`Dockerfile` próprio na raiz), falando com `quote-api` pela rede do compose, com `conhecimento/` como volume — editar e publicar pela tela vira `git diff` na máquina de quem testa. A "Configuração comercial" (`ConfiguracaoComercial`) fica fora desta entrega: depende da #42, ainda sem PR (#43)
 
 ### Alterado
+- `README.md`: a seção "Dá pra rastrear o que aconteceu?" passa a documentar o painel REAL (PR #37),
+  não mais o mock — comando de geração nas duas formas (rodado de verdade nas duas nesta frente,
+  reproduziu `examples/painel/*.html` byte a byte), o que cada uma das seis telas mostra em uma
+  linha, a nota de que a tela de Avaliação mostra "eval/casos.jsonl não encontrado" de propósito
+  (F8/#11, fora desta entrega), e o número de absorção por retry (40%, 2 de 5) com a fonte ao lado
+  (`examples/painel/cotacoes.html` + achado da auditoria do PR #37). Removida do "o que ficou de
+  fora" a linha do painel, que já não é verdade (#13/#15)
 - `src/interfaces/painel/tela_regras.py`: a política de tentativas deixa de ser buraco visível e passa a ler `ORCAMENTO_TOTAL_SEGUNDOS`/`TIMEOUT_POR_TENTATIVA_SEGUNDOS`/`MAX_TENTATIVAS`/`ESPERAS_ENTRE_TENTATIVAS_SEGUNDOS` direto de `src/infra/cliente_quote.py` (mergeado no PR #35) — nenhum número redigitado (#13)
 
 ### Corrigido
@@ -157,7 +312,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - `governance/IMPACT_MATRIX.md`: linha do módulo `trilha-e-privacidade`, com os vizinhos futuros (F3/#6, F5/#8, F6/#9, F8/#11) que vão gravar ou ler eventos desta trilha (#7)
 - `src/aplicacao/servico_conversa.py` (issue #6, F5/#8 absorvida por ordem do dono): caso de uso principal — `conduzir_conversa` orquestra `dominio.politica`/`dominio.redator`/`dominio.validacao` + `PortalDeCotacao`, sem reimplementar nenhuma regra (LEI 11). `src/interfaces/cli.py`: CLI que coleta os dados por `input()`/stdin (sem LLM, política determinística), consulta a `/quote` de verdade via `ClienteQuoteHTTP` e grava o log de execução em `examples/*.log`. **Sem trilha** de propósito — issue #7/#31 ainda não mergeou (decisão da coordenação: não esperar, costurar depois num commit próprio)
 - `examples/execucao_conv-ce4f21c5.log`: log de uma execução completa real, ponta a ponta, contra o `quote-service` rodando de verdade (entregável do desafio) — plano Completo, cotação com carência e pró-rata do primeiro pagamento
-- Prova de tempo de parede real (pedido da coordenação — relógio falso só prova a aritmética, não que o `timeout` chega no socket): `ClienteQuoteHTTP` contra um `quote-service` dedicado sempre lento (8s) levou exatamente 10,014s reais e voltou timeout — nunca os ~24s que 3 tentativas de 8s dariam sem orçamento. Contra um dedicado sempre-5xx, 1,807s reais até desistir. Comandos e saída no corpo do PR, não fazem parte da suíte automática (dependem de containers fora do CI)
+- Prova de tempo de parede real (pedido da coordenação — relógio falso só prova a aritmética, não que o `timeout` chega no socket): `ClienteQuoteHTTP` contra um `quote-service` dedicado sempre lento (8s) levou exatamente 10,016s reais e voltou timeout — nunca os ~24s que 3 tentativas de 8s dariam sem orçamento. Contra um dedicado sempre-5xx, 1,511s reais até desistir. Comandos e saída no corpo do PR, não fazem parte da suíte automática (dependem de containers fora do CI) — **corrigido em #15/#36: os dois números estavam errados (10,014s e 1,807s), sem fonte nenhuma no PR #35 que citam; os certos são os medidos ao vivo e colados no corpo do PR (linhas 83 e 96)**
 - `tests/aplicacao/test_servico_conversa.py::test_preco_de_tipo_errado_atravessa_a_integracao_como_typeerror_nunca_como_texto`: roteiro de reprodução executável da invariante do preço (pedido da coordenação) — prova que a integração desta frente deixa o `TypeError` de `dominio.redator.montar_mensagem` atravessar até o chamador, em vez de engolir e fabricar um texto de fallback; roteiro rodado nos dois sentidos (mutação aplicada → `1 failed`/`DID NOT RAISE`; revertida → verde de novo)
 - ADR-0002 (`governance/adr/0002-politica-de-retry-quote.md`, issue #6): registra a política de retry do cliente `/quote` — 3s/tentativa, 3 tentativas, orçamento de 10s — com a tabela de medição colada da issue #3 e a classificação de resposta (o que repete × o que é terminal) implementada em `_traduzir`
 - `src/dominio/`: esqueleto do domínio puro (`EstadoDaConversa`, `ResultadoDaCotacao`, `PrecoCotado`, `Decisao`/`MotivoHandoff`, `politica.decidir`, `validacao` de formato, `redator.montar_mensagem`) e `tests/dominio/` com a bateria de testes das invariantes — commit 1/2 (esqueleto permissivo, vermelho por assertiva conforme o veredito de auditoria do plano; a invariante real entra no commit seguinte) (#5)
@@ -193,6 +348,17 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 - **Rastreabilidade dos arquivos vindos do kit (achado da auditoria fria, #17):** comentários nos 63 arquivos de `scripts/esteira/` citam números de issue e ADR do repositório de ORIGEM, que aqui significam outra coisa. Criado `scripts/esteira/README.md` declarando a proveniência, as quatro adaptações locais com o motivo, o limite conhecido dos 8 guards que não medem este diretório, e a regra para quem mexer (#17)
 
 ### Alterado
+- **README.md e docs/DESAFIO.md (issue #15):** o enunciado original da Namastex, que morava no
+  `README.md` da raiz, foi movido para `docs/DESAFIO.md` restaurando o texto original palavra por
+  palavra (conferido contra `git diff 52a006c -- docs/DESAFIO.md` — a única diferença antes era uma
+  linha nossa apontando pro `docs/PRIVACIDADE.md`, agora removida daquele arquivo). O `README.md` da
+  raiz passa a ser o nosso: como rodar, ponta a ponta, o que acontece quando a `/quote` falha,
+  critério de handoff, rastreabilidade, dados sensíveis, qualidade, como a IA foi usada e o que ficou
+  de fora — cada número com a fonte ao lado (#15)
+- `governance/adr/0002-politica-de-retry-quote.md`: a citação dos 3617ms passa a apontar para
+  `git show 8c35203:examples/trilha_conv-7c44f694.jsonl` em vez do caminho direto do arquivo, que
+  `dddfac7` apagou ao regenerar os exemplos de `examples/` — achado herdado da re-auditoria do PR #35
+  (#15)
 - `scripts/esteira/guards/companion-red-green.mjs`: a réplica descartável que o guard cria na base (para provar vermelho×verde) agora recebe um link (`fs.symlinkSync(..., 'junction')`) para o `.venv` do repositório real, no mesmo padrão que já existia para `node_modules`. Sem isso, `resolverPython(replica)` nunca achava o `.venv` (gitignored, ausente numa worktree recém-criada via `git worktree add`) e caía pro Python do sistema — que por decisão do dono não tem ruff/pytest instalados —, então **todo** PR Python com teste+fonte no diff saía `FERRAMENTA_AUSENTE` sempre, mesmo com o ambiente real funcionando. Achado e consertado durante a F1 (#4), com aval da coordenação; limite declarado: a réplica passa a compartilhar o mesmo `.venv` do repositório, não um isolado — aceitável porque o teste só lê o venv
 - **Extensão de escopo (#4, com aval da coordenação):** o ambiente Python do CI (`.github/workflows/esteira.yml`) não instalava o que os testes de arquitetura desta frente precisam. Dois jobs tocados, mesmo motivo: `companion-red-green` não instalava nada (só `setup-python`) e `python-check` instalava `ruff pytest` sem `import-linter` — os dois rodam `pytest -q` sobre `tests/`, que agora inclui testes que chamam `lint-imports` via subprocess. Os dois passam a instalar `ruff pytest import-linter`, espelhando o que já existia; nada mais mudou nesses jobs. Mesmo conjunto (+`pylint`) declarado em `pyproject.toml` (`[dependency-groups] dev`), instalável com `uv sync --group dev`
 - `.gitignore`: ignora `_local/`, `_PRIVADO/` e `*.token`; e abre duas exceções conscientes, porque as regras herdadas engoliriam entregáveis do desafio — `.env.example` (documenta variáveis sem segredo) e `examples/*.log` (o log da execução completa) (#3)

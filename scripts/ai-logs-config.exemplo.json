@@ -1,0 +1,28 @@
+{
+  "_comentario": "Modelo de _local/ai-logs-config.json -- copie para la e preencha com valores REAIS. Este arquivo de exemplo mora fora de _local/ de proposito (para existir em quem clona o repo), e so tem valores FICTICIOS -- nunca copie um valor real pra ca.",
+
+  "raiz_projects": "/caminho/absoluto/para/.claude/projects",
+
+  "mapa_fixo": {
+    "nome-exato-da-pasta-1": "coordenacao",
+    "nome-exato-da-pasta-2": "auditoria-fria",
+    "nome-exato-da-pasta-3": "sondagem-inicial"
+  },
+
+  "prefixo_frentes": "C--base-wt-namastex-fde-challenge-",
+
+  "excluir_pastas": [
+    "nome-de-pasta-que-nao-deve-entrar-na-exportacao"
+  ],
+
+  "substituicoes": [
+    {"regex": "\\bFULANO-DE-TAL\\b", "flags": "i", "por": "[SOBRENOME]"},
+    {"regex": "\\busuario_fake\\b", "flags": "i", "por": "<usuario>"},
+    {"regex": "\\bProjetoExemplo\\b", "flags": "i", "por": "[OUTRO-PROJETO]"},
+    {"regex": "\\bfulano@exemplo\\.com\\b", "flags": "i", "por": "[EMAIL-DO-CANDIDATO]"}
+  ],
+
+  "excluir": [
+    "nome-de-arquivo-especifico-a-pular.jsonl"
+  ]
+}
