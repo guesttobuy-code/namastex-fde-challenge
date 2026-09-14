@@ -106,19 +106,92 @@ def test_card_sem_o_parametro_contatos_mostra_nao_informado_e_nao_quebra():
     assert "conv_sem_contato" in html
 
 
-def test_campo_ausente_no_contexto_coletado_vira_buraco_nao_branco():
+def test_campo_ausente_no_contexto_coletado_vira_nao_informado():
     """Bug original (Análise de impacto da #46, migrado de `test_tela_fila_humana.py`): um campo
-    ausente do `contexto_coletado` (ex.: `idade` nunca coletada) não pode virar string vazia
-    (`esc(None)`), escondendo o buraco — tem que aparecer o marcador visível."""
-    eventos = [{
-        "evento": "handoff", "conversation_id": "conv_y", "id": "ho_01",
-        "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
-        "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
-        "contexto_coletado": {"idade": None, "veiculo_ano": 2021},
-    }]
+    ausente do `contexto_coletado` não pode virar string vazia (`esc(None)`), escondendo o buraco.
+
+    Revisado pelo achado UI-B3 da pré-auditoria em navegador do PR #87: `_contexto_coletado`
+    (`aplicacao.servico_conversa`) grava as 6 chaves SEMPRE, mesmo quando o lead nunca chegou a
+    informar aquele campo — `None` aqui é "ainda não coletado", não perda de dado da trilha. O
+    marcador `⚠ ausente na trilha` fica reservado pra quando o evento `contexto_coletado` inteiro
+    falta (`test_card_sem_o_parametro_contatos_mostra_nao_informado_e_nao_quebra` cobre esse caso);
+    um campo individual `None` dentro dele mostra "não informado", como qualquer outro dado que o
+    lead legitimamente não deu."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_y", "id": "m1",
+         "instante": "2026-09-13T09:59:00", "texto": "quero cotar"},
+        {"evento": "handoff", "conversation_id": "conv_y", "id": "ho_01",
+         "instante": "2026-09-13T10:00:00", "reason_code": "quote_indisponivel",
+         "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+         "contexto_coletado": {"idade": None, "veiculo_ano": 2021}},
+    ]
 
     html = tela_conversas.render(eventos)
 
     assert "idade: ," not in html
-    assert "ausente na trilha" in html
-    assert "veiculo_ano: 2021" in html
+    assert "Idade: não informado" in html
+    assert "ausente na trilha" not in html
+    assert "Ano do carro: 2021" in html
+
+
+# ── UI-B3, achado da pré-auditoria em navegador do PR #87: rótulo técnico cru no cartão do
+# corretor (`veiculo_ano=`, `plano_id`, data ISO), e "ausente na trilha" pra campo que o lead
+# simplesmente nunca informou (não é falha de gravação).
+
+
+def test_contexto_coletado_usa_rotulos_legiveis_data_br_e_nome_do_plano():
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_ctx", "id": "m1",
+         "instante": "2026-09-13T09:59:00", "texto": "quero falar com um corretor"},
+        {"evento": "handoff", "conversation_id": "conv_ctx", "id": "ho_01",
+         "instante": "2026-09-13T10:00:00", "reason_code": "lead_pediu_humano",
+         "mensagem_ao_lead": "Vou te encaminhar para um corretor.",
+         "contexto_coletado": {
+             "idade": 35, "veiculo_ano": 2019, "cep": "[REDIGIDO]",
+             "plano_id": "completo", "data_inicio": "2026-10-01", "veiculo_modelo": None,
+         }},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert "veiculo_ano=" not in html
+    assert "plano_id" not in html
+    assert "Ano do carro: 2019" in html
+    assert "CEP: [REDIGIDO]" in html
+    assert "Plano: Completo" in html
+    assert "Início da vigência: 01/10/2026" in html
+    assert "Modelo do carro: não informado" in html
+    assert "⚠" not in html
+
+
+# ── UI-B4, achado da pré-auditoria em navegador do PR #87: o resumo sintético do estado coletado
+# (issue #39, `sender_role="sistema"`) desenhado como se fosse texto do lead.
+
+
+def test_mensagem_de_sistema_nao_vira_balao_de_lead():
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv_sistema", "id": "m_sys",
+        "instante": "2026-09-13T10:00:00",
+        "texto": "idade=35; veiculo_ano=2019; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-01",
+        "sender_role": "sistema",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert 'class="msg lead"' not in html
+    assert "idade=35" not in html
+    assert 'class="estado-interno">Resumo dos dados coletados</div>' in html
+
+
+def test_mensagem_de_lead_sem_sender_role_continua_balao_de_lead():
+    """Evento antigo, gravado antes de `sender_role` existir na trilha — `.get("sender_role",
+    "lead")` trata a ausência da chave como lead, nunca como sistema por padrão."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv_legado", "id": "m_legado",
+        "instante": "2026-09-13T10:00:00", "texto": "quero cotar",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert 'class="msg lead"' in html
+    assert "quero cotar" in html

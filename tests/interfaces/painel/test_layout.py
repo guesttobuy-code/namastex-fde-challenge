@@ -30,6 +30,27 @@ def test_botao_desabilitado_recebe_estilo_visivel():
     assert "button[disabled]" in html
 
 
+# ── UI-B1/UI-B2, achado da pré-auditoria em navegador do PR #87: medição real com
+# `getComputedStyle` mostrou `display:flex` nas três seções com `hidden` e `background:rgb(240,240,240)`
+# nos botões Assumir/Encerrar — a regra CSS que faria as duas coisas funcionarem nunca foi servida.
+
+
+def test_atributo_hidden_tem_regra_css_de_verdade():
+    """Sem esta regra, `hidden` fica só um atributo inerte no HTML — o navegador continua
+    desenhando o elemento (medido com `getComputedStyle` na tela de conversas, S13)."""
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert "[hidden]{display:none!important}" in html
+
+
+def test_classe_botao_tem_estilo_definido():
+    """`.botao`/`.botao.principal` (usadas por Assumir/Encerrar em `tela_conversas`) precisam de
+    uma regra própria — sem ela o navegador aplica o padrão dele (`background:rgb(240,240,240)`,
+    medido na auditoria)."""
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert ".botao{" in html
+    assert ".botao.principal{" in html
+
+
 def test_titulo_da_tela_bate_com_o_rotulo_do_menu():
     """Achado B2 da auditoria do PR #47 (issue #46): o item do menu ficou ativo em
     "Histórico de atendimentos" enquanto a página ainda dizia "Conversas" — os dois vinham de

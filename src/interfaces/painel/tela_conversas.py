@@ -14,10 +14,12 @@ só quando `dominio.status_conversa` permite a transição — a mesma decisão 
 segunda regra em JS; (3) contato do lead e motivo do handoff em linguagem simples (S12,
 `interfaces.painel.motivos`, dono único); (4) caixa de entrada de verdade (S13, pedido do dono ao
 testar a tela): lista à esquerda, UMA conversa por vez à direita — a mais recente (última a
-aparecer na trilha) por padrão, com `hidden` nas outras (armadilha do mock: só funciona com
-`[hidden]{display:none!important}`, já em `docs/design/ui.css`); clicar na lista seleciona,
-atualiza `location.hash` (`#<conversation_id>`, sobrevive a recarregar) e reage ao filtro (S10) —
-se a selecionada sair do filtro, a primeira visível assume.
+aparecer na trilha) por padrão, com `hidden` nas outras (armadilha do mock: nenhum `docs/design/*`
+jamais usou o atributo `hidden`, então nenhuma folha carregada tinha `[hidden]{display:none!important}`
+— achado UI-B1 da pré-auditoria em navegador do PR #87, corrigido em `interfaces.painel.layout.
+_CSS_HIDDEN_FUNCIONA`); clicar na lista seleciona, atualiza `location.hash` (`#<conversation_id>`,
+sobrevive a recarregar) e reage ao filtro (S10) — se a selecionada sair do filtro, a primeira
+visível assume.
 
 Issue #86 (atendimento contínuo, ainda não implementada): o cabeçalho da conversa selecionada é o
 ponto de extensão para a caixa de resposta do corretor — por isso os botões Assumir/Encerrar já
@@ -107,7 +109,14 @@ def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, Cont
     for conversation_id, eventos_conversa in por_conversa.items():
         estado = estado_da_conversa(eventos_conversa)
         rotulo = rotulo_de_exibicao(estado)
-        primeira_mensagem = next((e for e in eventos_conversa if e.get("evento") == "mensagem_recebida"), None)
+        # UI-B4 (mesmo achado da pré-auditoria do PR #87, mesma causa): a prévia da lista também não
+        # pode mostrar o resumo sintético (`sender_role="sistema"`) como se fosse a primeira coisa
+        # que o lead disse.
+        primeira_mensagem = next(
+            (e for e in eventos_conversa
+             if e.get("evento") == "mensagem_recebida" and e.get("sender_role", "lead") != "sistema"),
+            None,
+        )
         previa = campo(primeira_mensagem, "texto") if primeira_mensagem else buraco("mensagem_recebida")
         classe_selecionado = " selecionado" if conversation_id == selecionada_inicial else ""
         nav_itens.append(f"""<button class="item{classe_selecionado}" data-status="{esc(estado)}" data-alvo="{esc(conversation_id)}" onclick="selecionarConversa('{esc(conversation_id)}')">
@@ -151,6 +160,50 @@ def render(eventos: list[dict], *, caminho_ui_css=None, contatos: dict[str, Cont
                   css_extra=css_extra_da_tela("index.html"))
 
 
+# UI-B3 (achado da pré-auditoria em navegador do PR #87): `_contexto_coletado`
+# (`aplicacao.servico_conversa`) grava sempre estas 6 chaves, mesmo quando o lead nunca chegou a
+# informar o campo — `None` aqui é "ainda não coletado", nunca perda de dado da trilha (esse é o
+# papel do `buraco()`, reservado para quando o PRÓPRIO evento `contexto_coletado` falta). Rótulo em
+# português pro corretor, nunca a chave interna crua.
+_ROTULO_CAMPO_CONTEXTO = {
+    "idade": "Idade",
+    "veiculo_ano": "Ano do carro",
+    "veiculo_modelo": "Modelo do carro",
+    "cep": "CEP",
+    "plano_id": "Plano",
+    "data_inicio": "Início da vigência",
+}
+
+
+def _data_br(valor: str) -> str:
+    """`aaaa-mm-dd` (formato interno, `EstadoDaConversa.data_inicio`) vira `dd/mm/aaaa` pro
+    corretor. Valor que não bate com esse formato é mostrado como veio — nunca fabricar uma data."""
+    partes = valor.split("-")
+    if len(partes) == 3 and all(p.isdigit() for p in partes):
+        ano, mes, dia = partes
+        return f"{dia}/{mes}/{ano}"
+    return valor
+
+
+def _nome_do_plano(plano_id: str) -> str:
+    """Não existe catálogo `plano_id → nome` no domínio (o nome de verdade só existe dentro de
+    `PrecoCotado`, preso a uma cotação específica já respondida pela `/quote`) — `plano_id` já É o
+    nome em minúsculas (`"completo"`, `"essencial"`). Capitalizar não é inventar um nome novo: é a
+    mesma palavra, legível."""
+    return plano_id.replace("_", " ").capitalize()
+
+
+def _valor_contexto_legivel(chave: str, valor) -> str:
+    if valor is None or valor == "":
+        return "não informado"
+    texto = str(valor)
+    if chave == "data_inicio":
+        texto = _data_br(texto)
+    elif chave == "plano_id":
+        texto = _nome_do_plano(texto)
+    return esc(texto)
+
+
 def _card_contato_e_motivo(eventos: list[dict], contato: ContatoLead | None) -> str:
     """S12 do roteiro de aceite (#57): motivo do último `handoff` em linguagem simples + contato do
     lead — o que `tela_fila_humana` já mostra hoje, replicado aqui pra não sumir do corretor quando
@@ -165,7 +218,10 @@ def _card_contato_e_motivo(eventos: list[dict], contato: ContatoLead | None) -> 
     whatsapp = esc(contato.whatsapp) if contato and contato.whatsapp else "não informado"
     contexto = ultimo.get("contexto_coletado")
     contexto_html = (
-        ", ".join(f"{esc(k)}: {campo(contexto, k)}" for k in contexto)
+        ", ".join(
+            f"{esc(_ROTULO_CAMPO_CONTEXTO.get(k, k))}: {_valor_contexto_legivel(k, contexto[k])}"
+            for k in contexto
+        )
         if isinstance(contexto, dict) and contexto
         else buraco("contexto_coletado")
     )
@@ -191,7 +247,15 @@ def _secao_conversa(
     balões = []
     for evento in eventos:
         tipo = evento.get("evento")
-        if tipo == "mensagem_recebida":
+        if tipo == "mensagem_recebida" and evento.get("sender_role", "lead") == "sistema":
+            # UI-B4 (achado da pré-auditoria em navegador do PR #87): o resumo sintético do estado
+            # coletado (issue #39, `sender_role="sistema"`) NÃO é texto do lead — desenhá-lo como
+            # balão do lead sugeriria que ele escreveu "idade=35; veiculo_ano=2019; ...". Reusa
+            # `.estado-interno` (já existe no mock pra exatamente isto: marcar um evento do sistema
+            # no meio do fluxo, nunca um balão) em vez de inventar uma classe nova — escolha
+            # declarada no corpo do PR.
+            balões.append('<div class="estado-interno">Resumo dos dados coletados</div>')
+        elif tipo == "mensagem_recebida":
             balões.append(f"""<div class="msg lead"><div class="balao">{campo(evento, "texto")}</div>
               <div class="rodape-msg"><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
         elif tipo == "mensagem_enviada":
