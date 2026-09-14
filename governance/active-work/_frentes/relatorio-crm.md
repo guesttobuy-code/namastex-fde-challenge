@@ -10,7 +10,7 @@ session_title: "Trilha Coleta análise e planejamento - chat 16"
 status: aberta
 opened_at: 2026-09-13T21:42:41.6626274-03:00
 last_seen: 2026-09-13T21:42:41.6626274-03:00
-pr: ""
+pr: "80"
 github_frente: "frente:relatorio-crm"
 closed_at: ""
 ---
