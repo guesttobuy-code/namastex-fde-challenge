@@ -9,17 +9,22 @@ import json
 from pathlib import Path
 
 
-def _linhas_completas(texto: str) -> list[str]:
+def _linhas_completas(conteudo: bytes) -> list[str]:
     """Dono único (LEI 11) de "quais linhas do arquivo já terminaram de ser gravadas" (issue #117):
     `registrar` sempre escreve `<json>\\n` de uma vez, então qualquer leitura concorrente só pode
     pegar uma linha pela metade na ÚLTIMA posição do arquivo — uma escrita em andamento nunca
-    empurra bytes NO MEIO do que já foi gravado antes dela (append-only). `texto.split("\\n")`
-    sempre sobra com o último elemento sendo `""` (arquivo termina em `\\n`, escrita completa) ou o
-    fragmento em gravação (arquivo NÃO termina em `\\n`) — os dois casos descartam esse último
-    elemento; qualquer outro elemento não-vazio já terminou de ser escrito e é lido normalmente
-    (inválido ali levanta — corrupção de verdade nunca é escondida, só a ponta em andamento)."""
-    linhas = texto.split("\n")[:-1]
-    return [linha for linha in linhas if linha]
+    empurra bytes NO MEIO do que já foi gravado antes dela (append-only). Trabalha em BYTES, não em
+    texto decodificado: `read_text` decodifica o ARQUIVO INTEIRO de uma vez, e uma escrita
+    interrompida no meio de um caractere multibyte (ex.: "ã", 2 bytes UTF-8) quebra a decodificação
+    inteira antes desta função rodar — texto em português tem acento na maioria das linhas.
+    `conteudo.split(b"\\n")` sempre sobra com o último elemento sendo `b""` (arquivo termina em
+    `\\n`, escrita completa) ou o fragmento em gravação (arquivo NÃO termina em `\\n`, podendo estar
+    cortado no meio de um byte multibyte) — os dois casos descartam esse último elemento ANTES de
+    qualquer `.decode()`; só então cada linha (já completa, sempre um caractere multibyte inteiro)
+    é decodificada. UTF-8 ou JSON inválido numa linha que NÃO é a última continua levantando —
+    corrupção de verdade nunca é escondida, só a ponta em gravação."""
+    linhas = conteudo.split(b"\n")[:-1]
+    return [linha.decode("utf-8") for linha in linhas if linha]
 
 
 class RepositorioDeTrilhaJSONL:
@@ -35,7 +40,7 @@ class RepositorioDeTrilhaJSONL:
         if not self._caminho.exists():
             return []
         eventos = []
-        for linha in _linhas_completas(self._caminho.read_text(encoding="utf-8")):
+        for linha in _linhas_completas(self._caminho.read_bytes()):
             evento = json.loads(linha)
             if evento.get("conversation_id") == conversation_id:
                 eventos.append(evento)
@@ -48,7 +53,7 @@ class RepositorioDeTrilhaJSONL:
         """
         if not self._caminho.exists():
             return []
-        return [json.loads(linha) for linha in _linhas_completas(self._caminho.read_text(encoding="utf-8"))]
+        return [json.loads(linha) for linha in _linhas_completas(self._caminho.read_bytes())]
 
 
 class RepositorioDeTrilhaMemoria:

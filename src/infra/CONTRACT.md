@@ -337,20 +337,36 @@ servidor para a #69).
 
 | # | invariante | teste que a cobre |
 |---|---|---|
-| I-22 | `RepositorioDeTrilhaJSONL.eventos_da_conversa`/`todos_os_eventos` nunca levantam por causa da ÚLTIMA linha do arquivo ainda não terminar em `\n` (escrita concorrente em andamento, issue #110) — essa linha é ignorada. Qualquer OUTRA linha (não a última) com JSON inválido continua levantando `JSONDecodeError` — corrupção de verdade nunca é escondida | `tests/infra/test_trilha_jsonl.py::test_ultima_linha_sem_newline_e_ignorada_por_estar_em_gravacao` e `::test_linha_completa_invalida_no_meio_do_arquivo_continua_levantando` |
+| I-22 | `RepositorioDeTrilhaJSONL.eventos_da_conversa`/`todos_os_eventos` nunca levantam por causa da ÚLTIMA linha do arquivo ainda não terminar em `\n` (escrita concorrente em andamento, issue #110) — essa linha é ignorada, ANTES de qualquer `.decode()` (nunca decodifica o arquivo inteiro de uma vez). Qualquer OUTRA linha (não a última) com UTF-8 ou JSON inválido continua levantando — corrupção de verdade nunca é escondida | `tests/infra/test_trilha_jsonl.py` — `test_ultima_linha_sem_newline_e_ignorada_por_estar_em_gravacao`, `::test_linha_completa_invalida_no_meio_do_arquivo_continua_levantando`, `::test_ultima_linha_cortada_no_meio_de_um_caractere_utf8_e_ignorada`, `::test_arquivo_terminado_em_crlf_continua_lendo_igual` |
 
-- `_linhas_completas(texto)` (novo, privado): dono único (LEI 11) de "quais linhas já terminaram
-  de ser gravadas" — `registrar` sempre escreve `<json>\n` de uma vez só (append-only), então uma
-  escrita concorrente só pode deixar a ÚLTIMA posição do arquivo pela metade, nunca o meio (o que
-  já foi escrito antes não é tocado de novo). `texto.split("\n")[:-1]` descarta esse último
-  elemento (seja ele `""`, arquivo terminado corretamente, seja o fragmento em gravação) — os dois
-  leitores passam a usar essa função, sem trava nova nem `retry`/`sleep`.
+- `_linhas_completas(conteudo: bytes)` (novo, privado): dono único (LEI 11) de "quais linhas já
+  terminaram de ser gravadas" — `registrar` sempre escreve `<json>\n` de uma vez só (append-only),
+  então uma escrita concorrente só pode deixar a ÚLTIMA posição do arquivo pela metade, nunca o
+  meio (o que já foi escrito antes não é tocado de novo). Trabalha em **bytes**, não em texto já
+  decodificado: `conteudo.split(b"\n")[:-1]` descarta esse último elemento (seja ele `b""`, arquivo
+  terminado corretamente, seja o fragmento em gravação) ANTES de decodificar qualquer coisa — só
+  então cada linha restante (já completa) vira `str` via `.decode("utf-8")`. Os dois leitores
+  passam a usar essa função, sem trava nova nem `retry`/`sleep`.
+
+### Achado da auditoria do PR #120, corrigido no mesmo PR
+
+- A primeira versão de `_linhas_completas` recebia `texto: str` (via `caminho.read_text(encoding=
+  "utf-8")`) — decodificava o ARQUIVO INTEIRO antes de descartar a última linha. Uma escrita
+  interrompida no meio de um caractere UTF-8 multibyte (ex.: "ã", 2 bytes) quebra a decodificação
+  do arquivo inteiro com `UnicodeDecodeError`, mesmo a ponta cortada nunca chegando a virar evento
+  — e texto em português (nome do lead, resposta da IA) tem acento na maioria das linhas. Medido
+  com uma cópia isolada do arquivo do PR, fora de qualquer clone, antes do conserto:
+  `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc3 in position ...: unexpected end of
+  data`. Corrigido trabalhando em bytes (acima) — o corte acontece antes de qualquer decodificação.
 
 ### Por que isto não é regressão
 
 - Ler um arquivo já fechado/completo (o único caso que existia até agora) devolve exatamente os
   mesmos eventos de antes — os 6 testes originais de `test_trilha_jsonl.py` continuam sem edição.
-  `registrar`/`RepositorioDeTrilhaMemoria` (dublê) não mudam.
+  `registrar`/`RepositorioDeTrilhaMemoria` (dublê) não mudam. `registrar` grava em modo texto
+  (`newline=None`) — no Windows isso escreve `\r\n`, não só `\n` (medido: `arquivo.write(json +
+  "\n")` produz `b'...}\r\n'` em disco); `json.loads` aceita o `\r` residual no fim da linha, então
+  a leitura em bytes continua igual — coberto por `test_arquivo_terminado_em_crlf_continua_lendo_igual`.
 
 ### O que NÃO é responsabilidade desta seção
 
