@@ -24,7 +24,6 @@ from infra.escrita_atomica import escrever_atomico
 from infra.planos_http import buscar_planos
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces.painel import (
-    tela_avaliacao,
     tela_conversas,
     tela_cotacoes,
     tela_rastreio,
@@ -33,8 +32,8 @@ from interfaces.painel import (
 )
 
 # index.html sai deste dict (issue #46 e #57, PR 2 de 2): precisa receber `contatos`, que as
-# outras telas do loop não usam — mesmo padrão que regras.html/avaliacao.html já seguem, tratadas
-# à parte logo abaixo, fora do loop.
+# outras telas do loop não usam — mesmo padrão que regras.html já segue, tratada à parte logo
+# abaixo, fora do loop.
 _ARQUIVOS = {
     "rastreio.html": lambda eventos, **kw: tela_rastreio.render(eventos, **kw),
     "cotacoes.html": lambda eventos, **kw: tela_cotacoes.render(eventos, **kw),
@@ -132,10 +131,6 @@ def gerar_paineis(
             ),
         )
         escritos.append(caminho_regras)
-
-        caminho_avaliacao = dir_saida / "avaliacao.html"
-        escrever_atomico(caminho_avaliacao, tela_avaliacao.render(caminho_ui_css=caminho_ui_css))
-        escritos.append(caminho_avaliacao)
 
         linhas_relatorio = tela_relatorio.montar_linhas(eventos, contatos=contatos)
         caminho_relatorio = dir_saida / "relatorio.html"

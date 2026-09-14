@@ -35,7 +35,7 @@ Isso sobe dois serviços: a `/quote` da Namastex em `http://localhost:8000` (ina
 |---|---|---|
 | `/` | **chat guiado e determinístico** na coleta (`src/interfaces/chat/`), ligado ao agente real — mesmo `aplicacao.servico_conversa.conduzir_conversa` que a CLI chama, nunca reimplementado; sem LLM até o card de preço, de propósito (decisão da coordenação: quem avalia não precisa de chave para chegar na cotação). O campo de dúvida DEPOIS do card usa a IA opcional (issue #58, ver abaixo) | funcional |
 | `/conhecimento` | editor da base de conhecimento (objeções do lead → resposta orientada) — funcional, ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável) | funcional |
-| `/painel/` | o painel de rastreio (seis telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
+| `/painel/` | o painel de rastreio (cinco telas, [§5](#5-dá-pra-rastrear-o-que-aconteceu)) — gerado em build-time e **regenerado a cada cotação/handoff novo no chat**, sem reiniciar o servidor (`interfaces.painel.gerar.gerar_paineis`, chamado de novo depois de cada `/api/chat/cotar`/`contratar` — [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 2) | funcional |
 
 Pelo chat: aviso de privacidade antes das perguntas, nome + WhatsApp obrigatórios (e-mail opcional),
 idade (menor de 18 não cota — ver [limite conhecido](#10-limites-conhecidos)), veículo, **CEP
@@ -423,8 +423,8 @@ prompt — a resposta do lead continua sempre redigida; teste ponta a ponta em
 invariante nova `I-4` (`src/interfaces/CONTRACT.md`) coberta por teste dedicado
 (`tests/arquitetura/test_fronteiras.py::test_telas_do_painel_nao_importam_infra_direto`).
 
-**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — seis telas em
-HTML estático geradas do mesmo `.jsonl` acima; cinco sem servidor nem JavaScript, e a de
+**O painel visual lê a trilha real** (issue #13/F10, `src/interfaces/painel/`) — cinco telas em
+HTML estático geradas do mesmo `.jsonl` acima; quatro sem servidor nem JavaScript, e a de
 Conversas ganhou os botões Assumir/Encerrar (issue #57 PR 2, #87), que dependem do
 `interfaces.servidor` rodando para funcionar (neste snapshot standalone eles aparecem, mas não
 respondem):
@@ -456,9 +456,6 @@ duas formas do comando acima). Uma tela por link no topo:
 - **Regras e política** (`regras.html`) — a tabela de preço, a política de retry (lidas do código,
   `src/infra/cliente_quote.py`) e o catálogo dos 7 `MotivoHandoff` (`dominio.decisao`), nunca
   redigitadas.
-- **Avaliação** (`avaliacao.html`) — mostra **"eval/casos.jsonl não encontrado"** de propósito: o
-  conjunto de avaliação é da F8 (issue #11), fora desta entrega — não é a tela quebrada, é o buraco
-  declarado aparecendo onde o avaliador olha.
 - **Relatório** (`relatorio.html`, issue #59 PR 2/2) — uma linha por conversa (lead, status, data
   de entrada, pendência, plano cotado), com **Exportar CSV** (`relatorio.csv`, também commitado) —
   leitura e priorização para o corretor, nunca edição.
@@ -599,7 +596,7 @@ não tem:
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |
-| Especificação formal das 6 telas do mock (inclusive "Avaliação") | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
+| Especificação formal das 5 telas do mock | mock ficou de design, sem contrato tela↔trilha ainda | [#26](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/26) |
 | Dataset em camadas (Silver mascarado) — o `dataset/conversations.parquet` original não é reprocessado nem versionado de novo; o que este repositório usa dele são só medições agregadas (ex. as tabelas do ADR-0002), com qualquer PII mascarada pelo `redigir_texto` na leitura, nunca uma cópia derivada commitada | além do escopo do agente em si | [#11](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/11) |
 | Lentidão da `/quote` acima da taxa configurada **sob chamadas em paralelo** (em série, a taxa medida bate com a configuração — [§3](#3-o-que-ele-faz-quando-a-quote-falha-o-ponto-que-mais-separa-diz-o-enunciado)) | investigado, sem conserto nesta entrega | [#1](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/1) |
 | Legibilidade: duas classes chamadas `Decisao` (`dominio/decisao.py` e `dominio/eventos_trilha.py`, esta importada como `DecisaoTrilha`), `conduzir_conversa` com ~80 linhas e 6 responsabilidades, leitura de ambiente espalhada por 4 arquivos | achado de auditoria de arquitetura, classificado como menor — documentado, não escondido | [#49](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/49) |
@@ -632,22 +629,28 @@ PLANO), não por escolha da frente. Aprovado assim mesmo, com a ressalva registr
   em lugar nenhum (conferido: zero ocorrências dessas palavras no arquivo inteiro). Aceitável para
   uma demonstração local; um deploy real precisaria de autenticação nessas três rotas antes de
   qualquer outra coisa.
-- **O servidor atende uma requisição HTTP por vez.** `wsgiref.simple_server` (stdlib, decisão do
-  ADR-0004 — zero dependência nova) é single-threaded por padrão; duas pessoas cotando ao mesmo
-  tempo esperam uma pela outra. Sem medição de quanto isso custa em latência sob carga — não é o
-  cenário desta entrega (`src/interfaces/servidor.py:1`, `make_server` em
-  `src/interfaces/servidor.py:584`).
+- **O servidor atende pedidos concorrentes, com 3 limites conhecidos (issue #110; pontas na
+  [#114](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/114)).**
+  `ServidorHTTPConcorrente` (`src/infra/servidor_http_concorrente.py:14`, thread por pedido via
+  `ThreadingMixIn`; `make_server` em `src/interfaces/servidor.py:585`) tirou o travamento de thread
+  única que uma conexão parada derrubava por inteiro. Ficam: (1) a fila só é DENTRO da mesma
+  conversa (`src/infra/trava_por_conversa.py`) — duas pessoas em conversas diferentes não esperam
+  uma pela outra; (2) a geração do painel roda uma por vez, relendo todas as trilhas
+  (`_TRAVA_DA_GERACAO`, `src/interfaces/painel/gerar.py`) — medido 5,17s com 11.923 linhas; (3) uma
+  rajada acima de 5 conexões simultâneas pode perder conexão (`request_queue_size`, padrão herdado
+  do `socketserver`, não sobrescrito no projeto). Sem medição de latência sob carga real — não é o
+  cenário desta entrega.
 - **Estado da conversa em memória, sem expiração.** `_ESTADOS_EM_MEMORIA`
-  (`src/interfaces/servidor.py:83`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
+  (`src/interfaces/servidor.py:86`) é um `dict` a nível de módulo — perdido se o processo reiniciar,
   e nunca limpo (uma conversa abandonada fica ocupando memória para sempre). Limite aceito e
   declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
   deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
 - **A IA que responde objeção de preço tem 3 limites conhecidos, medidos com o LLM real** (issue
   #58/#70/#78, PR #75/#77/#82 — ver [§1](#1-em-uma-frase-e-como-rodar)):
-  - **Latência de 6,4s a 13,6s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`,
-    3 chamadas reais) — bem acima da extração de intenção isolada (~4,2s, ver acima). Sem cache nem
-    streaming; o lead vê "Só um instante…" até 13,6s numa conversa real
-    ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
+  - **Latência de 9,8s a 26s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`
+    real: 9,8s/14,4s/23,6s pela API; 24s/26s pela tela, 14/09) — bem acima da extração de intenção
+    isolada (~4,2s, ver acima). Sem cache nem streaming; o lead vê "Só um instante…" até 26s numa
+    conversa real ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
   - **Intermitência medida no reconhecimento de "quero falar com um humano":** numa bateria de 4
     execuções da mesma frase ("pode me passar pra uma pessoa de verdade?"), 1 delas voltou sem
     intenção nenhuma (o modelo não classificou) — o lead recebe "Não entendi — pode reformular?" em

@@ -21,10 +21,10 @@ disse o quê. O remetente vem do campo `sender_role` quando o evento já o tiver
 gravado até hoje, antes da #86), cai no fallback por `origem_do_texto` (campo que já existe:
 `"redator_deterministico:..."` → agente/robô, `"llm:..."` → IA) — nunca inventa um remetente novo.
 
-Sem mock aprovado: ao contrário das outras seis telas, não existe `docs/design/relatorio.html` —
-esta tela nasceu depois do desenho original (o próprio dono pediu "deixa isso por último"). Por
-isso `pagina()` recebe `css_extra=""` em vez de `layout.css_extra_da_tela(...)`: inventar um mock
-que ninguém aprovou violaria a LEI DO NÃO-CHUTE.
+Sem mock aprovado: ao contrário das outras quatro telas do painel, não existe
+`docs/design/relatorio.html` — esta tela nasceu depois do desenho original (o próprio dono pediu
+"deixa isso por último"). Por isso `pagina()` recebe `css_extra=""` em vez de
+`layout.css_extra_da_tela(...)`: inventar um mock que ninguém aprovou violaria a LEI DO NÃO-CHUTE.
 """
 
 from __future__ import annotations
