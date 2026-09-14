@@ -36,7 +36,7 @@ from typing import Any
 
 from dominio.redator import valor_br
 from interfaces.painel.agrupar import agrupar_por_conversa, estado_da_conversa, rotulo_de_exibicao
-from interfaces.painel.campos import MARCADOR_RESPOSTA_VAZIA, campo, data_br, esc, texto_da_resposta
+from interfaces.painel.campos import MARCADOR_RESPOSTA_VAZIA, campo, data_br, eh_resposta_vazia, esc, texto_da_resposta
 from interfaces.painel.layout import pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
@@ -249,9 +249,10 @@ def _historico_csv(historico: list[dict[str, Any]] | None) -> str:
 
 
 def _texto_csv(mensagem: dict[str, Any]) -> str:
-    """Versão em texto puro de `campos.texto_da_resposta`, pro CSV — mesmo marcador de resposta
-    vazia (`campos.MARCADOR_RESPOSTA_VAZIA`, dono único), sem o `<span>` do HTML."""
-    if "texto" in mensagem and mensagem["texto"] == "":
+    """Versão em texto puro de `campos.texto_da_resposta`, pro CSV — mesma checagem
+    (`campos.eh_resposta_vazia`, dono único, LEI 11) e o mesmo marcador
+    (`campos.MARCADOR_RESPOSTA_VAZIA`), sem o `<span>` do HTML."""
+    if eh_resposta_vazia(mensagem):
         return MARCADOR_RESPOSTA_VAZIA
     return mensagem.get("texto") or ""
 

@@ -43,6 +43,13 @@ def buraco(chave: str) -> str:
 MARCADOR_RESPOSTA_VAZIA = "(sem resposta — seguiu o padrão)"
 
 
+def eh_resposta_vazia(evento: dict) -> bool:
+    """Dono único (LEI 11, issue #93) da regra "chave `texto` presente e vazia = resposta vazia
+    explícita" — a mesma checagem vivia duplicada em `texto_da_resposta` (HTML) e
+    `tela_relatorio._texto_csv` (texto puro); as duas agora chamam esta função."""
+    return "texto" in evento and evento["texto"] == ""
+
+
 def texto_da_resposta(evento: dict) -> str:
     """Como `campo(evento, "texto")`, mas distingue as duas formas de a trilha não ter texto —
     ambíguas em `campo()` hoje (issue #93): a CHAVE presente com string vazia é o lead tendo
@@ -50,7 +57,7 @@ def texto_da_resposta(evento: dict) -> str:
     (`.vazio`), nunca o buraco (`.falta`, vermelho) reservado pra chave realmente ausente — falha
     de gravação de verdade. `campo()` em si não muda — os outros chamadores (cotações, handoff,
     decisão, relatório) continuam com o comportamento de hoje."""
-    if "texto" in evento and evento["texto"] == "":
+    if eh_resposta_vazia(evento):
         return f'<span class="vazio">{MARCADOR_RESPOSTA_VAZIA}</span>'
     return campo(evento, "texto")
 

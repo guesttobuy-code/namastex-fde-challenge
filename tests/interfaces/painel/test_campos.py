@@ -1,6 +1,6 @@
 """As duas regras que não se negociam do escopo #13: escape sempre, buraco visível nunca vazio."""
 
-from interfaces.painel.campos import buraco, campo, data_br, esc, lista, texto_da_resposta
+from interfaces.painel.campos import buraco, campo, data_br, eh_resposta_vazia, esc, lista, texto_da_resposta
 
 
 def test_esc_escapa_tag_perigosa():
@@ -86,3 +86,17 @@ def test_data_br_com_instante_ausente_devolve_none():
 
 def test_data_br_com_valor_nao_iso_devolve_o_original_sem_inventar():
     assert data_br("nao-e-uma-data") == "nao-e-uma-data"
+
+
+def test_eh_resposta_vazia_com_chave_presente_e_vazia():
+    """issue #93 (LEI 11): dono único da regra "chave `texto` presente e vazia = resposta vazia" —
+    `texto_da_resposta` e `tela_relatorio._texto_csv` usam esta função, nunca repetem a condição."""
+    assert eh_resposta_vazia({"texto": ""}) is True
+
+
+def test_eh_resposta_vazia_com_chave_ausente():
+    assert eh_resposta_vazia({}) is False
+
+
+def test_eh_resposta_vazia_com_texto_de_verdade():
+    assert eh_resposta_vazia({"texto": "x"}) is False
