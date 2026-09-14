@@ -17,6 +17,13 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
   IA (PR #75) sempre veria "vou encaminhar para um corretor" para qualquer objeção de preço, porque
   não havia nenhuma ficha cadastrada. Parte 2 (prova com o LLM real pela tela) fica com a
   coordenação, depois do merge
+- **`tests/infra/test_fichas_publicadas.py` (achado da pré-auditoria do PR, issue #70):** o teste de
+  fumaça das 4 fichas acima tinha rodado à mão, sem ficar commitado — não protegia contra alguém
+  editar uma ficha depois. Novo teste lê `conhecimento/objecoes/*.json` do disco e afirma: são as 4
+  esperadas, todas `status == "publicado"` com `versao >= 1`, todas passam em
+  `validar_resposta_orientada` e `validar_frases_proibidas`; mais uma mutação colada (dígito solto
+  fora de marcador numa cópia em memória da resposta) provando que a rede realmente pega o defeito,
+  não só "passou por acaso"
 
 ### Adicionado
 - **Agente de IA respondendo objeção de preço com a base de conhecimento (issue #58, frente `ia-responde`):** `Intencao.OBJECAO_DE_PRECO` (aditivo); `dominio.ficha_objecao.preencher_marcadores` (a IA escreve com `{{marcador}}`, o domínio resolve com o valor real de `PrecoCotado`); porta `PortalDeRespostaOrientada` + adaptadores `AdaptadorDeRespostaOrientadaDeterministico` (sem chave, sempre indisponível — gerar resposta sem LLM não é seguro) e `AdaptadorDeRespostaOrientadaOpenRouter` (reaproveita o cliente HTTP de `AdaptadorDeLinguagemOpenRouter`, LEI 11); `aplicacao.servico_resposta_orientada.montar_e_responder`/`processar_mensagem_livre` (classifica a mensagem livre, monta contexto sem PII, valida marcador, 2 tentativas, encaminha ao corretor — `MotivoHandoff.RESPOSTA_ORIENTADA_INDISPONIVEL`, aditivo — quando não há ficha publicada ou as tentativas reprovam); rota `POST /api/chat/responder` em `interfaces.rotas_resposta_orientada` (módulo próprio — extraído de `interfaces.servidor` para não estourar o `file-loc-ceiling`; `servidor.py` só tem a linha de roteamento, fora de `_rotear_chat` de propósito para não colidir com quem edita aquela função em paralelo); campo opcional de texto livre no chat, depois do card de preço (`habilitarCampoDeObjecao`, função própria em `_corpo.html`, texto exato aprovado pelo dono), reusando `passoAtual`/`mostrarDoca` do fluxo guiado existente — sem tocar `cotar()`/`contratar()` além de uma linha de chamada. `governance/IMPACT_MATRIX.md` ganha a linha `resposta-orientada`; `tests/infra/test_adaptador_de_resposta_orientada_real.py` (marcado `llm_real`, mesma disciplina de `test_adaptador_de_linguagem_real.py`/#9 — nunca lê nem imprime a chave) prova com o OpenRouter de verdade que o texto sai com marcador, nunca número solto.
