@@ -132,6 +132,30 @@ O `docker compose` repassa essas duas variáveis para o container `app` em tempo
 entram na imagem nem no log) — o mesmo `.env` funciona rodando o servidor direto no host, sem
 Docker (`PYTHONPATH=src python -m interfaces.servidor`).
 
+### Rodar os testes
+
+Dependências de desenvolvimento (`ruff`, `pytest`, `import-linter`) vêm do `[dependency-groups]`
+do `pyproject.toml`, não do Docker — instale com [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --group dev
+PYTHONPATH=src uv run python -m pytest -q
+PYTHONPATH=src uv run lint-imports
+uv run ruff check .
+```
+
+Saída esperada (rodada nesta máquina, contra o HEAD desta branch):
+
+```
+611 passed, 38 deselected
+Contracts: 3 kept, 0 broken
+All checks passed!
+```
+
+Os 38 testes `deselected` são marcados `llm_real` (`pyproject.toml:56`) — chamam a API OpenRouter
+de verdade e só rodam com `OPENROUTER_API_KEY` no ambiente (`pytest -m llm_real`, explícito; sem
+isso o `addopts` da linha 61 os exclui por padrão, para CI e clones sem `.env` continuarem verdes).
+
 ---
 
 ## 2. Funciona de ponta a ponta?
@@ -160,9 +184,10 @@ enunciado), geradas por um roteiro reproduzível
 
 ## Roteiro de teste (5 minutos)
 
-Cobre só o que está mergeado na `main` agora (`9099560` ou mais nova) — status/estado da conversa
-além do motivo do handoff, atendimento contínuo (corretor respondendo na mesma conversa) e o menu
-da tela Relatório **ainda não entraram** (ver [§9](#9-o-que-ficou-de-fora-e-por-quê)).
+Cobre só o que está mergeado na `main` agora — status/estado da conversa, filtro por status e os
+botões Assumir/Encerrar **já entraram** (issue #57 PR 2/2); a tela Relatório, com seu item de menu,
+também **já entra**. **Fica de fora:** atendimento contínuo, o corretor respondendo ao lead na
+mesma conversa (ver [§9](#9-o-que-ficou-de-fora-e-por-quê)).
 
 **(a) Sem `.env` — fluxo guiado até o card, sem IA**
 ```bash
@@ -226,9 +251,9 @@ docker compose exec app cat /app/examples/trilha_<conversation_id>.jsonl
 `classificacao` (`sucesso`/`indisponivel`/`timeout`) — testado ao vivo (`docker exec` no container
 já rodando). É a MESMA trilha que alimenta o painel do passo (d) — nada no painel é inventado.
 
-**Status/estado da conversa (além do motivo do handoff), atendimento contínuo (corretor
-respondendo na mesma conversa) e o menu da tela Relatório: seções acrescentadas aqui quando
-entrarem na `main`.**
+**Status/estado da conversa, filtro por status, Assumir/Encerrar (issue #57 PR 2/2) e a tela
+Relatório com seu item de menu (issue #59) já estão na `main`.** Atendimento contínuo (o corretor
+respondendo ao lead na mesma conversa) fica fora desta entrega — ver [§9](#9-o-que-ficou-de-fora-e-por-quê).
 
 ---
 
@@ -528,7 +553,7 @@ não tem:
 
 | Ficou de fora | Estado | Issue |
 |---|---|---|
-| Tela Relatório (`src/interfaces/painel/tela_relatorio.py`, CSV com telefone/histórico) existe mas não tem menu nem rota — `interfaces.painel.gerar`/`layout` não a referenciam ainda, então não é alcançável pela navegação | `[PENDENTE: #59]` — PR 1/2 mergeado (a tela), PR 2/2 (menu + `gerar.py`) ainda não | [#59](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/59) |
+| Atendimento contínuo — o corretor responde o lead na mesma conversa (servidor, continuidade no chat do lead, caixa de resposta do corretor) | fora desta entrega por prazo, decisão do dono em 14/09; parte do backend preservada no branch `claude/atendimento-backend` | [#86](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/86) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
 | Webhook estilo WhatsApp | fora do caminho crítico do desafio | [#12](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/12) |
 | Disjuntor, cache e concorrência por medição | resiliência extra além do que a `/quote` exige hoje | [#14](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/14) |

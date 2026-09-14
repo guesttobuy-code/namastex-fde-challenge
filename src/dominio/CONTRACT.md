@@ -233,7 +233,13 @@ acréscimo à seção da F4, sem editar nenhuma linha dela).
   coisas" — normalizar na fronteira (`aplicacao.servico_conversa.montar_estado`, ver
   `aplicacao/CONTRACT.md`) E manter a rede de segurança rotulada no redator, para cobrir texto
   livre do lead que a normalização de campo estruturado não alcança.
-
+- 2026-09-14 — `TentativaDeCotacao.plano_id`/`plano_nome` (issue #59, Relatório): a resposta 200 da
+  `/quote` já trazia os dois campos (mesmo payload que preenche `premio_mensal`/`franquia`,
+  `dominio.preco_cotado.PrecoCotado.de_resposta_http_200`), mas `_registrar_tentativa`
+  (`aplicacao/servico_conversa.py`) não os copiava para o evento da trilha — o Relatório precisa do
+  nome do plano num campo estruturado, nunca extraído do texto livre de `mensagem_enviada`. Campos
+  aditivos e opcionais (default `None`): trilha gravada antes desta decisão continua válida sem
+  eles. Teste: `tests/dominio/test_eventos_trilha.py::test_tentativa_de_cotacao_serializa_com_e_sem_plano`.
 - 2026-09-13/14 — issue #57 (P14, PR 2 de 2): `StatusDaConversa` (5 valores oficiais do dono) e a
   tabela de transições nascem em `dominio.status_conversa`, substituindo o rótulo inferido que
   `interfaces.painel.agrupar.estado_da_conversa()` calculava por conta própria (dois donos do
