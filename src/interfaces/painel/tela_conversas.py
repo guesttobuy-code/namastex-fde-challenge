@@ -29,9 +29,8 @@ ser reescrita."""
 
 from __future__ import annotations
 
-import re
-
 from dominio.contato_lead import ContatoLead
+from dominio.redator import valor_br
 from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa, rotulo_de_exibicao
 from interfaces.painel.campos import buraco, campo, esc
@@ -39,12 +38,6 @@ from interfaces.painel.layout import css_extra_da_tela, pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
 _EVENTOS_RELEVANTES = {"mensagem_recebida", "mensagem_enviada", "decisao"}
-
-# UI-B5 (achado da coordenação testando o conserto do UI-B4, PR #87): formato ESTÁVEL do redator
-# determinístico (`dominio.redator.montar_mensagem`, dono único, LEI 11) — "Plano X: R$ V/mês,
-# franquia ...". Só extrai resumo desse padrão exato; texto livre da IA (resposta orientada) não
-# tem formato garantido e não deve ser adivinhado.
-_PADRAO_RESUMO_COTACAO = re.compile(r"^Plano (.+?): R\$ ([\d.,]+)/mês")
 
 _OPCOES_FILTRO = (
     ("", "Todos os status"),
@@ -104,14 +97,19 @@ function transicaoDeStatus(conversationId, rota) {
 
 
 def _resumo_da_ultima_cotacao(eventos_conversa: list[dict]) -> str | None:
-    """`None` quando não há `mensagem_enviada`, ou quando o texto não bate com o formato do
-    redator determinístico (resposta orientada por LLM, por exemplo) — quem chama cai pro rótulo
-    do status nesse caso, nunca inventa um resumo."""
-    enviadas = [e for e in eventos_conversa if e.get("evento") == "mensagem_enviada"]
-    if not enviadas:
+    """Issue #59 (PR 2/2, achado da pré-auditoria do #87): lê `plano_nome`/`premio_mensal` da
+    ÚLTIMA `tentativa_de_cotacao` com sucesso — campo ESTRUTURADO, nunca mais casado por regex
+    contra `mensagem_enviada.texto` (frágil: quebra se o template do redator mudar). `None` quando
+    não há tentativa com sucesso, ou quando a trilha é antiga (gravada antes do campo existir, sem
+    `plano_nome`) — quem chama cai pro rótulo do status nesse caso, nunca inventa um resumo."""
+    sucessos = [
+        e for e in eventos_conversa
+        if e.get("evento") == "tentativa_de_cotacao" and e.get("classificacao") == "sucesso" and e.get("plano_nome")
+    ]
+    if not sucessos:
         return None
-    m = _PADRAO_RESUMO_COTACAO.match(enviadas[-1].get("texto") or "")
-    return f"{m.group(1)} · R$ {m.group(2)}/mês" if m else None
+    ultima = sucessos[-1]
+    return f"{ultima['plano_nome']} · R$ {valor_br(ultima['premio_mensal'])}/mês"
 
 
 def _previa_da_conversa(eventos_conversa: list[dict], estado: str) -> str:

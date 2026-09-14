@@ -222,11 +222,15 @@ def test_previa_de_conversa_so_com_resumo_sistema_mostra_o_status_nao_o_buraco()
 
 
 def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
-    """Redator determinístico grava um formato estável — a prévia extrai plano e preço dali em vez
-    de cair direto no rótulo do status, quando a `mensagem_enviada` bate com esse formato."""
+    """Issue #59 (PR 2/2): a prévia lê `plano_nome`/`premio_mensal` da ÚLTIMA `tentativa_de_cotacao`
+    com sucesso (campo estruturado) — nunca mais casa regex contra o texto do redator (achado da
+    pré-auditoria do #87: extrair de texto livre é frágil, quebra se o template mudar)."""
     eventos = [
         {"evento": "mensagem_recebida", "conversation_id": "conv_cotada", "id": "m_sys",
          "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_cotada", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Completo", "premio_mensal": 241.38},
         {"evento": "mensagem_enviada", "conversation_id": "conv_cotada", "id": "m_env",
          "instante": "2026-09-13T10:00:01",
          "texto": "Plano Completo: R$ 241,38/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
@@ -239,6 +243,48 @@ def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
 
     assert "ausente na trilha" not in html
     assert '<span class="previa">Completo · R$ 241,38/mês</span>' in html
+
+
+def test_previa_de_conversa_cotada_trilha_antiga_sem_plano_nome_cai_no_status():
+    """Trilha antiga (gravada antes do campo `plano_nome` existir): sem `tentativa_de_cotacao`
+    estruturada, a prévia não inventa resumo nem quebra — cai no rótulo do status, mesmo
+    comportamento de qualquer conversa sem resumo extraível."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_antiga", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "mensagem_enviada", "conversation_id": "conv_antiga", "id": "m_env",
+         "instante": "2026-09-13T10:00:01",
+         "texto": "Plano Completo: R$ 241,38/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
+         "decisao_id": "dec_01", "regra_aplicada": "explicar_cotacao", "origem_do_texto": "redator_deterministico:v1"},
+        {"evento": "decisao", "conversation_id": "conv_antiga", "id": "dec_01",
+         "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa">Completo · R$ 241,38/mês</span>' not in html
+    assert '<span class="previa">Cotada</span>' in html
+
+
+def test_previa_de_conversa_com_duas_cotacoes_usa_a_ultima_com_sucesso():
+    """Lead troca de plano e cota de novo — a prévia mostra a ÚLTIMA cotação com sucesso, não a
+    primeira (mesma disciplina de `tela_relatorio.plano_cotado_da_conversa`)."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_troca", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_troca", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Essencial", "premio_mensal": 119.90},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_troca", "id": "qa_02",
+         "instante": "2026-09-13T10:05:00", "classificacao": "sucesso",
+         "plano_nome": "Premium", "premio_mensal": 339.90},
+        {"evento": "decisao", "conversation_id": "conv_troca", "id": "dec_01",
+         "instante": "2026-09-13T10:05:00", "tipo": "explicar_cotacao"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa">Premium · R$ 339,90/mês</span>' in html
 
 
 def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
