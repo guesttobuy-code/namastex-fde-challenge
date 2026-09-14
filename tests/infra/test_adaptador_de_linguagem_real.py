@@ -8,11 +8,16 @@ caminho que a CLI usa), e a chave nunca é impressa nem logada.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from dominio.estado_conversa import EstadoDaConversa
 from infra.adaptador_de_linguagem import AdaptadorDeLinguagemOpenRouter, criar_adaptador_de_linguagem
 from interfaces.dotenv_loader import carregar_dotenv_no_ambiente
+
+_RAIZ = Path(__file__).resolve().parents[2]
 
 pytestmark = pytest.mark.llm_real
 
@@ -166,6 +171,38 @@ def test_extracao_real_objecao_de_preco_e_controle_de_falsos_positivos(texto, in
     assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"
 
 
+# issue #78: auditoria da #70 (fichas publicadas) mediu "pago e ainda tenho que esperar pra ter
+# cobertura" — uma das 3 `frases_do_lead` da ficha `caro-com-carencia` — virando
+# `intent=quer_falar_com_humano` no prompt v2. A ficha de carência nunca era usada. Mesmo molde
+# dos roteiros acima: as 3 frases da própria ficha + controles que não podem virar objecao.
+_FRASES_OBJECAO_DE_CARENCIA = [
+    pytest.param("pago e ainda tenho que esperar pra ter cobertura", "objecao_de_preco", id="pago_e_espero_cobertura"),
+    pytest.param("por que roubo só depois de um tempo", "objecao_de_preco", id="roubo_so_depois_de_um_tempo"),
+    pytest.param("se roubarem amanhã não cobre", "objecao_de_preco", id="se_roubarem_amanha_nao_cobre"),
+]
+
+_FRASES_CONTROLE_OBJECAO_DE_CARENCIA = [
+    pytest.param("quero falar com um atendente", "quer_falar_com_humano", id="controle_humano_nao_e_carencia"),
+    pytest.param("quanto tempo demora a entrega do carro reparado?", None, id="controle_pergunta_de_produto_nao_e_carencia"),
+]
+
+
+@pytest.mark.parametrize(
+    "texto,intent_esperado", _FRASES_OBJECAO_DE_CARENCIA + _FRASES_CONTROLE_OBJECAO_DE_CARENCIA
+)
+def test_extracao_real_objecao_de_carencia_e_controle_de_falsos_positivos(texto, intent_esperado):
+    """Roteiro de aceite da #78: as 3 frases da ficha `caro-com-carencia` (#70) chegando a
+    `objecao_de_preco` — antes do prompt v3, "pago e ainda tenho que esperar pra ter cobertura"
+    virava `quer_falar_com_humano` e a ficha nunca era usada."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    estado = EstadoDaConversa(conversation_id=f"conv-prova-real-carencia-{abs(hash(texto))}")
+
+    saida = adaptador.extrair(texto, estado)
+
+    print(f"\n[prova-real-carencia] texto={texto!r} intent_extraido={saida.intent!r} esperado={intent_esperado!r}")
+    assert saida.intent == intent_esperado, f"esperado {intent_esperado!r}, veio {saida.intent!r} — saida={saida!r}"
+
+
 def test_extracao_real_idade_isolada_nunca_vira_objecao_de_preco():
     """Achado da re-auditoria do PR #75: "tenho 35 anos" sozinho, sem contexto de conversa, é
     ambíguo de verdade — o modelo real devolveu `intent=None` (campo de idade sem intenção clara
@@ -178,3 +215,89 @@ def test_extracao_real_idade_isolada_nunca_vira_objecao_de_preco():
 
     print(f"\n[prova-real-objecao] texto='tenho 35 anos' intent_extraido={saida.intent!r}")
     assert saida.intent != "objecao_de_preco", f"saida={saida!r}"
+
+
+def _fichas_publicadas_no_disco() -> list[dict]:
+    """Lê `conhecimento/objecoes/*.json` direto do disco (fora da `aplicacao`/`infra` de
+    propósito — este teste só precisa das `frases_do_lead`, não quer nenhuma dependência de porta
+    ou repositório). Só as com `status == "publicado"` — regra idêntica à do contexto real
+    (`aplicacao.servico_resposta_orientada.montar_contexto`, issue #43)."""
+    diretorio = _RAIZ / "conhecimento" / "objecoes"
+    if not diretorio.is_dir():
+        return []
+    fichas = []
+    for caminho in sorted(diretorio.glob("*.json")):
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        if dados.get("status") == "publicado" and dados.get("frases_do_lead"):
+            fichas.append(dados)
+    return fichas
+
+
+_FICHAS_PUBLICADAS = _fichas_publicadas_no_disco()
+
+
+@pytest.mark.skipif(
+    not _FICHAS_PUBLICADAS,
+    reason=(
+        "nenhuma ficha publicada em conhecimento/objecoes/*.json nesta árvore — a #70 (fichas "
+        "aprovadas pelo dono) ainda não entrou na main; este teste só tem o que provar depois "
+        "desse merge (regra geral da #78)"
+    ),
+)
+@pytest.mark.parametrize(
+    "ficha", _FICHAS_PUBLICADAS, ids=[f.get("id", "?") for f in _FICHAS_PUBLICADAS]
+)
+def test_extracao_real_toda_ficha_publicada_tem_frase_que_chega_a_objecao_de_preco(ficha):
+    """Regra geral da #78: cada ficha publicada em `conhecimento/objecoes/*.json` precisa ter
+    pelo menos uma `frase_do_lead` que o prompt de extração real reconhece como
+    `objecao_de_preco` — senão a ficha existe na base mas nunca é usada, do jeito que
+    `caro-com-carencia` ficou invisível até este conserto. Roda a PRIMEIRA frase de cada ficha
+    (a mais representativa, por convenção de quem escreveu a ficha)."""
+    frase = ficha["frases_do_lead"][0]
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    estado = EstadoDaConversa(conversation_id=f"conv-prova-real-ficha-{ficha['id']}")
+
+    saida = adaptador.extrair(frase, estado)
+
+    print(f"\n[prova-real-ficha] ficha={ficha['id']!r} frase={frase!r} intent_extraido={saida.intent!r}")
+    assert saida.intent == "objecao_de_preco", (
+        f"ficha {ficha['id']!r} publicada mas invisível: a frase {frase!r} virou "
+        f"intent={saida.intent!r}, nunca objecao_de_preco — saida={saida!r}"
+    )
+
+
+# issue #81, item 3 do escopo acrescido pela coordenação (comentário 5657713538): "pode me passar
+# pra uma pessoa de verdade?" deu intent=None 1 de 4 vezes na suíte do #82 — MEDIR a taxa real com
+# volume, SEM consertar nada aqui (o achado, se confirmado, vira issue própria). Roda as 5 frases
+# de quer_falar_com_humano ≥10 vezes cada uma e imprime a contagem — não falha por intermitência,
+# só reporta (a decisão de agir fica com quem lê o resultado, não com o exit code do pytest).
+_REPETICOES_POR_FRASE = 10
+
+
+def test_medir_taxa_de_none_em_pedido_de_humano_sem_consertar():
+    """issue #81, item 3 (não conserta, só mede): imprime, para cada uma das 5 frases de
+    `quer_falar_com_humano`, quantas das `_REPETICOES_POR_FRASE` execuções reais deram
+    `intent=None` em vez do valor certo — e a taxa agregada. Comando único:
+    `pytest -m llm_real -k test_medir_taxa_de_none_em_pedido_de_humano_sem_consertar -v -s`."""
+    adaptador = criar_adaptador_de_linguagem(provedor="openrouter")
+    total_execucoes = 0
+    total_none = 0
+    print()
+    for param in _FRASES_QUER_FALAR_COM_HUMANO:
+        texto = param.values[0]
+        contagem: dict[str | None, int] = {}
+        for indice in range(_REPETICOES_POR_FRASE):
+            estado = EstadoDaConversa(conversation_id=f"conv-medicao-humano-{abs(hash(texto))}-{indice}")
+            saida = adaptador.extrair(texto, estado)
+            contagem[saida.intent] = contagem.get(saida.intent, 0) + 1
+            total_execucoes += 1
+            if saida.intent is None:
+                total_none += 1
+        nones = contagem.get(None, 0)
+        print(f"[medicao-humano] {texto!r}: {contagem!r} — {nones}/{_REPETICOES_POR_FRASE} None")
+    taxa = total_none / total_execucoes if total_execucoes else 0.0
+    print(f"[medicao-humano] TOTAL: {total_none}/{total_execucoes} None — taxa {taxa:.1%}")
+    print(
+        "[medicao-humano] limite combinado: >10% vira achado próprio (issue #81, item 3) — "
+        "este teste não falha por isso, só registra."
+    )

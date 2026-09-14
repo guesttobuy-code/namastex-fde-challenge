@@ -102,6 +102,41 @@ O widget transfere trabalho da IA para o dono. É o oposto do que a esteira exis
 quê**. Depois, siga com tudo o que não depende da resposta. Se a resposta muda o trabalho de quem chegar
 depois, a pergunta também vira comentário na issue — chat evapora, issue fica.
 
+## 9. Toda frente nasce com roteiro de aceite e PLANO antes do código
+
+Ordem do dono, 13/09/2026 ~21:20: *"vamos trazer mais eficiência… vc pode corrigir e melhorar"*. Origem: o
+PR #75 (issue #58) foi reprovado com 5 bloqueantes na primeira auditoria e ficou ~2h30 sem commitar
+(levando a um `git stash`). No mesmo dia, um chat rodou `git commit --no-verify` num commit local diante
+de um self-test que só falhava no Windows — confessou o ato, e o commit foi desfeito antes do push
+(diário #16, 13/09 20:42). Sete regras, cada uma fechando um pedaço do que deu errado ali:
+
+1. **A coordenação escreve o roteiro de aceite na issue, antes do PLANO** — cenário → tela → o que a
+   trilha grava, com e sem chave (LLM real e determinístico). Frente que recebe uma demanda sem roteiro
+   pede um antes de propor.
+2. **A frente publica o `## PLANO` antes de codar, ligando cada cenário do roteiro a um teste — inclusive
+   frente só de dados ou só de documentação.** O guard `plano-na-issue` cobra a EXISTÊNCIA do `## PLANO`;
+   esta lei cobra o CONTEÚDO: cenário sem teste (ou, em frente sem código, sem prova por grep/leitura
+   equivalente) correspondente não é plano, é lista de tarefas. Furo medido, duplo, na issue #70 (fichas
+   de objeção, PR #77, frente só de dados): o `## PLANO` foi publicado DEPOIS do código — o guard
+   `plano-na-issue` ficou vermelho para sempre (`PLANO_DEPOIS_DO_CODIGO`), e o PR foi mergeado com esse
+   vermelho documentado, por ordem de execução da própria coordenação, sem exigir o plano antes; e o
+   teste de fumaça das fichas publicadas não ficou commitado — rodou à mão, sem proteção contra edição
+   futura, achado só na pré-auditoria. Esta própria issue #83, que só mexe em documentação, seguiu a
+   regra com um PLANO publicado antes da edição — este PR é o exemplo do item aplicado.
+3. **O primeiro pedaço que depende de LLM roda contra o modelo real cedo, sem a frente tocar a chave.** A
+   frente escreve o teste marcado `llm_real` com um comando único (`pytest -m llm_real
+   caminho/do/teste.py`); a coordenação roda com a chave dela e cola o resultado.
+4. **Commit pequeno, nunca mais de 30 minutos sem commitar**, e `git merge origin/main` depois de cada
+   merge — protege contra perder trabalho e contra PR grande demais para auditar.
+5. **Um dono por arquivo quente.** `servidor.py`, `_corpo.html`, `test_servidor.py`, `painel/layout.py`,
+   `tela_conversas.py`, `agrupar.py` — quando duas frentes precisam do mesmo arquivo quente ao mesmo
+   tempo, a coordenação decide quem edita e quem espera. Precisa mudar um arquivo quente que não é seu?
+   Pare e pergunte (lei 7 acima).
+6. **O PR traz `## Roteiro de aceite`** — tabela cenário → teste → resultado, no corpo do PR. Sem essa
+   seção, o auditor não tem como conferir se o comportamento pedido foi realmente coberto.
+7. **A cada merge, um teste de 3 minutos ao dono** — um gesto concreto (abrir tal tela, rodar tal comando)
+   que ele mesmo consegue fazer para sentir a entrega funcionando, sem precisar ler código.
+
 ---
 
 ## Onde cada coisa é registrada
@@ -114,3 +149,4 @@ depois, a pergunta também vira comentário na issue — chat evapora, issue fic
 | Achado fora do seu escopo | issue própria, `tipo:achado`, e avise a coordenação |
 | Decisão de arquitetura | ADR em `governance/adr/` |
 | Mudança de código | linha no `CHANGELOG.md` citando a issue |
+| Roteiro de aceite (cenário → tela → trilha) | comentário da coordenação na issue, antes do PLANO |
