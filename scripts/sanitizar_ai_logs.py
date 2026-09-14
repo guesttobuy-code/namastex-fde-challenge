@@ -35,11 +35,14 @@ O QUE ESTE SCRIPT FAZ, em ordem:
      no que foi ESCRITO).
   3. Em cada linha (um evento JSON por linha), NUMA PASTA DE STAGING TEMPORARIA (S2, fora de
      `ai-logs/`): substitui todo bloco `{"type": "image", ...}` por um bloco de texto `[IMAGEM
-     REMOVIDA: captura de tela do dono]`; aplica os padroes de substituicao da config, o redator de
-     PII sintetica (`dominio.redator_pii.redigir_texto`) e os padroes PESSOAIS do passo 1b em TODO
-     valor string da arvore, E em toda CHAVE de dict (nao so em campos de texto conhecidos -- a
-     estrutura das sessoes tem muitos tipos de evento, e caminho/segredo pode aparecer em qualquer
-     um deles, inclusive como chave).
+     REMOVIDA: captura de tela do dono]`; aplica os padroes de substituicao da config, os prefixos
+     de SEGREDO OpenRouter/Anthropic SEM PISO de comprimento (S5 -- `sk-or-v1-*`/`sk-ant-*` viram
+     `[CHAVE REMOVIDA]` mesmo com so' 1 caractere depois do prefixo, chave real ou mencao curta de
+     formato, indistinguivel sem abrir o arquivo), o redator de PII sintetica
+     (`dominio.redator_pii.redigir_texto`) e os padroes PESSOAIS do passo 1b em TODO valor string
+     da arvore, E em toda CHAVE de dict (nao so em campos de texto conhecidos -- a estrutura das
+     sessoes tem muitos tipos de evento, e caminho/segredo pode aparecer em qualquer um deles,
+     inclusive como chave).
   4. VERIFICACAO FINAL, sobre o STAGING (nunca sobre a memoria): conta ocorrencias dos padroes de
      segredo conhecidos (prefixos de token), dos padroes PESSOAIS remanescentes (chave ou valor --
      esperado zero, ja que o passo 3 os substitui; fica como rede de seguranca) e de blocos de
@@ -234,6 +237,20 @@ PADROES_PII_SEM_FRONTEIRA: tuple[re.Pattern[str], ...] = (
     re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}"),  # CPF com pontuacao, sem exigir \b antes/depois
 )
 
+# S5 (achado da exportacao real, issue #15): SUBSTITUICAO de segredo dos prefixos OpenRouter/
+# Anthropic, SEM PISO de comprimento -- achado ao vivo: um trecho de 4 caracteres depois de
+# `sk-or-v1-` (documentacao de formato ou fragmento de chave, indistinguivel sem abrir o arquivo)
+# abortou a verificacao final. `PADROES_DE_SEGREDO` (verificacao, mais acima) continua do jeito
+# que esta -- ela e a rede de seguranca e NAO afrouxa; o conserto e a exportacao nunca deixar um
+# trecho com esse formato sobreviver ate a verificacao rodar, seja chave real de 64 chars ou uma
+# mencao curta de 4. Troca por `[CHAVE REMOVIDA]`, mesma travessia de chave+valor que os outros
+# padroes de substituicao.
+PADROES_SEGREDO_SEM_PISO: tuple[re.Pattern[str], ...] = (
+    re.compile(r"sk-or-v1-[A-Za-z0-9._-]*"),
+    re.compile(r"sk-ant-[A-Za-z0-9._-]*"),
+)
+PLACEHOLDER_SEGREDO = "[CHAVE REMOVIDA]"
+
 
 def sanitizar_string(
     texto: str,
@@ -244,6 +261,8 @@ def sanitizar_string(
 ) -> str:
     for padrao, por in substituicoes:
         texto = padrao.sub(por, texto)
+    for padrao in PADROES_SEGREDO_SEM_PISO:
+        texto = padrao.sub(PLACEHOLDER_SEGREDO, texto)
     texto = redigir(texto)
     for padrao in PADROES_PII_SEM_FRONTEIRA:
         texto = padrao.sub("[REDIGIDO]", texto)

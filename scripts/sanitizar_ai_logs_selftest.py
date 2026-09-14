@@ -28,8 +28,13 @@ def rodar_self_test() -> int:
     "linha" so por '\n' real (bytes) -- um registro valido com U+2028/U+0085 embutido num valor
     string nao aborta mais (json.dumps nao escapa esses caracteres, e o antigo `str.splitlines()`
     os tratava como quebra de linha, fragmentando 1 registro em 2+ "linhas" invalidas falsas); uma
-    linha de verdade invalida no meio continua abortando. Nao toca em nada de `_local/` real (todo
-    caminho e temporario)."""
+    linha de verdade invalida no meio continua abortando. S5 (issue #15): chave OpenRouter/
+    Anthropic (longa ou curta) num valor e SUBSTITUIDA sem piso de comprimento (`[CHAVE
+    REMOVIDA]`), exportacao passa -- achado ao vivo: um trecho de so' 4 caracteres depois do
+    prefixo abortava a verificacao final; testada tambem DIRETO em `verificacao_final` que uma
+    chave crua (bypassando a substituicao, como se ela um dia falhasse) continua abortando -- a
+    rede de seguranca nao afrouxou. Nao toca em nada de `_local/` real (todo caminho e
+    temporario)."""
     import contextlib
     import io
     import tempfile
@@ -64,9 +69,14 @@ def rodar_self_test() -> int:
         marcador_pasta.mkdir()
         (marcador_pasta / "arquivo.txt").write_text("nao mexer\n", encoding="utf-8")
 
-        # 1) com chave falsa plantada -> tem que abortar
+        # 1) com chave falsa plantada -> tem que abortar. GitHub PAT (nao OpenRouter/Anthropic):
+        #    S5 passou a SUBSTITUIR sk-or-v1-*/sk-ant-* sem piso de comprimento (casos novos mais
+        #    abaixo), entao uma chave desses dois prefixos nao chegaria mais na verificacao final
+        #    pra abortar -- github/nvidia/bearer continuam SO' conferidos (nunca substituidos), a
+        #    rede de seguranca precisa de um tipo de segredo que S5 nao cobre pra continuar provando
+        #    que ela aborta de verdade.
         principal.write_text(
-            json.dumps({"type": "user", "message": {"content": "minha chave e sk-or-v1-" + "a" * 64}}) + "\n",
+            json.dumps({"type": "user", "message": {"content": "minha chave e ghp_" + "a" * 36}}) + "\n",
             encoding="utf-8",
         )
         exit_com_chave = exportar(config_path, saida, apenas_sessoes=["teste"], padroes_pessoais_path=padroes_path)
@@ -169,6 +179,43 @@ def rodar_self_test() -> int:
             "sessao-verificacao.jsonl:2: linha nao e JSON valido" in p for p in problemas_s4
         )
 
+        # 8) S5 (achado da exportacao real, issue #15): chave OpenRouter LONGA (formato real, 64
+        #    chars) plantada num valor -> SUBSTITUIDA na hora, exportacao PASSA (antes do S5 isso
+        #    era o caso 1: abortava). Prova que a chave nao sobrevive nem CRUA nem truncada.
+        principal.write_text(
+            json.dumps({"type": "user", "message": {"content": "minha chave e sk-or-v1-" + "a" * 64}}) + "\n",
+            encoding="utf-8",
+        )
+        exit_chave_or_longa = exportar(config_path, saida, apenas_sessoes=["teste"], padroes_pessoais_path=padroes_path)
+        conteudo_chave_or_longa = arquivo_saida.read_text(encoding="utf-8") if arquivo_saida.exists() else ""
+
+        # 9) S5: trecho CURTO com o prefixo OpenRouter (achado ao vivo: 4 caracteres depois de
+        #    `sk-or-v1-`, indistinguivel de mencao de formato sem abrir o arquivo) -> substituido
+        #    IGUAL, exportacao PASSA -- prova que a substituicao nao tem piso de comprimento.
+        principal.write_text(
+            json.dumps({"type": "user", "message": {"content": "formato: sk-or-v1-xxxx"}}) + "\n",
+            encoding="utf-8",
+        )
+        exit_chave_or_curta = exportar(config_path, saida, apenas_sessoes=["teste"], padroes_pessoais_path=padroes_path)
+        conteudo_chave_or_curta = arquivo_saida.read_text(encoding="utf-8") if arquivo_saida.exists() else ""
+
+        # 10) "chave plantada depois da substituicao continua abortando": a REDE DE SEGURANCA
+        #     (`verificacao_final`/`PADROES_DE_SEGREDO`) nao afrouxou -- testada DIRETO (bypassando
+        #     `sanitizar_string`, que na pratica nunca deixaria isso sobreviver) com uma chave
+        #     OpenRouter crua ja no arquivo de staging, simulando "e se a substituicao um dia
+        #     falhar". Tem que continuar achando o problema, exatamente como antes do S5.
+        pasta_verificacao_s5 = tmp / "verificacao-s5"
+        pasta_verificacao_s5.mkdir()
+        arquivo_verificacao_s5 = pasta_verificacao_s5 / "sessao-verificacao.jsonl"
+        registro_com_chave_crua = json.dumps(
+            {"type": "user", "message": {"content": "minha chave e sk-or-v1-" + "a" * 64}}
+        )
+        arquivo_verificacao_s5.write_text(registro_com_chave_crua + "\n", encoding="utf-8")
+        problemas_s5 = verificacao_final(pasta_verificacao_s5, ["PADRAO-FICTICIO-TESTE"])
+        chave_depois_da_substituicao_ainda_aborta = any(
+            "padrao de segredo 'openrouter' presente" in p for p in problemas_s5
+        )
+
     ok = (
         exit_com_chave == 1
         and marcador_sobreviveu_ao_abort
@@ -191,6 +238,13 @@ def rodar_self_test() -> int:
         and "linha(s) final(is) incompleta(s) descartada(s)" in saida_capturada_s3
         and registro_com_separadores_nao_reportado
         and linha_invalida_ainda_reportada
+        and exit_chave_or_longa == 0
+        and "sk-or-v1-" not in conteudo_chave_or_longa
+        and "[CHAVE REMOVIDA]" in conteudo_chave_or_longa
+        and exit_chave_or_curta == 0
+        and "sk-or-v1-" not in conteudo_chave_or_curta
+        and "[CHAVE REMOVIDA]" in conteudo_chave_or_curta
+        and chave_depois_da_substituicao_ainda_aborta
     )
     print()
     print("[sanitizar_ai_logs] SELF-TEST (roteiro de mutacao):")
@@ -201,5 +255,8 @@ def rodar_self_test() -> int:
     print(f"  arquivo de padroes ausente    -> abortou={arquivo_ausente_abortou} (esperado True), nada escrito={not saida_sem_padroes_existe}")
     print(f"  linha final sem '\\n' (S3)     -> exit={exit_linha_incompleta} (esperado 0), linha completa preservada={'MARCA-LINHA-COMPLETA' in conteudo_linha_incompleta}, linha incompleta descartada={'MARCA-LINHA-INCOMPLETA' not in conteudo_linha_incompleta}, avisou={'linha(s) final(is) incompleta(s) descartada(s)' in saida_capturada_s3}")
     print(f"  separador U+2028/U+0085 (S4)  -> registro valido NAO reportado={registro_com_separadores_nao_reportado} (esperado True), linha de verdade invalida continua reportada={linha_invalida_ainda_reportada} (esperado True)")
+    print(f"  chave OpenRouter longa (S5)   -> exit={exit_chave_or_longa} (esperado 0), substituida={'[CHAVE REMOVIDA]' in conteudo_chave_or_longa and 'sk-or-v1-' not in conteudo_chave_or_longa}")
+    print(f"  chave OpenRouter curta (S5)   -> exit={exit_chave_or_curta} (esperado 0), substituida={'[CHAVE REMOVIDA]' in conteudo_chave_or_curta and 'sk-or-v1-' not in conteudo_chave_or_curta}")
+    print(f"  chave crua pos-substituicao   -> verificacao_final ainda aborta={chave_depois_da_substituicao_ainda_aborta} (esperado True)")
     print("SELF-TEST OK" if ok else "SELF-TEST FALHOU")
     return 0 if ok else 1
