@@ -105,3 +105,40 @@ def test_render_esta_dentro_da_casca_compartilhada():
     assert "servico_conversa" not in html  # nada de vocabulário de programador na tela do lead
     assert "Faça aqui sua cotação" in html
     assert "sem cadastro · sem compromisso" in html
+
+
+# ── issue #95: GET /api/planos falhando repetidas vezes não pode deixar o lead preso em "Tentar
+# de novo" pra sempre — na 2ª falha seguida, o chat encaminha pra um corretor.
+
+
+def test_planos_so_encaminha_na_segunda_falha_seguida_de_api_planos():
+    """1ª falha ainda oferece "Tentar de novo" (não desiste cedo demais numa oscilação de rede);
+    só a 2ª falha seguida chama `encaminharPorPlanosIndisponiveis`."""
+    html = tela_chat.render()
+    assert 'dados._falhasPlanos = (dados._falhasPlanos || 0) + 1;' in html
+    assert "if (dados._falhasPlanos >= 2) { return encaminharPorPlanosIndisponiveis(); }" in html
+    assert '{ rotulo: "Tentar de novo", primaria: true, acao: () => PASSOS.plano() }' in html
+
+
+def test_planos_indisponivel_chama_a_rota_nova_nunca_a_de_cotar():
+    """O JS só decide QUANDO chamar — nunca o motivo nem se cota (issue #95, condição do PLANO):
+    `encaminharPorPlanosIndisponiveis` chama `/api/chat/planos-indisponivel`, nunca
+    `/api/chat/cotar` (que cotaria de verdade pro plano "essencial" sem o lead ter escolhido)."""
+    html = tela_chat.render()
+    inicio_funcao = html.index("async function encaminharPorPlanosIndisponiveis()")
+    fim_funcao = html.index("\n  }", inicio_funcao)
+    corpo_funcao = html[inicio_funcao:fim_funcao]
+    assert "/api/chat/planos-indisponivel" in corpo_funcao
+    assert "/api/chat/cotar" not in corpo_funcao
+
+
+def test_planos_indisponivel_encaminhado_nao_oferece_tentar_de_novo_nem_escolha_de_plano():
+    """Depois do encaminhamento, a doca só tem "Fazer nova cotação" — nunca "Tentar de novo" nem
+    volta pra tela de planos (roteiro de tela da coordenação, issue #95)."""
+    html = tela_chat.render()
+    inicio_funcao = html.index("async function encaminharPorPlanosIndisponiveis()")
+    fim_funcao = html.index("\n  }", inicio_funcao)
+    corpo_funcao = html[inicio_funcao:fim_funcao]
+    assert 'rotulo: "Fazer nova cotação"' in corpo_funcao
+    assert "Tentar de novo" not in corpo_funcao
+    assert "PASSOS.plano" not in corpo_funcao

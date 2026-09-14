@@ -254,6 +254,21 @@ docker compose exec app cat /app/examples/trilha_<conversation_id>.jsonl
 `classificacao` (`sucesso`/`indisponivel`/`timeout`) — testado ao vivo (`docker exec` no container
 já rodando). É a MESMA trilha que alimenta o painel do passo (d) — nada no painel é inventado.
 
+**(f) A `/quote` inteira fora do ar (issue #95)**
+
+```bash
+docker compose stop quote-api
+```
+Abra `http://localhost:8080/` de novo (nova conversa) e responda o roteiro guiado até o CEP.
+**Deve aparecer**, na tela de planos: *"Não consegui carregar os planos agora. Toque para tentar de
+novo."*, com o botão "Tentar de novo". Toque nele uma vez — **na 2ª falha seguida**, deve aparecer:
+*"Não consegui fechar sua cotação agora — vou encaminhar para um atendente."*, com um único botão,
+"Fazer nova cotação" (sem "Tentar de novo", sem escolha de plano). Na trilha (mesmo comando do passo
+(e)), os eventos finais são `decisao` (`tipo: encaminhar`, `motivo: quote_indisponivel`), `handoff`
+(mesmo `reason_code`) e `status_alterado` (`para: aguardando_corretor`) — **sem nenhum**
+`tentativa_de_cotacao`: a `/quote` nunca chega a ser chamada (ver [§3](#3-o-que-ele-faz-quando-a-quote-falha-o-ponto-que-mais-separa-diz-o-enunciado)).
+Religue com `docker compose up -d quote-api` antes de continuar testando.
+
 **Status/estado da conversa, filtro por status, Assumir/Encerrar (issue #57 PR 2/2) e a tela
 Relatório com seu item de menu (issue #59) já estão na `main`.** Atendimento contínuo (o corretor
 respondendo ao lead na mesma conversa) fica fora desta entrega — ver [§9](#9-o-que-ficou-de-fora-e-por-quê).
@@ -315,6 +330,21 @@ comportamento em relógio falso está em
 Duas trilhas reais mostram os dois caminhos: `502→502→200` acima (sucesso por retry) e
 `timeout→timeout→500→encaminhar` (`git show 8c35203:examples/trilha_conv-7c44f694.jsonl`) — três
 tentativas retentáveis esgotadas, handoff explícito, nunca um preço inventado.
+
+**E antes de chegar na `/quote`: a TABELA de planos também pode falhar** (`GET /api/planos`, achado
+5 da pré-prova da issue #89 — sem conserto, o chat web ficava preso em "Tentar de novo" pra sempre,
+nunca encaminhando). `src/interfaces/rotas_planos_indisponivel.py` (issue #95): depois de 2 falhas
+seguidas de `/api/planos`, o chat encaminha ao corretor com o mesmo `MotivoHandoff.QUOTE_INDISPONIVEL`
+do caminho da `/quote` acima — reusado, não um motivo novo. **A rota NUNCA chama a `/quote` de
+verdade.** O motivo: `_payload_da_quote` cai em `plano_id or "essencial"` quando o lead não
+escolheu nada; se a `/quote` estiver de pé e só `/api/planos` tiver falhado (os dois têm
+timeout/retry DIFERENTES — `infra.planos_http.buscar_planos` é 1 tentativa de 2s sem retry,
+`infra.cliente_quote.ClienteQuoteHTTP` são 3 tentativas de 3s com orçamento de 10s), chamar a
+`/quote` mesmo assim cotaria de verdade pro plano "essencial" sem o lead ter escolhido — decidir um
+plano por ele, mesmo com um preço real da API. `aplicacao.servico_conversa.
+encaminhar_planos_indisponiveis` constrói o `ENCAMINHAR` direto, sem tentativa de cotação nenhuma
+(invariante I-15, `src/aplicacao/CONTRACT.md`) — e é seguro chamar mais de uma vez: não grava um
+segundo `decisao`/`handoff`/`status_alterado` se a conversa já estiver `aguardando_corretor`.
 
 ---
 
