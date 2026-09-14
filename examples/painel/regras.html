@@ -100,6 +100,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
 
 .falta{color:var(--alerta)}
 button[disabled]{opacity:.45;cursor:not-allowed}
+[hidden]{display:none!important}
+.botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
 
   .cartoes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
   .plano{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);padding:15px 16px}
@@ -120,7 +122,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <nav class="menu">
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
-    <a href="/painel/handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
@@ -166,7 +168,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     </section>
 <section class="painel" style="margin-bottom:18px">
       <header><h2>Motivos de handoff</h2><span class="aux">dominio.decisao.MotivoHandoff — 7 implementado(s)</span></header>
-      <div style="padding:14px 16px"><div class="regras"><div class="regra"><code>quote_indisponivel</code></div><div class="regra"><code>quote_timeout</code></div><div class="regra"><code>quote_erro_de_payload</code></div><div class="regra"><code>recusa_regra_de_aceitacao</code></div><div class="regra"><code>lead_quer_contratar</code></div><div class="regra"><code>lead_pediu_humano</code></div><div class="regra"><code>resposta_orientada_indisponivel</code></div></div>
+      <div style="padding:14px 16px"><div class="regras"><div class="regra"><code>quote_indisponivel</code><p>Cotação indisponível: o serviço de cotação falhou de forma persistente.</p></div><div class="regra"><code>quote_timeout</code><p>Cotação expirou: orçamento de tempo esgotado sem resposta.</p></div><div class="regra"><code>quote_erro_de_payload</code><p>Erro de payload nosso (400) — não repete, registra e passa adiante.</p></div><div class="regra"><code>recusa_regra_de_aceitacao</code><p>A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.</p></div><div class="regra"><code>lead_quer_contratar</code><p>O lead pediu para contratar: o fechamento é feito por um corretor.</p></div><div class="regra"><code>lead_pediu_humano</code><p>O lead pediu para falar com uma pessoa.</p></div><div class="regra"><code>resposta_orientada_indisponivel</code><p>A IA não conseguiu responder a objeção de preço com segurança (sem chave, sem ficha publicada, ou a geração reprovou a validação de marcador): encaminhado ao corretor.</p></div></div>
         <p style="color:var(--texto-fraco);font-size:12.5px;margin:10px 0 0">
           O vocabulário fechado do domínio hoje tem 7 motivo(s). Um desenho anterior chegou a prever
           mais categorias (pedido explícito do lead, exceção comercial, dado ambíguo); elas dependem de capacidade

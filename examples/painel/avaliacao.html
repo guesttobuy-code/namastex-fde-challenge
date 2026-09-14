@@ -100,6 +100,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
 
 .falta{color:var(--alerta)}
 button[disabled]{opacity:.45;cursor:not-allowed}
+[hidden]{display:none!important}
+.botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
 
   .melhor{color:var(--ok)} .pior{color:var(--falha)}
   .regua{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px}
@@ -115,7 +117,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <nav class="menu">
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
-    <a href="/painel/handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>

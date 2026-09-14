@@ -100,6 +100,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
 
 .falta{color:var(--alerta)}
 button[disabled]{opacity:.45;cursor:not-allowed}
+[hidden]{display:none!important}
+.botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
 
   .duas{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
   @media (max-width:1000px){.duas{grid-template-columns:1fr}}
@@ -182,7 +184,7 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <nav class="menu">
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
-    <a href="/painel/handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
@@ -206,26 +208,42 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 </div>
 <div class="duas">
   <nav class="painel" aria-label="Lista de conversas">
-    <header><h2>Caixa de entrada</h2><span class="aux">trilha</span></header>
-    <button class="item">
+    <header><h2>Caixa de entrada</h2>
+      <select id="filtro-status" aria-label="Filtrar por status" onchange="filtrarPorStatus(this.value)">
+        <option value="">Todos os status</option>
+<option value="com_o_agente">Com o agente</option>
+<option value="cotada">Cotada</option>
+<option value="aguardando_corretor">Aguardando corretor</option>
+<option value="em_atendimento_humano">Em atendimento humano</option>
+<option value="encerrada">Encerrada</option>
+      </select>
+    </header>
+    <button class="item" data-status="aguardando_corretor" data-alvo="conv-198a633b" onclick="selecionarConversa('conv-198a633b')">
           <span class="l1"><span class="nome">conv-198a633b</span></span>
-          <span class="previa">80</span>
-          <span class="chip handoff" style="margin-top:6px">handoff</span>
+          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
+          <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
-<button class="item">
+<button class="item" data-status="cotada" data-alvo="conv-2bdc86e8" onclick="selecionarConversa('conv-2bdc86e8')">
           <span class="l1"><span class="nome">conv-2bdc86e8</span></span>
-          <span class="previa">35</span>
-          <span class="chip cotada" style="margin-top:6px">cotada</span>
+          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
+          <span class="chip ok" style="margin-top:6px">Cotada</span>
         </button>
-<button class="item">
+<button class="item selecionado" data-status="aguardando_corretor" data-alvo="conv-c254c560" onclick="selecionarConversa('conv-c254c560')">
           <span class="l1"><span class="nome">conv-c254c560</span></span>
-          <span class="previa">35</span>
-          <span class="chip handoff" style="margin-top:6px">handoff</span>
+          <span class="previa"><span class="falta">⚠ ausente na trilha: texto</span></span>
+          <span class="chip alerta" style="margin-top:6px">Aguardando corretor</span>
         </button>
   </nav>
   <div style="display:grid;gap:16px">
-    <section class="painel conversa" id="conv-198a633b">
-      <header><h2>conv-198a633b</h2><span class="aux">handoff</span></header>
+    <section class="painel conversa" id="conv-198a633b" data-status="aguardando_corretor" hidden>
+      <header><h2>conv-198a633b</h2><span class="aux">Aguardando corretor</span></header>
+      <div class="motivo">A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.</div>
+      <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
+      <div class="contexto"><b>Já coletado:</b> Idade: 80, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
+      <div class="acoes">
+        <button class="botao principal"  onclick="transicaoDeStatus('conv-198a633b', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao"  onclick="transicaoDeStatus('conv-198a633b', '/api/conversa/encerrar')">Encerrar</button>
+      </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.066655+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">80</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.067264+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
@@ -236,12 +254,16 @@ button[disabled]{opacity:.45;cursor:not-allowed}
               <div class="rodape-msg"><span>2026-09-14T02:51:44.069507+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.069951+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.070316+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.070706+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="msg lead"><div class="balao">idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:44.071200+00:00</span><span>msg_ce3e6950</span></div></div><div class="msg agente"><div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
+              <div class="rodape-msg"><span>2026-09-14T02:51:44.070706+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.104290+00:00</span><span>msg_ecd1c3fe</span></div></div></div>
     </section>
-<section class="painel conversa" id="conv-2bdc86e8">
-      <header><h2>conv-2bdc86e8</h2><span class="aux">cotada</span></header>
+<section class="painel conversa" id="conv-2bdc86e8" data-status="cotada" hidden>
+      <header><h2>conv-2bdc86e8</h2><span class="aux">Cotada</span></header>
+      
+      <div class="acoes">
+        <button class="botao principal" disabled onclick="transicaoDeStatus('conv-2bdc86e8', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao" disabled onclick="transicaoDeStatus('conv-2bdc86e8', '/api/conversa/encerrar')">Encerrar</button>
+      </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.595957+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.596647+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
@@ -252,12 +274,18 @@ button[disabled]{opacity:.45;cursor:not-allowed}
               <div class="rodape-msg"><span>2026-09-14T02:51:36.601206+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.601584+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.601898+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.602256+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="msg lead"><div class="balao">idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.602670+00:00</span><span>msg_6ea29ea1</span></div></div><div class="msg agente"><div class="balao">Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.</div>
+              <div class="rodape-msg"><span>2026-09-14T02:51:36.602256+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.729605+00:00</span><span>msg_6785baae</span></div></div></div>
     </section>
-<section class="painel conversa" id="conv-c254c560">
-      <header><h2>conv-c254c560</h2><span class="aux">handoff</span></header>
+<section class="painel conversa" id="conv-c254c560" data-status="aguardando_corretor">
+      <header><h2>conv-c254c560</h2><span class="aux">Aguardando corretor</span></header>
+      <div class="motivo">Cotação indisponível: o serviço de cotação falhou de forma persistente.</div>
+      <div class="contato"><b>Nome:</b> não informado<br><b>WhatsApp:</b> não informado</div>
+      <div class="contexto"><b>Já coletado:</b> Idade: 35, Ano do carro: 2020, CEP: [REDIGIDO], Plano: não informado, Início da vigência: não informado, Modelo do carro: não informado</div>
+      <div class="acoes">
+        <button class="botao principal"  onclick="transicaoDeStatus('conv-c254c560', '/api/conversa/assumir')">Assumir</button>
+        <button class="botao"  onclick="transicaoDeStatus('conv-c254c560', '/api/conversa/encerrar')">Encerrar</button>
+      </div>
       <div class="fluxo"><div class="msg agente"><div class="balao">Qual a sua idade?</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.731452+00:00</span><span>msg_coleta_0_enviada</span></div></div><div class="msg lead"><div class="balao">35</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.732018+00:00</span><span>msg_coleta_0_recebida</span></div></div><div class="msg agente"><div class="balao">Ano do veículo?</div>
@@ -268,13 +296,58 @@ button[disabled]{opacity:.45;cursor:not-allowed}
               <div class="rodape-msg"><span>2026-09-14T02:51:36.734085+00:00</span><span>msg_coleta_3_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.734433+00:00</span><span>msg_coleta_3_recebida</span></div></div><div class="msg agente"><div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:36.734742+00:00</span><span>msg_coleta_4_enviada</span></div></div><div class="msg lead"><div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.735074+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="msg lead"><div class="balao">idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
-              <div class="rodape-msg"><span>2026-09-14T02:51:36.735475+00:00</span><span>msg_6b5ebfe8</span></div></div><div class="msg agente"><div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
+              <div class="rodape-msg"><span>2026-09-14T02:51:36.735074+00:00</span><span>msg_coleta_4_recebida</span></div></div><div class="estado-interno">Resumo dos dados coletados</div><div class="msg agente"><div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
               <div class="rodape-msg"><span>2026-09-14T02:51:44.062999+00:00</span><span>msg_557fe8f4</span></div></div></div>
     </section>
   </div>
 </div>
 <p class="nota-rodape"><strong>Gerado da trilha real.</strong> Campo que a trilha não gravou aparece como buraco visível.</p>
+<script>
+function selecionarConversa(alvo, atualizarHash) {
+  document.querySelectorAll(".conversa").forEach(function (s) { s.hidden = s.id !== alvo; });
+  document.querySelectorAll(".item[data-status]").forEach(function (it) {
+    it.classList.toggle("selecionado", it.getAttribute("data-alvo") === alvo);
+  });
+  if (atualizarHash !== false) window.location.hash = alvo;
+}
+function itensVisiveis() {
+  return Array.prototype.filter.call(document.querySelectorAll(".item[data-status]"), function (it) { return !it.hidden; });
+}
+function filtrarPorStatus(status) {
+  document.querySelectorAll(".item[data-status]").forEach(function (item) {
+    item.hidden = !(!status || item.getAttribute("data-status") === status);
+  });
+  var visiveis = itensVisiveis();
+  var selecionado = document.querySelector(".item.selecionado");
+  var aindaValido = selecionado && !selecionado.hidden;
+  if (!aindaValido) {
+    if (visiveis.length) selecionarConversa(visiveis[0].getAttribute("data-alvo"), false);
+    else document.querySelectorAll(".conversa").forEach(function (s) { s.hidden = true; });
+  }
+}
+function transicaoDeStatus(conversationId, rota) {
+  fetch(rota, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversation_id: conversationId }),
+  }).then(function (resposta) {
+    if (resposta.ok) { window.location.reload(); return; }
+    return resposta.json().then(function (corpo) { alert(corpo.erro || "Não foi possível concluir a ação."); });
+  }).catch(function () { alert("Não consegui falar com o servidor agora."); });
+}
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var status = params.get("status");
+  var select = document.getElementById("filtro-status");
+  if (status && select) select.value = status;
+  filtrarPorStatus(select ? select.value : "");
+  var hash = window.location.hash.replace("#", "");
+  if (hash) {
+    var item = document.querySelector('.item[data-alvo="' + hash + '"]');
+    if (item && !item.hidden) selecionarConversa(hash, false);
+  }
+})();
+</script>
 
 </main>
 </div>
