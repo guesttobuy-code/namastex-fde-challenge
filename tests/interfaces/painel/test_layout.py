@@ -92,6 +92,19 @@ def test_item_fila_humana_aponta_para_o_filtro_aguardando_corretor_sem_sumir():
     assert "Fila humana" in html
 
 
+def test_item_relatorio_fica_no_grupo_atendimento_logo_abaixo_de_fila_humana():
+    """Decisão da coordenação (issue #59, PR 2/2): "Relatório" é ferramenta do corretor para
+    acompanhar e priorizar leads, não diagnóstico técnico — fica em "Atendimento", não em
+    "Observabilidade" (correção de um PLANO anterior que propunha o grupo errado)."""
+    grupo_atendimento = next(itens for grupo, itens in _ITENS_MENU if grupo == "Atendimento")
+    rotulos = [rotulo for _, _, rotulo, _ in grupo_atendimento]
+    assert rotulos.index("Relatório") == rotulos.index("Fila humana") + 1
+
+    html = pagina(titulo="X", pagina_ativa="/", corpo="")
+    assert '<a href="/painel/relatorio.html">' in html
+    assert "Relatório" in html
+
+
 def test_css_extra_da_tela_traz_o_segundo_bloco_de_estilo_do_mock():
     from interfaces.painel.layout import css_extra_da_tela
     extra = css_extra_da_tela("rastreio.html")
