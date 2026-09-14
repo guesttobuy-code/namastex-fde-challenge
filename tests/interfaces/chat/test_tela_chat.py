@@ -142,3 +142,41 @@ def test_planos_indisponivel_encaminhado_nao_oferece_tentar_de_novo_nem_escolha_
     assert 'rotulo: "Fazer nova cotação"' in corpo_funcao
     assert "Tentar de novo" not in corpo_funcao
     assert "PASSOS.plano" not in corpo_funcao
+
+
+def test_encaminhamento_planos_indisponivel_tem_trava_contra_chamada_em_andamento():
+    """issue #109 (achado A1): duplo clique em "Tentar de novo" antes da 1ª chamada de
+    `PASSOS.plano()` resolver dispara 2 invocações concorrentes de
+    `encaminharPorPlanosIndisponiveis`, cada uma criando seu próprio balão "Um momento…" — dois
+    balões de encaminhamento pra um único evento. Trava por variável de estado, checada e setada
+    ANTES de qualquer efeito colateral (esconderDoca/mensagemBot), pra que a 2ª chamada concorrente
+    volte sem criar um segundo balão."""
+    html = tela_chat.render()
+    inicio_funcao = html.index("async function encaminharPorPlanosIndisponiveis()")
+    fim_funcao = html.index("\n  }", inicio_funcao)
+    corpo_funcao = html[inicio_funcao:fim_funcao]
+    assert "if (encaminhandoPlanosIndisponiveis) return;" in corpo_funcao
+    pos_trava = corpo_funcao.index("encaminhandoPlanosIndisponiveis = true;")
+    pos_esconder_doca = corpo_funcao.index("esconderDoca()")
+    assert pos_trava < pos_esconder_doca
+
+
+def test_contratar_nao_mostra_aviso_de_jargao_interno_pro_lead():
+    """issue #109 (achado A3): a tela do LEAD mostrava um aviso de vocabulário interno da operação
+    junto da mensagem de encaminhamento — nada muda no painel do corretor, só sai da tela do lead.
+    Checa a frase completa, não a palavra solta: "Fila humana" sozinha também aparece legitimamente
+    no menu de navegação da casca compartilhada (`layout.pagina`), que não é o alvo do achado."""
+    html = tela_chat.render()
+    assert "entra na Fila humana" not in html
+
+
+def test_resumo_nao_duplica_o_ano_quando_o_modelo_ja_termina_com_ele():
+    """issue #109 (achado A4): "corolla cross 2019" + ano 2019 virava "corolla cross 2019 2019" no
+    card de resumo — só a EXIBIÇÃO muda; `dados.veiculo_modelo`/`dados.veiculo_ano` (o que é
+    gravado/enviado pra `/api/chat/cotar`) continuam intocados."""
+    html = tela_chat.render()
+    inicio_funcao = html.index("resumo() {")
+    fim_funcao = html.index("\n    },", inicio_funcao)
+    corpo_funcao = html[inicio_funcao:fim_funcao]
+    assert "endsWith" in corpo_funcao
+    assert '"Carro", dados.veiculo_modelo + " " + dados.veiculo_ano' not in corpo_funcao

@@ -7,6 +7,24 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **4 defeitos de exibição vistos pelo dono no teste do `main` `957a1df` (issue #109):** (1)
+  duplo clique em "Tentar de novo" antes da 1ª chamada de `/api/planos` resolver disparava 2
+  invocações concorrentes de `encaminharPorPlanosIndisponiveis`, cada uma com seu próprio balão
+  "vou encaminhar…" — `_corpo.html` ganha uma trava (`encaminhandoPlanosIndisponiveis`), checada e
+  setada ANTES de qualquer efeito colateral, então a 2ª chamada concorrente volta sem criar um
+  segundo balão. (2) O rodapé de cada balão em "Histórico de atendimentos" mostrava o instante UTC
+  cru da trilha (`...T04:34:25...+00:00`) em vez do horário de Brasília — `tela_conversas.py`
+  passa a importar `campos.data_br` (dono único da conversão desde #93/#99, LEI 11) nos dois pontos
+  que ainda liam `esc(evento.get("instante"))` cru; `examples/painel/index.html` e a captura
+  `capturas/index.png` regenerados (mostravam o UTC cru). (3) A tela do lead mostrava um aviso de
+  vocabulário interno da operação junto da mensagem de encaminhamento em `contratar()` — removido
+  só da tela do lead, nada muda no painel do corretor (o item de menu "Fila humana" é dele, e
+  continua). (4) Modelo de carro que já vem com o ano (ex.: "corolla cross 2019") duplicava no
+  card de resumo ("corolla cross 2019 2019") ao ser concatenado com `dados.veiculo_ano` — `resumo()`
+  ganha `modeloEAno`, que não repete o ano quando o texto do modelo já termina com ele; é só
+  exibição, `dados.veiculo_modelo`/`veiculo_ano` (o que é gravado/enviado pra `/api/chat/cotar`)
+  não mudam. 4 testes novos (`test_tela_chat.py`, `test_tela_conversas.py`), vermelhos antes do
+  conserto, verdes depois.
 - **`/painel/regras.html` mostrava buraco de `GET /planos` logo depois de `docker compose up --build`, até a 1ª cotação/handoff (R1 da auditoria fria, issue #89):** o painel nasce em build-time sem rede pra `quote-api` (`Dockerfile`); em runtime, `gerar_paineis` só voltava a rodar depois de `/api/chat/cotar`/`contratar` — e a `quote-api` simula 20% de falha, então a 1ª regeneração podia demorar. `interfaces.painel_inicial.aquecer_painel_em_segundo_plano` (nova, chamada por 1 linha em `servidor.py::main()` antes do `make_server`) tenta `buscar_planos` (inalterado — 1 tentativa de 2s, sem retry) até 10 vezes numa thread `daemon=True`, e chama `gerar_paineis` na primeira resposta não-nula; esgotado sem sucesso, termina sem exceção (o buraco some na 1ª cotação/handoff de qualquer jeito). Nunca atrasa o boot — a thread devolve o controle na hora, medido em teste.
 - **README, seção "Rodar os testes" — números da "Saída esperada" desatualizados (issue #96):** a contagem de testes cresceu de 611 pra 676 desde que a seção foi escrita (novas frentes mergeadas: painel-exibicao, painel-polimento, onclick-seguro, planos-indisponivel); `Contracts: 3 kept, 0 broken` e os 38 `llm_real` continuam iguais. Números conferidos rodando os 4 comandos de verdade nesta worktree, HEAD `f26c5dc`.
 

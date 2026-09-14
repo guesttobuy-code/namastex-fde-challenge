@@ -126,6 +126,9 @@
   let dados = {};        // o que o lead já respondeu, nesta aba
   let passoAtual = null;  // validador/handler da pergunta em tela
   let voltarAoResumo = false; // "alterar" no resumo: responde só o campo escolhido e volta pro resumo
+  // issue #109 (achado A1): duplo clique em "Tentar de novo" antes da 1ª chamada resolver disparava
+  // 2 invocações concorrentes de encaminharPorPlanosIndisponiveis, cada uma com seu próprio balão.
+  let encaminhandoPlanosIndisponiveis = false;
   let paises = [{ iso: "BR", nome: "Brasil", ddi: 55, bandeira: "🇧🇷" }]; // fallback até o fetch chegar
 
   function el(tag, cls, html) {
@@ -442,6 +445,9 @@
       // partir dos componentes ano/mês/dia (fuso LOCAL, igual ao construtor já usado em
       // escolherInicio/passoAtual do CEP) evita o parse como UTC.
       const dataBR = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(a, m - 1, d).toLocaleDateString("pt-BR"); };
+      // issue #109 (achado A4): "corolla cross 2019" + ano 2019 virava "corolla cross 2019 2019" —
+      // só a exibição muda aqui; dados.veiculo_modelo/veiculo_ano (o que é gravado/enviado) não mudam.
+      const modeloEAno = (modelo, ano) => modelo.endsWith(String(ano)) ? modelo : `${modelo} ${ano}`;
       const linha = (rot, val, passo) => `<dt>${esc(rot)}</dt><dd>${esc(val)}</dd><dd><button class="alt" type="button" data-passo="${passo}">alterar</button></dd>`;
       const c = el("div", "cartao-resumo");
       c.innerHTML = `<dl>
@@ -449,7 +455,7 @@
         ${linha("WhatsApp", dados.whatsappExibicao, "whatsapp")}
         ${linha("E-mail", dados.email || "não informado", "email")}
         ${linha("Idade", dados.idade + " anos", "idade")}
-        ${linha("Carro", dados.veiculo_modelo + " " + dados.veiculo_ano, "modelo")}
+        ${linha("Carro", modeloEAno(dados.veiculo_modelo, dados.veiculo_ano), "modelo")}
         ${linha("CEP", dados.cep || "não informado", "cep")}
         ${linha("Plano", dados.planoNome, "plano")}
         ${linha("Início", dataBR(dados.data_inicio), "inicio")}
@@ -578,6 +584,8 @@
   // escolhido nada, se a /quote estiver de pé e só /api/planos tiver falhado). O servidor decide
   // o motivo e grava a trilha; aqui só exibe o que veio, mesmo padrão de cotar()/contratar().
   async function encaminharPorPlanosIndisponiveis() {
+    if (encaminhandoPlanosIndisponiveis) return;
+    encaminhandoPlanosIndisponiveis = true;
     esconderDoca();
     const status = mensagemBot("Um momento…", { cls: "sistema" });
     let corpo;
@@ -595,10 +603,12 @@
       });
       corpo = await resposta.json();
     } catch (e) {
+      encaminhandoPlanosIndisponiveis = false;
       status.querySelector(".bolha").innerHTML = '<span class="quem">Assistente AutoSeguro</span>Não consegui falar com o servidor agora. Um corretor pode continuar daqui.';
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
       return;
     }
+    encaminhandoPlanosIndisponiveis = false;
     status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}`;
     mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer nova cotação", acao: reiniciar }] });
   }
@@ -669,7 +679,9 @@
       mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Tentar de novo", acao: () => contratar(textoDoLead, motivo) }] });
       return;
     }
-    status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}<br><span style="font-size:11px;color:var(--alerta)">entra na Fila humana</span>`;
+    // issue #109 (achado A3): o aviso de vocabulário interno da operação saiu daqui — a tela do
+    // corretor não muda, só a do lead.
+    status.querySelector(".bolha").innerHTML = `<span class="quem">Assistente AutoSeguro</span>${esc(corpo.texto)}`;
     mostrarDoca({ textoLivre: false, botoes: [{ rotulo: "Fazer outra cotação", acao: reiniciar }] });
   }
 

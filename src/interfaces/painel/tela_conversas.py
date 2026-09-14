@@ -33,7 +33,7 @@ from dominio.contato_lead import ContatoLead
 from dominio.redator import valor_br
 from dominio.status_conversa import StatusDaConversa, pode_assumir, pode_encerrar
 from interfaces.painel.agrupar import agrupar_por_conversa, classe_chip_do_estado, estado_da_conversa, rotulo_de_exibicao
-from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA, buraco, campo, esc, texto_da_resposta
+from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA, buraco, campo, data_br, esc, texto_da_resposta
 from interfaces.painel.layout import css_extra_da_tela, pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
@@ -298,10 +298,10 @@ def _secao_conversa(
             balões.append(f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>')
         elif tipo == "mensagem_recebida":
             balões.append(f"""<div class="msg lead"><div class="balao">{texto_da_resposta(evento)}</div>
-              <div class="rodape-msg"><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
+              <div class="rodape-msg"><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
         elif tipo == "mensagem_enviada":
             balões.append(f"""<div class="msg agente"><div class="balao">{campo(evento, "texto")}</div>
-              <div class="rodape-msg"><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
+              <div class="rodape-msg"><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div></div>""")
     atributo_hidden = " hidden" if oculta else ""
     # Cabeçalho isolado (nome/status/motivo/contato/botões) — ponto de extensão da #86 (atendimento
     # contínuo): um PR futuro acrescenta o rodapé de resposta do corretor aqui, sem reescrever a

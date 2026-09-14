@@ -436,3 +436,18 @@ def test_secao_conversa_sistema_usa_rotulo_compartilhado_de_campos():
     html = tela_conversas.render(eventos)
 
     assert f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>' in html
+
+
+def test_secao_conversa_mostra_instante_em_horario_de_brasilia_nao_utc_cru():
+    """issue #109 (achado A2): o rodapé do balão mostrava o instante UTC cru da trilha
+    (`...T04:34:25...+00:00`) em vez do horário de Brasília que o resto do painel já usa —
+    `campos.data_br` é o dono único da conversão desde #93/#99 (LEI 11), não cria formatador novo."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-x", "id": "m1",
+        "instante": "2026-09-14T04:34:25.874657+00:00", "texto": "oi", "sender_role": "lead",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "2026-09-14T04:34:25.874657+00:00" not in html
+    assert "14/09/2026 01:34" in html
