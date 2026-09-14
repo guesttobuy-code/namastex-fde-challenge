@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from dominio.configuracao_comercial import ConfiguracaoComercial
+from infra.escrita_atomica import escrever_atomico
 
 
 class RepositorioDeConfiguracaoComercialJSON:
@@ -25,9 +26,8 @@ class RepositorioDeConfiguracaoComercialJSON:
         )
 
     def salvar(self, configuracao: ConfiguracaoComercial) -> None:
-        self._caminho.parent.mkdir(parents=True, exist_ok=True)
         conteudo = {"encaminhar_lead_fora_do_padrao": configuracao.encaminhar_lead_fora_do_padrao}
-        self._caminho.write_text(json.dumps(conteudo, indent=2) + "\n", encoding="utf-8")
+        escrever_atomico(self._caminho, json.dumps(conteudo, indent=2) + "\n")
 
 
 class RepositorioDeConfiguracaoComercialMemoria:

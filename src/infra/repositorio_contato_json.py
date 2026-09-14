@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 
 from dominio.contato_lead import ContatoLead
+from infra.escrita_atomica import escrever_atomico
 
 _CONVERSATION_ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
@@ -39,12 +40,10 @@ class RepositorioDeContatoJSON:
 
     def salvar(self, conversation_id: str, contato: ContatoLead) -> None:
         _validar_conversation_id(conversation_id)
-        self._diretorio.mkdir(parents=True, exist_ok=True)
         caminho = self._diretorio / f"{conversation_id}.json"
-        caminho.write_text(
-            json.dumps(_para_dict(contato), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        # issue #110: escrita atômica — dois `handoff` concorrentes da MESMA conversa não podem
+        # deixar este arquivo pela metade pra quem lê (`obter`, chamado pelo painel).
+        escrever_atomico(caminho, json.dumps(_para_dict(contato), ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
     def obter(self, conversation_id: str) -> ContatoLead | None:
         _validar_conversation_id(conversation_id)

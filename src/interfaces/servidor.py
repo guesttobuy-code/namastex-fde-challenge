@@ -60,6 +60,8 @@ from infra.planos_http import ids_dos_planos
 from infra.repositorio_configuracao_comercial_json import RepositorioDeConfiguracaoComercialJSON
 from infra.repositorio_conhecimento_json import RepositorioDeConhecimentoJSON
 from infra.repositorio_contato_json import RepositorioDeContatoJSON, RepositorioDeContatoMemoria
+from infra.servidor_http_concorrente import ServidorHTTPConcorrente
+from infra.trava_por_conversa import trava_da_conversa
 from infra.trilha_jsonl import RepositorioDeTrilhaJSONL
 from interfaces import rotas_resposta_orientada
 from interfaces.chat import tela_chat
@@ -358,20 +360,18 @@ def _responder_chat_cotar(
     if cep_bruto not in (None, "") and normalizar_cep(cep_bruto) is None:
         return _json("400 Bad Request", {"erro": "cep fora do formato válido (00000-000)"})
 
-    estado = montar_estado(conversation_id, _dados_mesclados(conversation_id, dados))
-
-    repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
-    trilha = ServicoDeTrilha(repositorio_trilha)
-    configuracao = servico_configuracao.obter()
-
-    turno = conduzir_conversa(portal_de_cotacao, estado, trilha=trilha, configuracao=configuracao)
-    _ESTADOS_EM_MEMORIA[conversation_id] = estado
-    if turno.resultado and turno.resultado.preco:
-        _PRECOS_EM_MEMORIA[conversation_id] = turno.resultado.preco
-
+    with trava_da_conversa(conversation_id):  # issue #110: só esta conversa espera, não é lock global
+        estado = montar_estado(conversation_id, _dados_mesclados(conversation_id, dados))
+        repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
+        trilha = ServicoDeTrilha(repositorio_trilha)
+        configuracao = servico_configuracao.obter()
+        turno = conduzir_conversa(portal_de_cotacao, estado, trilha=trilha, configuracao=configuracao)
+        _ESTADOS_EM_MEMORIA[conversation_id] = estado
+        if turno.resultado and turno.resultado.preco:
+            _PRECOS_EM_MEMORIA[conversation_id] = turno.resultado.preco
+        resposta = _turno_para_json(turno, repositorio_trilha, conversation_id)  # issue #110: lê a trilha ainda sob a trava
     gerar_paineis(trilha_dir, painel_dir, repositorio_contato=repositorio_contato)
-
-    return _json("200 OK", _turno_para_json(turno, repositorio_trilha, conversation_id))
+    return _json("200 OK", resposta)
 
 
 def _responder_chat_contratar(
@@ -404,15 +404,14 @@ def _responder_chat_contratar(
         return _json("400 Bad Request", {"erro": "motivo precisa ser 'contratar' ou 'humano'"})
     intencao = Intencao.QUER_FALAR_COM_HUMANO if motivo == "humano" else Intencao.QUER_CONTRATAR
 
-    estado = _ESTADOS_EM_MEMORIA.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
-    estado = dataclasses.replace(estado, ultimo_intent=intencao)
-
-    repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
-    trilha = ServicoDeTrilha(repositorio_trilha)
-    configuracao = servico_configuracao.obter()
-
-    turno = conduzir_conversa(portal_de_cotacao, estado, trilha=trilha, configuracao=configuracao)
-    _ESTADOS_EM_MEMORIA[conversation_id] = estado
+    with trava_da_conversa(conversation_id):  # issue #110 — mesmo motivo de _responder_chat_cotar
+        estado = _ESTADOS_EM_MEMORIA.get(conversation_id) or EstadoDaConversa(conversation_id=conversation_id)
+        estado = dataclasses.replace(estado, ultimo_intent=intencao)
+        repositorio_trilha = RepositorioDeTrilhaJSONL(trilha_dir / f"trilha_{conversation_id}.jsonl")
+        trilha = ServicoDeTrilha(repositorio_trilha)
+        configuracao = servico_configuracao.obter()
+        turno = conduzir_conversa(portal_de_cotacao, estado, trilha=trilha, configuracao=configuracao)
+        _ESTADOS_EM_MEMORIA[conversation_id] = estado
 
     gerar_paineis(trilha_dir, painel_dir, repositorio_contato=repositorio_contato)
 
@@ -583,7 +582,7 @@ def main() -> int:
     )
     # issue #89 (R1): painel nasce sem rede pra quote-api no build; thread daemon, nunca atrasa o boot.
     aquecer_painel_em_segundo_plano(buscar_planos=buscar_planos_real, trilha_dir=trilha_dir, painel_dir=painel_dir, repositorio_contato=repositorio_contato)
-    with make_server("0.0.0.0", porta, app) as servidor:
+    with make_server("0.0.0.0", porta, app, server_class=ServidorHTTPConcorrente) as servidor:  # issue #110
         print(f"servidor local em http://0.0.0.0:{porta} — conhecimento em {conhecimento_dir}")
         servidor.serve_forever()
     return 0
