@@ -1,15 +1,28 @@
-"""Tela Relatório ("CRM simples de leitura", issue #59, PR 1/2) — uma linha por conversa: lead,
-status, data de entrada, pendência e plano cotado, com exportação em CSV. `render()`/`gerar_csv()`
-recebem as LINHAS já montadas (status como valor string + rótulo prontos) e NUNCA decidem o que é
-status — só exibem. A montagem real a partir da trilha e do módulo oficial de status
-(`dominio.status_conversa`, issue #57 PR 2/2, ainda não mergeada) e a ligação com `layout.py`/
-`gerar.py` (item de menu) ficam para o PR 2/2 desta frente: importar esse módulo aqui hoje
-duplicaria a regra antes mesmo dela existir em commit alcançável (LEI 11).
+"""Tela Relatório ("CRM simples de leitura", issue #59) — uma linha por conversa: lead (nome,
+WhatsApp, e-mail), status, data de entrada, pendência, plano cotado e o histórico completo da
+conversa, com exportação em CSV. `render()`/`gerar_csv()` recebem as LINHAS já montadas (status
+como valor string + rótulo prontos) e NUNCA decidem o que é status — só exibem. A montagem real a
+partir da trilha e do módulo oficial de status (`dominio.status_conversa`, issue #57 PR 2/2, ainda
+não mergeada) e a ligação com `layout.py`/`gerar.py` (item de menu, escrita real do CSV em disco)
+ficam para depois do merge: importar `dominio.status_conversa`/`interfaces.painel.agrupar` (as
+funções novas dele) aqui hoje duplicaria a regra antes mesmo dela existir em commit alcançável
+(LEI 11) — por isso `render`/`gerar_csv`/`montar_historico` já valem para a forma final, mas quem
+chama com dado real da trilha só nasce no PR 2/2.
 
-Nome do lead (decisão da coordenação até o dono decidir diferente, comentário 5657544152 da #59):
-`_nome_para_exibicao` é o dono único da regra — a tela mostra o nome completo (como a Fila humana,
-ADR-0005 C.3, tela interna do corretor), o CSV mostra abreviado (o arquivo sai do sistema, sem
-WhatsApp/e-mail).
+Nome/WhatsApp/e-mail do lead (issue #59, comentário 5657857383 — decisão do dono, revoga a
+abreviação provisória do PR 1/2): "o csv precisa ser completo com todos os campos, sem exceção" —
+`nome` aparece por extenso na TELA e no CSV, sempre; WhatsApp vira link `https://wa.me/<dígitos>`
+na tela (nova aba) e o valor puro no CSV; e-mail em texto simples nos dois. Contato ausente (a
+conversa ainda não tem `ContatoLead`) mostra "não informado" — nunca `buraco()`: mesma disciplina
+de `tela_fila_humana._valor_de_contato` (ADR-0005, C.3), porque contato não é um campo da TRILHA
+que possa faltar por erro, é um dado que legitimamente ainda não foi coletado.
+
+Histórico (R10): `montar_historico` lê os eventos de UMA conversa e devolve, em ordem, quem
+disse o quê. O remetente vem do campo `sender_role` quando o evento já o tiver (issue #86,
+"atendimento contínuo", ainda não implementada — valores combinados com a coordenação: `lead`,
+`agente`, `ia`, `corretor`, `sistema`); para `mensagem_enviada` SEM `sender_role` (todo evento
+gravado até hoje, antes da #86), cai no fallback por `origem_do_texto` (campo que já existe:
+`"redator_deterministico:..."` → agente/robô, `"llm:..."` → IA) — nunca inventa um remetente novo.
 
 Sem mock aprovado: ao contrário das outras seis telas, não existe `docs/design/relatorio.html` —
 esta tela nasceu depois do desenho original (o próprio dono pediu "deixa isso por último"). Por
@@ -21,16 +34,24 @@ from __future__ import annotations
 
 import csv
 import io
+import re
+from datetime import datetime
 from typing import Any
 
-from interfaces.painel.campos import buraco, campo, esc
+from interfaces.painel.campos import campo, esc
 from interfaces.painel.layout import pagina
 
-_COLUNAS_CSV = ("lead", "status", "data_entrada", "pendencia", "plano_cotado")
+_COLUNAS_CSV = ("lead", "whatsapp", "email", "status", "data_entrada", "pendencia", "plano_cotado", "historico")
 
 # Injeção de fórmula em CSV aberto no Excel (R4, condição 4 da coordenação — comentário 5657544152):
 # célula que começa com qualquer um destes ganha um `'` na frente.
 _CARACTERES_PERIGOSOS_CSV = ("=", "+", "-", "@", "\t", "\r")
+
+_NAO_INFORMADO = "não informado"
+_AINDA_NAO_COTADO = "ainda não cotado"
+_SEM_PENDENCIA = "—"
+
+_ROTULO_REMETENTE = {"lead": "Lead", "agente": "Robô", "ia": "IA", "corretor": "Corretor", "sistema": "Sistema"}
 
 
 def render(linhas: list[dict[str, Any]], *, ordenar_por: str = "data_entrada", caminho_ui_css=None) -> str:
@@ -38,7 +59,7 @@ def render(linhas: list[dict[str, Any]], *, ordenar_por: str = "data_entrada", c
     corpo_tabela = (
         "\n".join(_linha_html(linha) for linha in linhas_ordenadas)
         if linhas_ordenadas
-        else f'<tr><td colspan="5">{esc("Nenhuma conversa registrada ainda.")}</td></tr>'
+        else f'<tr><td colspan="6">{esc("Nenhuma conversa registrada ainda.")}</td></tr>'
     )
     corpo = f"""
 <div class="cabecalho">
@@ -52,12 +73,12 @@ def render(linhas: list[dict[str, Any]], *, ordenar_por: str = "data_entrada", c
   <header><h2>Conversas</h2></header>
   <div style="padding:16px">
     <table class="tabela-relatorio">
-      <thead><tr><th>Lead</th><th>Status</th><th>Data de entrada</th><th>Pendência</th><th>Plano cotado</th></tr></thead>
+      <thead><tr><th>Lead</th><th>Status</th><th>Data de entrada</th><th>Pendência</th><th>Plano cotado</th><th>Conversa</th></tr></thead>
       <tbody>
 {corpo_tabela}
       </tbody>
     </table>
-    <button class="botao" onclick="location.href='relatorio.csv'">Exportar CSV</button>
+    <a class="botao" href="relatorio.csv" download>Exportar CSV</a>
   </div>
 </section>
 """
@@ -74,49 +95,117 @@ def _ordenar(linhas: list[dict[str, Any]], chave: str) -> list[dict[str, Any]]:
 def _linha_html(linha: dict[str, Any]) -> str:
     status_valor = linha.get("status_valor") or ""
     return f"""<tr data-status="{esc(status_valor)}">
-      <td>{_nome_html(linha)}</td>
+      <td>{_lead_html(linha)}</td>
       <td>{campo(linha, "status_rotulo")}</td>
-      <td>{campo(linha, "data_entrada")}</td>
-      <td>{campo(linha, "pendencia")}</td>
-      <td>{campo(linha, "plano_cotado")}</td>
+      <td>{esc(_data_br(linha.get("data_entrada")))}</td>
+      <td>{esc(linha.get("pendencia") or _SEM_PENDENCIA)}</td>
+      <td>{esc(linha.get("plano_cotado") or _AINDA_NAO_COTADO)}</td>
+      <td>{_ver_conversa_html(linha.get("historico"))}</td>
     </tr>"""
 
 
-def _nome_html(linha: dict[str, Any]) -> str:
+def _lead_html(linha: dict[str, Any]) -> str:
     nome = linha.get("nome")
-    if not nome:
-        return buraco("nome")
-    return esc(_nome_para_exibicao(nome, destino="tela"))
+    whatsapp = linha.get("whatsapp")
+    email = linha.get("email")
+    return f"""<div><b>{esc(nome) if nome else _NAO_INFORMADO}</b></div>
+      <div>{_whatsapp_html(whatsapp)}</div>
+      <div>{esc(email) if email else _NAO_INFORMADO}</div>"""
 
 
-def _nome_para_exibicao(nome: str, *, destino: str) -> str:
-    """Dono único da exibição do nome (comentário 5657544152 da #59) — muda numa linha só se o dono
-    decidir outra regra. `destino="tela"`: nome completo, igual à Fila humana (ADR-0005 C.3), tela
-    interna do corretor. `destino="csv"`: abreviado ("João S.") — o arquivo sai do sistema."""
-    if destino != "csv":
-        return nome
-    partes = nome.strip().split()
-    if len(partes) <= 1:
-        return nome.strip()
-    return f"{partes[0]} {partes[-1][0]}."
+def _whatsapp_html(whatsapp: str | None) -> str:
+    if not whatsapp:
+        return _NAO_INFORMADO
+    return f'<a href="{esc(_link_whatsapp(whatsapp))}" target="_blank" rel="noopener">{esc(whatsapp)}</a>'
+
+
+def _link_whatsapp(whatsapp: str) -> str:
+    """`https://wa.me/<dígitos com DDI>` — só dígitos, sem `+`/espaço/hífen/parênteses (formato que
+    o wa.me exige)."""
+    apenas_digitos = re.sub(r"\D", "", whatsapp)
+    return f"https://wa.me/{apenas_digitos}"
+
+
+def _ver_conversa_html(historico: list[dict[str, Any]] | None) -> str:
+    if not historico:
+        return _NAO_INFORMADO
+    mensagens = "\n".join(_mensagem_html(msg) for msg in historico)
+    return f"<details><summary>Ver conversa</summary><div class=\"historico\">{mensagens}</div></details>"
+
+
+def _mensagem_html(mensagem: dict[str, Any]) -> str:
+    remetente = esc(mensagem.get("remetente"))
+    texto = campo(mensagem, "texto")
+    instante = esc(mensagem.get("instante") or "")
+    return f'<div class="msg-historico"><b>{remetente}:</b> {texto} <span class="aux">{instante}</span></div>'
+
+
+def _data_br(instante_iso: str | None) -> str | None:
+    """`"2026-09-13T21:40:00"` → `"13/09/2026 21:40"` — sem lib nova. Instante ausente devolve
+    `None` (vira buraco/traço no chamador, nunca uma data inventada)."""
+    if not instante_iso:
+        return None
+    try:
+        return datetime.fromisoformat(instante_iso).strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return instante_iso
+
+
+def montar_historico(eventos_da_conversa: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Lê os eventos de UMA conversa (na ordem em que a trilha gravou) e devolve
+    `[{remetente, texto, instante}, ...]` só para `mensagem_recebida`/`mensagem_enviada` — os
+    únicos dois tipos de evento que são efetivamente uma fala na conversa."""
+    historico = []
+    for evento in eventos_da_conversa:
+        tipo = evento.get("evento")
+        if tipo not in ("mensagem_recebida", "mensagem_enviada"):
+            continue
+        historico.append({
+            "remetente": _remetente_da_mensagem(evento),
+            "texto": evento.get("texto"),
+            "instante": evento.get("instante"),
+        })
+    return historico
+
+
+def _remetente_da_mensagem(evento: dict[str, Any]) -> str:
+    sender_role = evento.get("sender_role")
+    if sender_role:
+        return _ROTULO_REMETENTE.get(sender_role, sender_role)
+    if evento.get("evento") == "mensagem_recebida":
+        return _ROTULO_REMETENTE["lead"]
+    origem = evento.get("origem_do_texto") or ""
+    if origem.startswith("llm:"):
+        return _ROTULO_REMETENTE["ia"]
+    return _ROTULO_REMETENTE["agente"]
 
 
 def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
     """`;` (decimal do pt-BR é `,`) e BOM UTF-8 (Excel pt-BR não detecta UTF-8 puro) — por isso
-    bytes, não str: BOM é um artefato de byte, não de texto."""
+    bytes, não str: BOM é um artefato de byte, não de texto. Todas as colunas da tela, mais o
+    histórico (decisão do dono, comentário 5657857383: "completo com todos os campos, sem
+    exceção") — nome sempre por extenso, igual à tela (a abreviação do PR 1/2 foi revogada)."""
     buffer = io.StringIO()
     escritor = csv.writer(buffer, delimiter=";")
     escritor.writerow(_COLUNAS_CSV)
     for linha in linhas:
-        nome = linha.get("nome")
         escritor.writerow([
-            _neutralizar_formula_csv(_nome_para_exibicao(nome, destino="csv") if nome else ""),
+            _neutralizar_formula_csv(linha.get("nome") or _NAO_INFORMADO),
+            _neutralizar_formula_csv(linha.get("whatsapp") or _NAO_INFORMADO),
+            _neutralizar_formula_csv(linha.get("email") or _NAO_INFORMADO),
             _neutralizar_formula_csv(linha.get("status_rotulo") or ""),
-            _neutralizar_formula_csv(linha.get("data_entrada") or ""),
-            _neutralizar_formula_csv(linha.get("pendencia") or ""),
-            _neutralizar_formula_csv(linha.get("plano_cotado") or ""),
+            _neutralizar_formula_csv(_data_br(linha.get("data_entrada")) or ""),
+            _neutralizar_formula_csv(linha.get("pendencia") or _SEM_PENDENCIA),
+            _neutralizar_formula_csv(linha.get("plano_cotado") or _AINDA_NAO_COTADO),
+            _neutralizar_formula_csv(_historico_csv(linha.get("historico"))),
         ])
     return buffer.getvalue().encode("utf-8-sig")
+
+
+def _historico_csv(historico: list[dict[str, Any]] | None) -> str:
+    if not historico:
+        return _NAO_INFORMADO
+    return " | ".join(f"{msg.get('remetente')}: {msg.get('texto')}" for msg in historico)
 
 
 def _neutralizar_formula_csv(valor: Any) -> str:
