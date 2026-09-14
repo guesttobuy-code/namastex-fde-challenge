@@ -333,10 +333,10 @@ def test_coletar_dados_com_trilha_grava_string_vazia_quando_campo_opcional_em_br
 
 
 def test_transcricao_salvar_nao_redige_o_prompt_mas_redige_a_resposta(tmp_path):
-    """O prompt do CEP é texto do sistema (nunca dado do lead) — não pode ser redigido, senão o
-    `"00000-000"` do formato viraria `[REDIGIDO]`. A resposta com o CEP real continua redigida."""
+    """O prompt do CEP é texto do sistema (nunca dado do lead) — não pode ser redigido. A resposta
+    com o CEP real continua redigida."""
     transcricao = _Transcricao()
-    transcricao.emitir("Qual o seu CEP? (formato 00000-000)", redigir=False)
+    transcricao.emitir("Qual o seu CEP? (8 números, com ou sem hífen)", redigir=False)
     transcricao.emitir("> 01310-100")
 
     caminho = tmp_path / "transcricao.log"
@@ -344,7 +344,7 @@ def test_transcricao_salvar_nao_redige_o_prompt_mas_redige_a_resposta(tmp_path):
 
     conteudo = caminho.read_text(encoding="utf-8")
     linhas = conteudo.splitlines()
-    assert linhas[0] == "Qual o seu CEP? (formato 00000-000)"
+    assert linhas[0] == "Qual o seu CEP? (8 números, com ou sem hífen)"
     assert "[REDIGIDO]" not in linhas[0]
     assert "01310-100" not in linhas[1]
     assert "[REDIGIDO]" in linhas[1]
@@ -369,6 +369,6 @@ def test_coletar_dados_ponta_a_ponta_prompt_do_cep_sobrevive_e_resposta_sai_redi
 
     linha_prompt_cep = next(l for l in linhas if l.startswith("Qual o seu CEP?"))
     linha_resposta_cep = next(l for l in linhas if l.startswith("> ") and ("01310-100" in l or "[REDIGIDO]" in l))
-    assert linha_prompt_cep == "Qual o seu CEP? (formato 00000-000)"
+    assert linha_prompt_cep == "Qual o seu CEP? (8 números, com ou sem hífen)"
     assert "01310-100" not in linha_resposta_cep
     assert linha_resposta_cep == "> [REDIGIDO]"

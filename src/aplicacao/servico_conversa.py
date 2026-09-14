@@ -30,7 +30,7 @@ from dominio.eventos_trilha import Handoff, MensagemEnviada, MensagemRecebida, T
 from dominio.intencao import Intencao
 from dominio.redator import montar_mensagem
 from dominio.resultado_cotacao import ResultadoDaCotacao
-from dominio.status_conversa import StatusDaConversa, proxima_transicao_automatica
+from dominio.status_conversa import StatusDaConversa, proxima_transicao_automatica, status_atual_da_conversa
 
 
 @dataclass(frozen=True)
@@ -246,6 +246,8 @@ def _registrar_tentativa(trilha: ServicoDeTrilha, conversation_id: str, observad
             multiplicadores=corpo.get("multiplicadores") if e_sucesso else None,
             carencia=_resumo_carencia(corpo) if e_sucesso else None,
             pro_rata=_valor_pro_rata(corpo) if e_sucesso else None,
+            plano_id=corpo.get("plano_id") if e_sucesso else None,
+            plano_nome=corpo.get("plano_nome") if e_sucesso else None,
         )
     )
 
@@ -355,6 +357,90 @@ def _contexto_coletado(estado: EstadoDaConversa) -> dict:
     }
 
 
+def _registrar_decisao_do_turno(
+    trilha: ServicoDeTrilha,
+    estado: EstadoDaConversa,
+    decisao: Decisao,
+    resultado: ResultadoDaCotacao | None,
+    texto: str,
+    eventos_antes_do_turno: list[dict] | None,
+) -> None:
+    """Grava `decisao`/`mensagem_enviada`/`handoff` (se `ENCAMINHAR`) e o `status_alterado` do
+    turno — dono único da escrita (LEI 11), extraído do fim de `conduzir_conversa` SEM mudar o que
+    grava nem a ordem, só para virar reusável por `encaminhar_planos_indisponiveis` (issue #95)
+    sem duplicar o bloco."""
+    decisao_id = _novo_id("dec")
+    trilha.registrar_evento(
+        DecisaoTrilha(
+            evento="decisao",
+            conversation_id=estado.conversation_id,
+            id=decisao_id,
+            instante=_agora_iso(),
+            tipo=decisao.tipo.value,
+            motivo=decisao.reason_code.value if decisao.reason_code else None,
+        )
+    )
+    trilha.registrar_evento(
+        MensagemEnviada(
+            evento="mensagem_enviada",
+            conversation_id=estado.conversation_id,
+            id=_novo_id("msg"),
+            instante=_agora_iso(),
+            texto=texto,
+            decisao_id=decisao_id,
+            regra_aplicada=_regra_aplicada(decisao, resultado),
+            origem_do_texto=_origem_do_texto(decisao),
+            dados_usados=_dados_usados(estado, resultado),
+            quote_attempt_id=resultado.preco.quote_attempt_id if resultado and resultado.preco else None,
+        )
+    )
+    if decisao.tipo == TipoDecisao.ENCAMINHAR:
+        trilha.registrar_evento(
+            Handoff(
+                evento="handoff",
+                conversation_id=estado.conversation_id,
+                id=_novo_id("ho"),
+                instante=_agora_iso(),
+                reason_code=decisao.reason_code.value,
+                contexto_coletado=_contexto_coletado(estado),
+                mensagem_ao_lead=texto,
+            )
+        )
+    registrar_status_do_turno(
+        trilha, estado.conversation_id, decisao, resultado, eventos_anteriores=eventos_antes_do_turno
+    )
+
+
+def encaminhar_planos_indisponiveis(
+    trilha: ServicoDeTrilha | None, estado: EstadoDaConversa
+) -> TurnoDaConversa:
+    """Chamado quando `GET /api/planos` falhou tentativas suficientes para o chat desistir de
+    deixar o lead escolher um plano (issue #95) — NUNCA chama `portal.cotar()`: com a `/quote` de
+    pé mas só `/api/planos` fora do ar (clientes com timeout/retry DIFERENTES —
+    `infra.planos_http.buscar_planos` é uma tentativa de 2s sem retry, `infra.cliente_quote.
+    ClienteQuoteHTTP` são 3 tentativas com orçamento de 10s), cotar de verdade escolheria
+    "essencial" no lugar do lead (`_payload_da_quote`, `plano_id or "essencial"`) — decidir um
+    plano por ele, mesmo com preço real da API. Reusa `MotivoHandoff.QUOTE_INDISPONIVEL` (mesmo
+    motivo do caminho real de falha da `/quote`, nunca um motivo novo) e `_registrar_decisao_do_turno`
+    (dono único da escrita, o mesmo bloco que `conduzir_conversa` usa).
+
+    Idempotente (condição da coordenação, issue #95): se a conversa já está `aguardando_corretor`,
+    `em_atendimento_humano` ou `encerrada`, não grava um segundo `decisao`/`handoff`/
+    `status_alterado` — só devolve o texto de encaminhamento de novo, sem nova escrita."""
+    eventos_antes_do_turno = trilha.eventos_da_conversa(estado.conversation_id) if trilha is not None else None
+    decisao = Decisao(TipoDecisao.ENCAMINHAR, reason_code=MotivoHandoff.QUOTE_INDISPONIVEL)
+    texto = _texto_da_decisao(decisao, None)
+    status_atual = status_atual_da_conversa(eventos_antes_do_turno) if eventos_antes_do_turno is not None else None
+    ja_encaminhada = status_atual in (
+        StatusDaConversa.AGUARDANDO_CORRETOR,
+        StatusDaConversa.EM_ATENDIMENTO_HUMANO,
+        StatusDaConversa.ENCERRADA,
+    )
+    if trilha is not None and not ja_encaminhada:
+        _registrar_decisao_do_turno(trilha, estado, decisao, None, texto, eventos_antes_do_turno)
+    return TurnoDaConversa(decisao=decisao, resultado=None, texto=texto)
+
+
 def conduzir_conversa(
     portal: PortalDeCotacao,
     estado: EstadoDaConversa,
@@ -403,45 +489,6 @@ def conduzir_conversa(
     texto = _texto_da_decisao(decisao, resultado)
 
     if trilha is not None:
-        decisao_id = _novo_id("dec")
-        trilha.registrar_evento(
-            DecisaoTrilha(
-                evento="decisao",
-                conversation_id=estado.conversation_id,
-                id=decisao_id,
-                instante=_agora_iso(),
-                tipo=decisao.tipo.value,
-                motivo=decisao.reason_code.value if decisao.reason_code else None,
-            )
-        )
-        trilha.registrar_evento(
-            MensagemEnviada(
-                evento="mensagem_enviada",
-                conversation_id=estado.conversation_id,
-                id=_novo_id("msg"),
-                instante=_agora_iso(),
-                texto=texto,
-                decisao_id=decisao_id,
-                regra_aplicada=_regra_aplicada(decisao, resultado),
-                origem_do_texto=_origem_do_texto(decisao),
-                dados_usados=_dados_usados(estado, resultado),
-                quote_attempt_id=resultado.preco.quote_attempt_id if resultado and resultado.preco else None,
-            )
-        )
-        if decisao.tipo == TipoDecisao.ENCAMINHAR:
-            trilha.registrar_evento(
-                Handoff(
-                    evento="handoff",
-                    conversation_id=estado.conversation_id,
-                    id=_novo_id("ho"),
-                    instante=_agora_iso(),
-                    reason_code=decisao.reason_code.value,
-                    contexto_coletado=_contexto_coletado(estado),
-                    mensagem_ao_lead=texto,
-                )
-            )
-        registrar_status_do_turno(
-            trilha, estado.conversation_id, decisao, resultado, eventos_anteriores=eventos_antes_do_turno
-        )
+        _registrar_decisao_do_turno(trilha, estado, decisao, resultado, texto, eventos_antes_do_turno)
 
     return TurnoDaConversa(decisao=decisao, resultado=resultado, texto=texto)

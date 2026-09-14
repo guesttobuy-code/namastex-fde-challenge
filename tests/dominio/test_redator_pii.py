@@ -74,6 +74,15 @@ def test_cep_com_espaco_fixture_manual():
     assert "26703 384" not in saida
 
 
+def test_pergunta_do_cep_da_cli_nao_e_mascarada():
+    """issue #93: a dica de formato do CEP na pergunta da CLI (`interfaces.cli`) tem que ser
+    descrita em PALAVRAS, sem nenhum dígito no formato de CEP — senão o próprio redator (que grava
+    tudo na trilha, sem bypass, `aplicacao/servico_trilha.py`) mascarava a pergunta do sistema como
+    se fosse PII do lead. Round-trip: o texto sai idêntico do redator."""
+    texto = "Qual o seu CEP? (8 números, com ou sem hífen)"
+    assert redigir_texto(texto) == texto
+
+
 def test_cep_sem_separador_rotulado_e_mascarado():
     """issue #68: medido ao vivo que `01310100` (8 dígitos sem hífen) passava intacto — mesmo
     exemplo do achado ("meu cep e 01310100 ok")."""

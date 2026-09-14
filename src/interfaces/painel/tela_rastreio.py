@@ -18,8 +18,19 @@ from interfaces.painel.agrupar import (
     classe_chip_do_estado,
     estado_da_conversa,
     numeros_de_tentativa_ausentes,
+    rotulo_de_exibicao,
 )
-from interfaces.painel.campos import buraco, campo, esc, lista, resposta_http_textual
+from interfaces.painel.campos import (
+    ROTULO_RESUMO_DO_SISTEMA,
+    buraco,
+    campo,
+    data_br,
+    eh_resumo_do_sistema,
+    esc,
+    lista,
+    resposta_http_textual,
+    texto_da_resposta,
+)
 from interfaces.painel.layout import css_extra_da_tela, pagina
 
 
@@ -33,7 +44,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
         nav_itens.append(
             f'<a href="#{esc(conversation_id)}" class="item" style="text-decoration:none;display:block">'
             f'<span class="l1"><span class="nome">{esc(conversation_id)}</span></span>'
-            f'<span class="chip {esc(classe_chip_do_estado(estado))}" style="margin-top:6px">{esc(estado)}</span>'
+            f'<span class="chip {esc(classe_chip_do_estado(estado))}" style="margin-top:6px">{esc(rotulo_de_exibicao(estado))}</span>'
             f"</a>"
         )
         secoes.append(_secao_da_conversa(conversation_id, eventos_conversa, estado))
@@ -70,7 +81,7 @@ def render(eventos: list[dict], *, caminho_ui_css=None) -> str:
 def _secao_da_conversa(conversation_id: str, eventos: list[dict], estado: str) -> str:
     linhas = [_linha_do_evento(evento, eventos) for evento in eventos]
     return f"""<section class="painel" id="{esc(conversation_id)}">
-  <header><h2>{esc(conversation_id)}</h2><span class="aux">{esc(estado)}</span></header>
+  <header><h2>{esc(conversation_id)}</h2><span class="aux">{esc(rotulo_de_exibicao(estado))}</span></header>
   <div class="tempo">
     {"".join(linhas)}
   </div>
@@ -79,6 +90,8 @@ def _secao_da_conversa(conversation_id: str, eventos: list[dict], estado: str) -
 
 def _linha_do_evento(evento: dict, eventos_da_conversa: list[dict]) -> str:
     tipo = evento.get("evento")
+    if tipo == "mensagem_recebida" and eh_resumo_do_sistema(evento):
+        return _ev_resumo_do_sistema(evento)
     if tipo == "mensagem_recebida":
         return _ev_mensagem(evento, "lead", "lead")
     if tipo == "mensagem_enviada":
@@ -91,13 +104,22 @@ def _linha_do_evento(evento: dict, eventos_da_conversa: list[dict]) -> str:
         return _ev_handoff(evento)
     if tipo in ("erro_marcado", "correcao_registrada"):
         return ""  # anexado à mensagem_enviada correspondente, não numa linha própria
-    return f'<div class="ev"><span class="meta">{esc(evento.get("instante"))} · {esc(tipo)} · {esc(evento.get("id"))}</span></div>'
+    return f'<div class="ev"><span class="meta">{esc(data_br(evento.get("instante")))} · {esc(tipo)} · {esc(evento.get("id"))}</span></div>'
 
 
 def _ev_mensagem(evento: dict, classe: str, quem: str) -> str:
     return f"""<div class="ev {classe}">
-      <div class="meta"><span class="quem">{esc(quem)}</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div>
-      <div class="balao">{campo(evento, "texto")}</div>
+      <div class="meta"><span class="quem">{esc(quem)}</span><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div>
+      <div class="balao">{texto_da_resposta(evento)}</div>
+    </div>"""
+
+
+def _ev_resumo_do_sistema(evento: dict) -> str:
+    """`sender_role="sistema"` (issue #39): o resumo sintético da coleta, nunca texto do lead —
+    mesmo tratamento da tela de Conversas (issue #93, dono do rótulo em `campos.py`)."""
+    return f"""<div class="ev sistema">
+      <div class="meta"><span class="quem">sistema</span><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div>
+      <div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>
     </div>"""
 
 
@@ -125,7 +147,7 @@ def _ev_mensagem_enviada(evento: dict, eventos_da_conversa: list[dict]) -> str:
       </div>
     </details>"""
     return f"""<div class="ev agente">
-      <div class="meta"><span class="quem">agente</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span>{marca}</div>
+      <div class="meta"><span class="quem">agente</span><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span>{marca}</div>
       <div class="balao">{campo(evento, "texto")}</div>
       {proveniencia}
     </div>"""
@@ -178,7 +200,7 @@ def _ev_cotacao_agrupada(evento: dict, eventos_da_conversa: list[dict]) -> str:
           <div><span class="rot">orçamento restante</span><div class="val">{campo(sucesso, "orcamento_restante_ms")} ms</div></div>
         </div></div>"""
     return f"""<div class="ev cotacao">
-      <div class="meta"><span class="quem">cotação</span><span>{esc(evento.get("instante"))}</span><span>{campo(evento, "quote_attempt_id")}</span></div>
+      <div class="meta"><span class="quem">cotação</span><span>{esc(data_br(evento.get("instante")))}</span><span>{campo(evento, "quote_attempt_id")}</span></div>
       <div class="tentativas">{"".join(linhas_tentativa)}</div>
       {prova}
     </div>"""
@@ -188,14 +210,14 @@ def _ev_decisao(evento: dict) -> str:
     motivo = evento.get("motivo")
     sufixo = f" — {esc(motivo)}" if motivo else ""
     return f"""<div class="ev decisao">
-      <div class="meta"><span class="quem">decisão</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div>
+      <div class="meta"><span class="quem">decisão</span><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div>
       <div class="balao">{campo(evento, "tipo")}{sufixo}</div>
     </div>"""
 
 
 def _ev_handoff(evento: dict) -> str:
     return f"""<div class="ev handoff">
-      <div class="meta"><span class="quem">handoff</span><span>{esc(evento.get("instante"))}</span><span>{esc(evento.get("id"))}</span></div>
+      <div class="meta"><span class="quem">handoff</span><span>{esc(data_br(evento.get("instante")))}</span><span>{esc(evento.get("id"))}</span></div>
       <div class="motivo">reason_code: {campo(evento, "reason_code")}</div>
       <div class="balao">{campo(evento, "mensagem_ao_lead")}</div>
     </div>"""

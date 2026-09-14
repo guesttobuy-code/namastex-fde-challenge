@@ -1,8 +1,17 @@
+import json
 import re
+from pathlib import Path
 
 from dominio.contato_lead import ContatoLead
 
 from interfaces.painel import tela_conversas
+
+_RAIZ = Path(__file__).resolve().parents[3]
+
+
+def _carregar_trilha_real(nome_arquivo: str) -> list[dict]:
+    caminho = _RAIZ / "examples" / nome_arquivo
+    return [json.loads(linha) for linha in caminho.read_text(encoding="utf-8").splitlines() if linha.strip()]
 
 
 def test_mensagem_com_html_e_escapada():
@@ -65,12 +74,34 @@ def test_item_da_conversa_selecionada_tem_a_classe_selecionado(trilha_fixture):
 
 def test_botoes_assumir_e_encerrar_habilitados_conforme_o_status(trilha_fixture):
     """`conv_b93c` está em Aguardando corretor: Assumir E Encerrar são transições válidas dali
-    (`dominio.status_conversa.pode_assumir`/`pode_encerrar`) — nenhum dos dois vem `disabled`."""
+    (`dominio.status_conversa.pode_assumir`/`pode_encerrar`) — nenhum dos dois vem `disabled`.
+    issue #92: os botões não têm mais `onclick` com o id interpolado numa string JS — o id vem de
+    `data-conversation-id`, lido pelo `addEventListener` delegado no `_JS`."""
     html = tela_conversas.render(trilha_fixture)
-    assert "onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/assumir')\">Assumir</button>" in html
-    assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/assumir')\">" not in html
-    assert "onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">Encerrar</button>" in html
-    assert "disabled onclick=\"transicaoDeStatus('conv_b93c', '/api/conversa/encerrar')\">" not in html
+    assert 'data-conversation-id="conv_b93c" data-rota="/api/conversa/assumir">Assumir</button>' in html
+    assert 'disabled data-conversation-id="conv_b93c" data-rota="/api/conversa/assumir">' not in html
+    assert 'data-conversation-id="conv_b93c" data-rota="/api/conversa/encerrar">Encerrar</button>' in html
+    assert 'disabled data-conversation-id="conv_b93c" data-rota="/api/conversa/encerrar">' not in html
+    assert "onclick=\"transicaoDeStatus" not in html
+
+
+def test_conversation_id_com_aspa_simples_nao_gera_onclick_perigoso():
+    """issue #92: `conversation_id` malicioso (`x');alert(1);('`) não pode virar uma aspa que
+    escapa de uma string JS dentro de um atributo `onclick=`. O conserto remove TODA interpolação
+    de id em string JS — só sobra em `data-*`, HTML-escapado de verdade (o navegador decodifica o
+    atributo, mas o valor nunca volta a ser interpretado como código)."""
+    payload = "x');alert(1);('"
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": payload, "id": "m1",
+        "instante": "2026-09-13T10:00:00", "texto": "oi",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "onclick=" not in html
+    # esc() escapa a aspa simples pra &#x27; — dentro de data-* isso é seguro (o navegador decodifica
+    # o atributo, mas o valor nunca é reinterpretado como código JS, ao contrário de dentro de onclick=).
+    assert 'data-alvo="x&#x27;);alert(1);(&#x27;"' in html
 
 
 # ── motivo/contato do handoff (S12) — migrado de `test_tela_fila_humana.py` (removida na
@@ -222,11 +253,15 @@ def test_previa_de_conversa_so_com_resumo_sistema_mostra_o_status_nao_o_buraco()
 
 
 def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
-    """Redator determinístico grava um formato estável — a prévia extrai plano e preço dali em vez
-    de cair direto no rótulo do status, quando a `mensagem_enviada` bate com esse formato."""
+    """Issue #59 (PR 2/2): a prévia lê `plano_nome`/`premio_mensal` da ÚLTIMA `tentativa_de_cotacao`
+    com sucesso (campo estruturado) — nunca mais casa regex contra o texto do redator (achado da
+    pré-auditoria do #87: extrair de texto livre é frágil, quebra se o template mudar)."""
     eventos = [
         {"evento": "mensagem_recebida", "conversation_id": "conv_cotada", "id": "m_sys",
          "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_cotada", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Completo", "premio_mensal": 241.38},
         {"evento": "mensagem_enviada", "conversation_id": "conv_cotada", "id": "m_env",
          "instante": "2026-09-13T10:00:01",
          "texto": "Plano Completo: R$ 241,38/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
@@ -241,6 +276,48 @@ def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
     assert '<span class="previa">Completo · R$ 241,38/mês</span>' in html
 
 
+def test_previa_de_conversa_cotada_trilha_antiga_sem_plano_nome_cai_no_status():
+    """Trilha antiga (gravada antes do campo `plano_nome` existir): sem `tentativa_de_cotacao`
+    estruturada, a prévia não inventa resumo nem quebra — cai no rótulo do status, mesmo
+    comportamento de qualquer conversa sem resumo extraível."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_antiga", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "mensagem_enviada", "conversation_id": "conv_antiga", "id": "m_env",
+         "instante": "2026-09-13T10:00:01",
+         "texto": "Plano Completo: R$ 241,38/mês, franquia R$ 3.000,00. Coberturas: colisão, roubo.",
+         "decisao_id": "dec_01", "regra_aplicada": "explicar_cotacao", "origem_do_texto": "redator_deterministico:v1"},
+        {"evento": "decisao", "conversation_id": "conv_antiga", "id": "dec_01",
+         "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa">Completo · R$ 241,38/mês</span>' not in html
+    assert '<span class="previa">Cotada</span>' in html
+
+
+def test_previa_de_conversa_com_duas_cotacoes_usa_a_ultima_com_sucesso():
+    """Lead troca de plano e cota de novo — a prévia mostra a ÚLTIMA cotação com sucesso, não a
+    primeira (mesma disciplina de `tela_relatorio.plano_cotado_da_conversa`)."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_troca", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_troca", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Essencial", "premio_mensal": 119.90},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_troca", "id": "qa_02",
+         "instante": "2026-09-13T10:05:00", "classificacao": "sucesso",
+         "plano_nome": "Premium", "premio_mensal": 339.90},
+        {"evento": "decisao", "conversation_id": "conv_troca", "id": "dec_01",
+         "instante": "2026-09-13T10:05:00", "tipo": "explicar_cotacao"},
+    ]
+
+    html = tela_conversas.render(eventos)
+
+    assert '<span class="previa">Premium · R$ 339,90/mês</span>' in html
+
+
 def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
     """A conversa não tem `mensagem_recebida` NEM `mensagem_enviada` — isso é perda de dado de
     verdade (falha de gravação), não falta de conteúdo pra resumir; o buraco técnico continua."""
@@ -253,3 +330,109 @@ def test_previa_de_conversa_sem_nenhum_evento_de_mensagem_continua_buraco():
     html = tela_conversas.render(eventos)
 
     assert '<span class="previa"><span class="falta">⚠ ausente na trilha: mensagem_recebida</span></span>' in html
+
+
+def _previa_de(eventos: list[dict]) -> str:
+    html = tela_conversas.render(eventos)
+    return re.search(r'<span class="previa">(.*?)</span>', html, re.DOTALL).group(1)
+
+
+def test_previa_de_conversa_nunca_mostra_a_mensagem_do_lead():
+    """issue #93 (2º ajuste, achado da coordenação): a mensagem do lead saiu de vez da prévia — uma
+    resposta de formulário ("[REDIGIDO]", "80", "2020") não diz nada ao corretor na lista. A prévia
+    agora é só (1) o resumo da cotação com sucesso, (2) o rótulo do status, (3) o buraco quando não
+    há nenhum evento de mensagem — nunca o texto do lead. Trilha REAL completa de
+    `examples/trilha_conv-453a5245.jsonl` (recusa por idade, `decisao tipo=encaminhar`): a prévia é
+    o status "Aguardando corretor", não a última resposta do lead ("[REDIGIDO]", o CEP)."""
+    eventos = _carregar_trilha_real("trilha_conv-453a5245.jsonl")
+
+    assert _previa_de(eventos) == "Aguardando corretor"
+
+
+def test_previa_de_conversa_indisponivel_mostra_aguardando_corretor():
+    """Trilha REAL completa de `examples/trilha_conv-acca9633.jsonl` (`/quote` indisponível,
+    `decisao tipo=encaminhar reason_code=quote_indisponivel`): mesma regra, mesmo resultado."""
+    eventos = _carregar_trilha_real("trilha_conv-acca9633.jsonl")
+
+    assert _previa_de(eventos) == "Aguardando corretor"
+
+
+def test_previa_de_conversa_cotada_trilha_anterior_ao_plano_nome_mostra_o_status():
+    """Trilha REAL de `examples/trilha_conv-2bdc86e8.jsonl` (sucesso, `decisao
+    tipo=explicar_cotacao`), gravada ANTES do PR #94 — evento `tentativa_de_cotacao` congelado
+    aqui (arquivo removido, substituído por `examples/trilha_conv-c2c205cd.jsonl` na regravação
+    pós-#94): `_resumo_da_ultima_cotacao` deixou de casar `mensagem_enviada.texto` por regex (#94,
+    issue #59 PR 2/2) e passou a exigir o campo ESTRUTURADO `plano_nome` na `tentativa_de_cotacao`
+    — que esta trilha antiga não tem. Cai no rótulo do status ("Cotada"), nunca inventa o resumo.
+    A trilha nova (`c2c205cd`) já grava `plano_nome` e mostra o resumo —
+    `test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao` logo abaixo cobre esse caso."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv-2bdc86e8", "id": "msg_coleta_0_recebida",
+         "instante": "2026-09-14T02:51:36.596647+00:00", "texto": "35", "sender_role": "lead"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv-2bdc86e8",
+         "id": "0d0e1bb0be90443c93c0c48fe48958d8", "instante": "2026-09-14T02:51:36.728337+00:00",
+         "numero_da_tentativa": 1, "http_status": 200, "classificacao": "sucesso",
+         "premio_mensal": 137.88, "franquia": 4500},
+        {"evento": "decisao", "conversation_id": "conv-2bdc86e8", "id": "dec_229dfdb6",
+         "instante": "2026-09-14T02:51:36.729207+00:00", "tipo": "explicar_cotacao"},
+    ]
+
+    assert _previa_de(eventos) == "Cotada"
+
+
+def test_previa_de_conversa_cotada_mostra_o_resumo_da_cotacao():
+    """Trilha REAL completa de `examples/trilha_conv-c2c205cd.jsonl` (regravada pós-#94, sucesso,
+    `decisao tipo=explicar_cotacao`): `tentativa_de_cotacao` já grava `plano_nome`/`premio_mensal`
+    estruturados — a prévia mostra o resumo da cotação, não o rótulo do status."""
+    eventos = _carregar_trilha_real("trilha_conv-c2c205cd.jsonl")
+
+    assert _previa_de(eventos) == "Essencial · R$ 137,88/mês"
+
+
+def test_previa_de_conversa_com_plano_nome_estruturado_mostra_o_resumo():
+    """issue #93 pós-#94: `_resumo_da_ultima_cotacao` lê `plano_nome`/`premio_mensal` da ÚLTIMA
+    `tentativa_de_cotacao` com `classificacao=sucesso` — campo estruturado, não mais regex. Trilha
+    sintética no formato novo."""
+    eventos = [
+        {"evento": "mensagem_recebida", "conversation_id": "conv_plano", "id": "m_sys",
+         "instante": "2026-09-13T10:00:00", "texto": "idade=35", "sender_role": "sistema"},
+        {"evento": "tentativa_de_cotacao", "conversation_id": "conv_plano", "id": "qa_01",
+         "instante": "2026-09-13T10:00:01", "classificacao": "sucesso",
+         "plano_nome": "Completo", "premio_mensal": 313.80},
+        {"evento": "decisao", "conversation_id": "conv_plano", "id": "dec_01",
+         "instante": "2026-09-13T10:00:01", "tipo": "explicar_cotacao"},
+    ]
+
+    assert _previa_de(eventos) == "Completo · R$ 313,80/mês"
+
+
+def test_secao_conversa_mensagem_recebida_com_texto_vazio_nao_vira_buraco():
+    """issue #93: mesmo achado do preview, agora no balão da conversa aberta (`_secao_conversa`,
+    L294) — achado da coordenação: a caixa de entrada (primeira tela do avaliador) mostrava
+    "ausente na trilha" pra cada resposta em branco de um campo opcional."""
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-453a5245", "id": "msg_coleta_3_recebida",
+        "instante": "2026-09-14T04:34:33.561133+00:00", "texto": "", "sender_role": "lead",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert "ausente na trilha: texto" not in html
+    assert "(sem resposta — seguiu o padrão)" in html
+
+
+def test_secao_conversa_sistema_usa_rotulo_compartilhado_de_campos():
+    """issue #93: o rótulo do resumo sintético (L292) passa a vir de `campos.ROTULO_RESUMO_DO_SISTEMA`
+    — um rótulo, um dono só (LEI 11) — em vez de uma string solta duplicada."""
+    from interfaces.painel.campos import ROTULO_RESUMO_DO_SISTEMA
+
+    eventos = [{
+        "evento": "mensagem_recebida", "conversation_id": "conv-453a5245", "id": "msg_edcddae8",
+        "instante": "2026-09-14T04:34:33.563825+00:00",
+        "texto": "idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None",
+        "sender_role": "sistema",
+    }]
+
+    html = tela_conversas.render(eventos)
+
+    assert f'<div class="estado-interno">{ROTULO_RESUMO_DO_SISTEMA}</div>' in html
