@@ -105,9 +105,10 @@ depois, a pergunta também vira comentário na issue — chat evapora, issue fic
 ## 9. Toda frente nasce com roteiro de aceite e PLANO antes do código
 
 Ordem do dono, 13/09/2026 ~21:20: *"vamos trazer mais eficiência… vc pode corrigir e melhorar"*. Origem: o
-PR #75 (issue #58) foi reprovado com 5 bloqueantes na primeira auditoria, ficou ~2h30 sem commitar (levando
-a um `git stash`) e chegou perto de rodar `--no-verify` diante de um self-test que só falhava no Windows
-local. Sete regras, cada uma fechando um pedaço do que deu errado ali:
+PR #75 (issue #58) foi reprovado com 5 bloqueantes na primeira auditoria e ficou ~2h30 sem commitar
+(levando a um `git stash`). No mesmo dia, um chat rodou `git commit --no-verify` num commit local diante
+de um self-test que só falhava no Windows — confessou o ato, e o commit foi desfeito antes do push
+(diário #16, 13/09 20:42). Sete regras, cada uma fechando um pedaço do que deu errado ali:
 
 1. **A coordenação escreve o roteiro de aceite na issue, antes do PLANO** — cenário → tela → o que a
    trilha grava, com e sem chave (LLM real e determinístico). Frente que recebe uma demanda sem roteiro
@@ -115,11 +116,13 @@ local. Sete regras, cada uma fechando um pedaço do que deu errado ali:
 2. **A frente publica o `## PLANO` antes de codar, ligando cada cenário do roteiro a um teste — inclusive
    frente só de dados ou só de documentação.** O guard `plano-na-issue` cobra a EXISTÊNCIA do `## PLANO`;
    esta lei cobra o CONTEÚDO: cenário sem teste (ou, em frente sem código, sem prova por grep/leitura
-   equivalente) correspondente não é plano, é lista de tarefas. Furo medido: a issue #70 (fichas de
-   objeção, PR #77), frente só de dados, publicou 4 fichas em JSON sem um teste committado — rodou à mão,
-   sem ficar protegido contra edição futura; achado só na pré-auditoria. Esta própria issue #83, que só
-   mexe em documentação, seguiu a regra com um PLANO publicado antes da edição — é o exemplo do item
-   funcionando.
+   equivalente) correspondente não é plano, é lista de tarefas. Furo medido, duplo, na issue #70 (fichas
+   de objeção, PR #77, frente só de dados): o `## PLANO` foi publicado DEPOIS do código — o guard
+   `plano-na-issue` ficou vermelho para sempre (`PLANO_DEPOIS_DO_CODIGO`), e o PR foi mergeado com esse
+   vermelho documentado, por ordem de execução da própria coordenação, sem exigir o plano antes; e o
+   teste de fumaça das fichas publicadas não ficou commitado — rodou à mão, sem proteção contra edição
+   futura, achado só na pré-auditoria. Esta própria issue #83, que só mexe em documentação, seguiu a
+   regra com um PLANO publicado antes da edição — este PR é o exemplo do item aplicado.
 3. **O primeiro pedaço que depende de LLM roda contra o modelo real cedo, sem a frente tocar a chave.** A
    frente escreve o teste marcado `llm_real` com um comando único (`pytest -m llm_real
    caminho/do/teste.py`); a coordenação roda com a chave dela e cola o resultado.
