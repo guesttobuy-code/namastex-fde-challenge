@@ -396,7 +396,8 @@ ambíguo do cliente), que continuam sem frente aberta.
 ## 5. Dá pra rastrear o que aconteceu?
 
 Sim — cada evento vira uma linha JSONL, gravada por `ServicoDeTrilha`, o **único** portão de escrita
-(`src/aplicacao/CONTRACT.md:18`, invariante I-1: nenhum código grava direto no `RepositorioDeTrilha`). Todo evento
+(`src/aplicacao/CONTRACT.md:11-12`: nenhum código grava direto no `RepositorioDeTrilha`; a redação
+dos campos antes de gravar é a I-1, L18). Todo evento
 carrega `id`, `conversation_id` e `instante` (`src/dominio/eventos_trilha.py:18-22`); os 8 tipos
 possíveis são `mensagem_recebida`, `mensagem_enviada` (com `decisao_id`/`regra_aplicada`/
 `origem_do_texto`/`quote_attempt_id` — proveniência, não só o texto), `tentativa_de_cotacao` (uma por
