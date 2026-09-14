@@ -7,6 +7,7 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Segurança
+- **`scripts/sanitizar_ai_logs.py` ganha rede de segurança independente para padrão pessoal, fail-closed (pedido da coordenação, issue #15):** a verificação final passa a conferir também os 4 padrões pessoais (chave OU valor), lidos de `_local/padroes_pessoais.txt` — arquivo SEPARADO de `_local/ai-logs-config.json` de propósito: criado pelo DONO, não pela sessão que decide a substituição, para ser um segundo par de olhos independente (se os dois vierem da mesma fonte, os dois têm o mesmo ponto cego — foi exatamente o caso do achado anterior). Um padrão LITERAL por linha (não regex), sem caixa; linhas vazias/`#` ignoradas. Arquivo ausente ou vazio: `SystemExit` ANTES de escrever qualquer coisa — "não publico ai-logs sem essa checagem", nunca segue em silêncio (LEI 2). `--self-test` ganha 3 casos novos: padrão fictício numa chave de dict aborta, num valor aborta, arquivo ausente aborta sem escrever nada — os 5 continuam verdes. README (§8) ganha uma linha declarando que a checagem existe, sem citar nenhum padrão.
 - **`scripts/sanitizar_ai_logs.py` não sanitizava CHAVE de dicionário, só valor (achado do ensaio
   de congelamento, issue #15):** `snapshot.trackedFileBackups` (estrutura interna do Claude Code,
   presente nas sessões reais) grava o caminho absoluto do arquivo como CHAVE do JSON, nunca como

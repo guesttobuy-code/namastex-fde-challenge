@@ -348,9 +348,12 @@ PR — outro chat audita adversarialmente e publica o veredito como comentário 
 de uma pessoa. Cada frente do roadmap é uma issue do GitHub, com o plano publicado **antes** do
 primeiro commit. O texto completo do processo está nas issues e nos `ai-logs/` —
 `[PENDENTE: exportação no congelamento, #15]` (as sessões do Claude Code continuam crescendo até a
-entrega; exportar e sanitizar é o último passo, não antes) — aqui vai a lista dos erros que viraram
-melhoria, porque mostrar o erro com o conserto ao lado é mais honesto do que fingir que não
-aconteceu:
+entrega; exportar e sanitizar é o último passo, não antes). O exportador
+(`scripts/sanitizar_ai_logs.py`) tem uma verificação final que recusa gravar qualquer arquivo se
+sobrar um padrão pessoal do dono (em chave OU em valor do JSON) — a lista de padrões mora fora do
+git, criada pelo dono, e a ausência do arquivo é erro, nunca "segue sem checar". Aqui vai a lista
+dos erros que viraram melhoria, porque mostrar o erro com o conserto ao lado é mais honesto do que
+fingir que não aconteceu:
 
 - **Vazamento de dado pessoal pego pela auditoria, não pelo autor**
   ([#17](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/17)): o `esteira.json`
