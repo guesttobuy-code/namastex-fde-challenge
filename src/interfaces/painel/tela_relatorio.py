@@ -32,12 +32,11 @@ from __future__ import annotations
 import csv
 import io
 import re
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from dominio.redator import valor_br
 from interfaces.painel.agrupar import agrupar_por_conversa, estado_da_conversa, rotulo_de_exibicao
-from interfaces.painel.campos import campo, esc
+from interfaces.painel.campos import MARCADOR_RESPOSTA_VAZIA, campo, data_br, eh_resposta_vazia, esc, texto_da_resposta
 from interfaces.painel.layout import pagina
 from interfaces.painel.motivos import descricao_do_motivo
 
@@ -50,11 +49,6 @@ _CARACTERES_PERIGOSOS_CSV = ("=", "+", "-", "@", "\t", "\r")
 _NAO_INFORMADO = "não informado"
 _AINDA_NAO_COTADO = "ainda não cotado"
 _SEM_PENDENCIA = "—"
-
-# Achado da auditoria do PR #94 (B2): a trilha grava o instante em UTC (`_agora_iso`, sempre com
-# offset) — o corretor lê a tela no Brasil. Brasil não tem horário de verão desde 2019 (decisão do
-# governo federal), então `-03:00` fixo é correto o ano inteiro, sem tabela de exceção sazonal.
-_FUSO_BRASILIA = timezone(timedelta(hours=-3))
 
 _ROTULO_REMETENTE = {"lead": "Lead", "agente": "Robô", "ia": "IA", "corretor": "Corretor", "sistema": "Sistema"}
 
@@ -102,7 +96,7 @@ def _linha_html(linha: dict[str, Any]) -> str:
     return f"""<tr data-status="{esc(status_valor)}">
       <td>{_lead_html(linha)}</td>
       <td>{campo(linha, "status_rotulo")}</td>
-      <td>{esc(_data_br(linha.get("data_entrada")))}</td>
+      <td>{esc(data_br(linha.get("data_entrada")))}</td>
       <td>{esc(linha.get("pendencia") or _SEM_PENDENCIA)}</td>
       <td>{esc(linha.get("plano_cotado") or _AINDA_NAO_COTADO)}</td>
       <td><code>{esc(linha.get("conversation_id"))}</code><br>{_ver_conversa_html(linha.get("historico"))}</td>
@@ -113,6 +107,8 @@ def _lead_html(linha: dict[str, Any]) -> str:
     nome = linha.get("nome")
     whatsapp = linha.get("whatsapp")
     email = linha.get("email")
+    if not nome and not whatsapp and not email:
+        return f"<div>{_NAO_INFORMADO}</div>"
     return f"""<div><b>{esc(nome) if nome else _NAO_INFORMADO}</b></div>
       <div>{_whatsapp_html(whatsapp)}</div>
       <div>{esc(email) if email else _NAO_INFORMADO}</div>"""
@@ -146,27 +142,9 @@ def _ver_conversa_html(historico: list[dict[str, Any]] | None) -> str:
 
 def _mensagem_html(mensagem: dict[str, Any]) -> str:
     remetente = esc(mensagem.get("remetente"))
-    texto = campo(mensagem, "texto")
-    instante = esc(_data_br(mensagem.get("instante")) or "")
+    texto = texto_da_resposta(mensagem)
+    instante = esc(data_br(mensagem.get("instante")) or "")
     return f'<div class="msg-historico"><b>{remetente}:</b> {texto} <span class="aux">{instante}</span></div>'
-
-
-def _data_br(instante_iso: str | None) -> str | None:
-    """`"2026-09-14T04:04:19.989289+00:00"` → `"14/09/2026 01:04"` (UTC → Brasília, `_FUSO_BRASILIA`)
-    — dono único da conversão, usado na data de entrada (tela e CSV) e no horário de cada mensagem
-    do "Ver conversa". Instante SEM offset (só acontece em fixture de teste — a trilha real sempre
-    grava com `+00:00`) é tratado como já sendo UTC, nunca como hora local da máquina que roda o
-    painel. Instante ausente devolve `None` (vira buraco/traço no chamador, nunca uma data
-    inventada); instante que não é ISO válido devolve o valor original, sem inventar."""
-    if not instante_iso:
-        return None
-    try:
-        instante = datetime.fromisoformat(instante_iso)
-    except ValueError:
-        return instante_iso
-    if instante.tzinfo is None:
-        instante = instante.replace(tzinfo=timezone.utc)
-    return instante.astimezone(_FUSO_BRASILIA).strftime("%d/%m/%Y %H:%M")
 
 
 def montar_historico(eventos_da_conversa: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -256,7 +234,7 @@ def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
             _apenas_digitos_whatsapp(linha["whatsapp"]) if linha.get("whatsapp") else _NAO_INFORMADO,
             _neutralizar_formula_csv(linha.get("email") or _NAO_INFORMADO),
             _neutralizar_formula_csv(linha.get("status_rotulo") or ""),
-            _neutralizar_formula_csv(_data_br(linha.get("data_entrada")) or ""),
+            _neutralizar_formula_csv(data_br(linha.get("data_entrada")) or ""),
             _neutralizar_formula_csv(linha.get("pendencia") or _SEM_PENDENCIA),
             _neutralizar_formula_csv(linha.get("plano_cotado") or _AINDA_NAO_COTADO),
             _neutralizar_formula_csv(_historico_csv(linha.get("historico"))),
@@ -267,7 +245,16 @@ def gerar_csv(linhas: list[dict[str, Any]]) -> bytes:
 def _historico_csv(historico: list[dict[str, Any]] | None) -> str:
     if not historico:
         return _NAO_INFORMADO
-    return " | ".join(f"{msg.get('remetente')}: {msg.get('texto')}" for msg in historico)
+    return " | ".join(f"{msg.get('remetente')}: {_texto_csv(msg)}" for msg in historico)
+
+
+def _texto_csv(mensagem: dict[str, Any]) -> str:
+    """Versão em texto puro de `campos.texto_da_resposta`, pro CSV — mesma checagem
+    (`campos.eh_resposta_vazia`, dono único, LEI 11) e o mesmo marcador
+    (`campos.MARCADOR_RESPOSTA_VAZIA`), sem o `<span>` do HTML."""
+    if eh_resposta_vazia(mensagem):
+        return MARCADOR_RESPOSTA_VAZIA
+    return mensagem.get("texto") or ""
 
 
 def _neutralizar_formula_csv(valor: Any) -> str:

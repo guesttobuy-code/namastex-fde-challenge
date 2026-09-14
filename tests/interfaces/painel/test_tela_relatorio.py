@@ -57,7 +57,9 @@ def test_render_status_ausente_mostra_buraco_da_trilha_mas_contato_ausente_mostr
     html = tela_relatorio.render(linhas)
 
     assert "ausente na trilha" in html  # status_rotulo passa por campos.campo() — dado da trilha
-    assert html.count("não informado") == 4  # nome, whatsapp, email, histórico — nunca buraco
+    # issue #93 (polimento pós-#99): nome/whatsapp/email todos ausentes colapsam pra UM
+    # "não informado" (não mais três) + o "não informado" do histórico (`historico=None`) — 2.
+    assert html.count("não informado") == 2
     assert "None" not in html
 
 
@@ -244,6 +246,51 @@ def test_ver_conversa_mostra_o_horario_da_mensagem_em_brasilia():
 
     assert "14/09/2026 01:04" in html
     assert "04:04" not in html
+
+
+def test_mensagem_com_texto_vazio_nao_vira_buraco():
+    """issue #93 (polimento pós-#99): resposta vazia (Enter num campo opcional) no histórico do
+    "Ver conversa" tinha que ficar coerente com o resto do painel (Rastreio/Histórico) — não é o
+    buraco de falha de gravação."""
+    historico = [{"remetente": "Lead", "texto": "", "instante": "2026-09-14T04:04:19.989289+00:00"}]
+    linhas = [_linha(historico=historico)]
+
+    html = tela_relatorio.render(linhas)
+
+    assert "ausente na trilha" not in html
+    assert "(sem resposta — seguiu o padrão)" in html
+
+
+def test_csv_historico_com_resposta_vazia_mostra_marcador_texto_puro():
+    """O CSV é texto simples — o marcador de resposta vazia não pode carregar HTML (`<span>`)."""
+    historico = [{"remetente": "Lead", "texto": "", "instante": "t1"}]
+    linhas = [_linha(historico=historico)]
+
+    csv_texto = tela_relatorio.gerar_csv(linhas).decode("utf-8-sig")
+
+    assert "Lead: (sem resposta — seguiu o padrão)" in csv_texto
+    assert "<span" not in csv_texto
+
+
+def test_lead_sem_nenhum_contato_mostra_um_nao_informado_so():
+    """issue #93 (polimento pós-#99): contato nunca registrado (nome/whatsapp/email todos
+    ausentes) mostrava três linhas "não informado" — vira uma só. `historico` não-vazio (em vez
+    do default `None`) pra não contar o "não informado" do "Ver conversa", que é outra célula."""
+    linhas = [_linha(nome=None, whatsapp=None, email=None, historico=[{"remetente": "Lead", "texto": "oi", "instante": "t1"}])]
+
+    html = tela_relatorio.render(linhas)
+
+    assert html.count("não informado") == 1
+
+
+def test_lead_com_contato_parcial_continua_mostrando_cada_campo():
+    """Contraprova: quando só ALGUM campo falta, cada linha continua aparecendo (não colapsa)."""
+    linhas = [_linha(nome="Maria Exemplo", whatsapp=None, email=None, historico=[{"remetente": "Lead", "texto": "oi", "instante": "t1"}])]
+
+    html = tela_relatorio.render(linhas)
+
+    assert "Maria Exemplo" in html
+    assert html.count("não informado") == 2
 
 
 def test_csv_historico_vira_uma_coluna_com_mensagens_separadas_por_pipe():
