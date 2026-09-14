@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AutoSeguro · Avaliação</title>
+<title>AutoSeguro · Relatório</title>
 <style>
 /* AutoSeguro — mock de design. Folha compartilhada por todas as telas.
    Paleta derivada da identidade da Namastex: roxo profundo, magenta e ciano. */
@@ -105,11 +105,6 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 [hidden]{display:none!important}
 .botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
 
-  .melhor{color:var(--ok)} .pior{color:var(--falha)}
-  .regua{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px}
-  .regua .trilho{flex:1;height:8px;background:var(--superficie-2);border-radius:99px;overflow:hidden;border:1px solid var(--borda)}
-  .regua .preenche{height:100%;background:linear-gradient(90deg,var(--magenta),var(--ciano))}
-
 </style>
 </head>
 <body>
@@ -120,11 +115,11 @@ button[disabled]{opacity:.45;cursor:not-allowed}
     <div class="grupo">Atendimento</div>
     <a href="/"><span class="ic">💬</span> Conversas </a>
     <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
-    <a href="/painel/relatorio.html"><span class="ic">🗂️</span> Relatório </a>
+    <a href="/painel/relatorio.html" aria-current="page"><span class="ic">🗂️</span> Relatório </a>
     <div class="grupo">Observabilidade</div>
     <a href="/painel/rastreio.html"><span class="ic">🧭</span> Rastreio </a>
     <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
-    <a href="/painel/avaliacao.html" aria-current="page"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
     <a href="/painel/index.html"><span class="ic">📚</span> Histórico de atendimentos </a>
     <div class="grupo">Configuração</div>
     <a href="/painel/regras.html"><span class="ic">⚖️</span> Regras e política </a>
@@ -137,19 +132,83 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 
 <div class="cabecalho">
   <div>
-    <h1>Avaliação</h1>
-    <p>O agente rodando contra conversas derivadas do histórico, com régua versionada.</p>
+    <h1>Relatório</h1>
+    <p>Uma linha por conversa: lead, status, data de entrada, pendência e plano cotado — leitura e priorização, nunca edição.</p>
   </div>
-  <span class="chip alerta">sem régua</span>
+  <span class="chip alerta">3 conversa(s)</span>
 </div>
 <section class="painel">
-  <header><h2>eval/casos.jsonl não encontrado</h2></header>
+  <header><h2>Conversas</h2></header>
   <div style="padding:16px">
-    <span class="falta">⚠ ausente na trilha: eval/casos.jsonl — o conjunto de avaliação é responsabilidade da frente F8 (issue #11) e ainda não existe neste repositório</span>
-    <p class="nota-rodape" style="margin-top:14px">
-      A ESPECIFICACAO.md (§1) descreve o formato esperado (<code>caso_id</code>, <code>entrada</code>,
-      <code>decisao_esperada</code>, <code>origem</code>, <code>estado</code>) e o mapa tela→frente dona
-      (§4) atribui este arquivo à F8. Esta tela não inventa dado nem régua — mostra o buraco.</p>
+    <table class="tabela-relatorio">
+      <thead><tr><th>Lead</th><th>Status</th><th>Data de entrada</th><th>Pendência</th><th>Plano cotado</th><th>Conversa</th></tr></thead>
+      <tbody>
+<tr data-status="cotada">
+      <td><div><b>não informado</b></div>
+      <div>não informado</div>
+      <div>não informado</div></td>
+      <td>Cotada</td>
+      <td>14/09/2026 01:34</td>
+      <td>—</td>
+      <td>Essencial — R$ 137,88/mês</td>
+      <td><code>conv-c2c205cd</code><br><details><summary>Ver conversa</summary><div class="historico"><div class="msg-historico"><b>Robô:</b> Qual a sua idade? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 35 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Ano do veículo? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 2020 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual o seu CEP? (8 números, com ou sem hífen) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> [REDIGIDO] <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual plano? (essencial/completo/premium — Enter para essencial) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Data de início? (AAAA-MM-DD — Enter para não informar) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Sistema:</b> idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto. <span class="aux">14/09/2026 01:34</span></div></div></details></td>
+    </tr>
+<tr data-status="aguardando_corretor">
+      <td><div><b>não informado</b></div>
+      <div>não informado</div>
+      <div>não informado</div></td>
+      <td>Aguardando corretor</td>
+      <td>14/09/2026 01:34</td>
+      <td>Cotação indisponível: o serviço de cotação falhou de forma persistente.</td>
+      <td>ainda não cotado</td>
+      <td><code>conv-acca9633</code><br><details><summary>Ver conversa</summary><div class="historico"><div class="msg-historico"><b>Robô:</b> Qual a sua idade? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 35 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Ano do veículo? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 2020 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual o seu CEP? (8 números, com ou sem hífen) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> [REDIGIDO] <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual plano? (essencial/completo/premium — Enter para essencial) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Data de início? (AAAA-MM-DD — Enter para não informar) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Sistema:</b> idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Não consegui fechar sua cotação agora — vou encaminhar para um atendente. <span class="aux">14/09/2026 01:34</span></div></div></details></td>
+    </tr>
+<tr data-status="aguardando_corretor">
+      <td><div><b>não informado</b></div>
+      <div>não informado</div>
+      <div>não informado</div></td>
+      <td>Aguardando corretor</td>
+      <td>14/09/2026 01:34</td>
+      <td>A seguradora recusou o perfil (422): fora da faixa de idade ou do veículo aceita.</td>
+      <td>ainda não cotado</td>
+      <td><code>conv-453a5245</code><br><details><summary>Ver conversa</summary><div class="historico"><div class="msg-historico"><b>Robô:</b> Qual a sua idade? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 80 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Ano do veículo? <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> 2020 <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual o seu CEP? (8 números, com ou sem hífen) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> [REDIGIDO] <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Qual plano? (essencial/completo/premium — Enter para essencial) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Data de início? (AAAA-MM-DD — Enter para não informar) <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Lead:</b> <span class="falta">⚠ ausente na trilha: texto</span> <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Sistema:</b> idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None <span class="aux">14/09/2026 01:34</span></div>
+<div class="msg-historico"><b>Robô:</b> Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato. <span class="aux">14/09/2026 01:34</span></div></div></details></td>
+    </tr>
+      </tbody>
+    </table>
+    <a class="botao" href="relatorio.csv" download>Exportar CSV</a>
   </div>
 </section>
 
