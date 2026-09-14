@@ -7,6 +7,15 @@ Categorias: Adicionado · Alterado · Corrigido · Removido · Segurança.
 ## [Unreleased]
 
 ### Corrigido
+- **README reconciliado com a IA de objeção de preço mergeada (#58/#70, PR #75/#77) — issue #15:**
+  a linha "ficou de fora" da #58 saiu (entregue) e virou a linha do #81 (docker compose oficial não
+  repassa a chave do LLM ao `app` — `servidor.py` nunca chama `carregar_dotenv_no_ambiente()`); a
+  linha "não há fichas de exemplo" saiu (falsa desde o PR #77 — as 4 fichas de preço aprovadas já
+  estão em `conhecimento/objecoes/`); §1 ganhou a subseção da IA de objeção (mesma chave, sem
+  chave/sem ficha → texto fixo, nunca número inventado); §10 ganhou os 3 limites medidos (latência
+  de 6,4s a 13,6s por resposta, `caro-com-carencia` nunca classificada — #78 — e conexão recusada
+  em `localhost` no Windows virando `timeout` em vez de `indisponivel` — #79), os dois últimos
+  citados como "enquanto não mergear"
 - **README com as ressalvas do PR #76 e os limites herdados do comentário de coordenação das 20:34
   (issue #15):** §6 ganha as duas ressalvas não bloqueantes do veredito de auditoria do #76
   (classificação de contato pelo nome do campo HTTP, sem autenticação; a pergunta também vira

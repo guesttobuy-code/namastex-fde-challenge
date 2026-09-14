@@ -99,6 +99,16 @@ OpenRouter: [`examples/execucao_conv-4aa7be91.log`](examples/execucao_conv-4aa7b
 grava `origem_do_texto="llm:deepseek/deepseek-chat-v3.1@v1"` por turno
 ([`examples/trilha_conv-4aa7be91.jsonl`](examples/trilha_conv-4aa7be91.jsonl)).
 
+**IA responde objeção de preço (opcional, mesma chave — issue #58):** depois do card de preço, o
+chat web ganha um campo de texto livre para o lead escrever uma objeção ("achei caro", "vi mais
+barato na concorrente"...); a IA responde a partir da Base de conhecimento
+(`conhecimento/objecoes/*.json`, ver [§6](#6-cuidado-com-dados-sensíveis)), nunca com um número
+fora de `{{marcador}}`. Liga com o MESMO `LLM_PROVEDOR=openrouter` de cima — uma conta, uma
+variável (LEI do dono único). **Sem chave, ou sem nenhuma ficha publicada, a resposta é sempre o
+mesmo texto fixo oferecendo um corretor** — nunca um número inventado
+(`src/aplicacao/servico_resposta_orientada.py:171-172,178-189`,
+`src/infra/adaptador_de_linguagem.py:345-360`). Limites medidos desta função: [§10](#10-limites-conhecidos).
+
 ---
 
 ## 2. Funciona de ponta a ponta?
@@ -382,7 +392,7 @@ não tem:
 
 | Ficou de fora | Estado | Issue |
 |---|---|---|
-| IA respondendo o lead usando a base de conhecimento (hoje o `/conhecimento` só edita; nada ainda consome as fichas numa conversa) | `[PENDENTE: #58]` — sem PR ainda | [#58](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/58) |
+| Docker compose oficial repassando a chave do LLM para o `app` (hoje `docker compose up --build` nunca liga a IA, mesmo com `.env` preenchido — `src/interfaces/servidor.py` nunca chama `carregar_dotenv_no_ambiente()`, diferente de `interfaces/cli.py:261`; só via variável de ambiente real do shell, fora do `.env`) | `[PENDENTE: #81]` — sem PR ainda | [#81](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/81) |
 | Coleta pelo **chat web** não grava pergunta/resposta na trilha com id e status (a coleta pela CLI já grava — [§5](#5-dá-pra-rastrear-o-que-aconteceu), PR #64) | `[PENDENTE: #51]` — parte 2 (chat web), sem PR ainda | [#51](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/51) |
 | Status/estado da conversa na Fila humana, além do motivo do handoff (o motivo em si já está resolvido — ver [§4](#4-o-critério-de-passar-pra-humano-é-explícito-e-defensável), `LEAD_PEDIU_HUMANO`) | `[PENDENTE: #57]` — issue #57 segue aberta para essa parte | [#57](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/57) |
 | Bateria adversarial completa (infra, integridade, dados sujos, injeção, mídia) | fora por prazo, sem PR | [#10](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/10) |
@@ -426,10 +436,30 @@ PLANO antes do código. 28 dos 29 checks daquele PR passaram (o único vermelho 
   e nunca limpo (uma conversa abandonada fica ocupando memória para sempre). Limite aceito e
   declarado no [ADR-0005](governance/adr/0005-chat-guiado-estado-e-contato.md), decisão 1 — troca
   deliberada por não adicionar Redis/sessão em arquivo fora do prazo.
-- **Não há fichas de exemplo na base de conhecimento** — `conhecimento/` só tem `.gitkeep`
-  versionado; `conhecimento/objecoes/` nem existe ainda, nasce em runtime quando a primeira ficha é
-  salva pela tela. Quem abrir `/conhecimento` num clone limpo vê a tela sem nenhuma objeção
-  cadastrada.
+- **A IA que responde objeção de preço tem 3 limites conhecidos, medidos com o LLM real** (issue
+  #58/#70, PR #75/#77 — ver [§1](#1-em-uma-frase-e-como-rodar)):
+  - **Latência de 6,4s a 13,6s por resposta**, medida turno a turno (`deepseek/deepseek-chat-v3.1`,
+    3 chamadas reais) — bem acima da extração de intenção isolada (~4,2s, ver acima). Sem cache nem
+    streaming; o lead vê "Só um instante…" até 13,6s numa conversa real
+    ([issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78)).
+  - **A ficha `caro-com-carencia` nunca é usada:** a frase "pago e ainda tenho que esperar pra ter
+    cobertura" — uma das frases da PRÓPRIA ficha — é classificada `quer_falar_com_humano` em vez de
+    `objecao_de_preco`, porque `_PROMPT_SISTEMA` (`src/infra/adaptador_de_linguagem.py`) não
+    descreve carência como exemplo de objeção de preço. Defeito do prompt de extração da #58, não
+    da ficha em si — [issue #78](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/78),
+    enquanto não mergear.
+  - **`conhecimento/objecoes/` agora tem as 4 fichas de preço aprovadas pelo dono**, publicadas
+    pela API (PR #77, commit `071f0e1`) — não fica mais vazio num clone limpo. Continua sem ficha
+    de nenhum outro tipo de objeção/pergunta de produto (guincho, carro reserva...), fora do escopo
+    aprovado da #70.
+- **No Windows, `/quote` recusando conexão em `localhost` pode virar `timeout` em vez de
+  `indisponivel` na trilha** — a recusa de conexão às vezes passa dos 3s do orçamento por
+  tentativa, e o árbitro de prazo (`_chamar_com_prazo_de_parede`,
+  `src/infra/cliente_quote.py:163-181`) dispara antes da tentativa terminar. O texto ao lead é
+  idêntico nos dois casos, mas o diagnóstico operacional (`reason_code`) fica errado — afeta
+  qualquer chamada à `/quote`, não só a IA de objeção
+  ([issue #79](https://github.com/guesttobuy-code/namastex-fde-challenge/issues/79)), enquanto não
+  mergear.
 - **A extração por texto livre já foi medida contra o modelo real, não simulada:** PR #44,
   intenção "quero contratar" — antes do conserto do esquema, **0 de 5** frases explícitas chegavam à
   política; depois, **5 de 5** positivas e **0 de 7** falsos positivos num controle negativo
