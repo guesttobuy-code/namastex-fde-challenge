@@ -121,9 +121,14 @@ arquivos `.jsonl`:
 [sanitizar_ai_logs] padrao #15: 4 substituicao(oes)
 [sanitizar_ai_logs] padrao #18: 19 substituicao(oes)
 ```
-Segunda verificação, independente do script (`git grep`, direto no que foi escrito): 0 arquivo com
-qualquer padrão de `_local/padroes_pessoais.txt`; 0 ocorrência de `sk-or-v1-` em `ai-logs/` (sem
-piso de comprimento, `git grep -c -P "sk-or-v1-" -- ai-logs/`).
+Segunda verificação, independente do script (`git grep`, direto no que foi escrito): 0 ocorrência
+de qualquer padrão de `_local/padroes_pessoais.txt` dentro dos campos das transcrições; o
+`git grep -f` na linha crua aponta 4 linhas, todas medidas como falso positivo (3 artefatos de
+escape do caminho do Windows, 1 do modo multi-padrão do git — auditoria do PR #97); 0 ocorrência de
+`sk-or-v1-` nas transcrições
+(`.jsonl`) — `git grep -c -P "sk-or-v1-" -- 'ai-logs/*.jsonl' 'ai-logs/**/*.jsonl'` também dá vazio;
+o comando sem esse filtro (`git grep -c -P "sk-or-v1-" -- ai-logs/`) também conta as menções do
+prefixo neste próprio README, incluindo esta frase (documentando o formato, não uma chave real).
 
 ## O que ficou de fora, e por quê
 
