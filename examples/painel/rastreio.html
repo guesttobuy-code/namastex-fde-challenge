@@ -100,6 +100,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono
 
 .falta{color:var(--alerta)}
 button[disabled]{opacity:.45;cursor:not-allowed}
+[hidden]{display:none!important}
+.botao{background:var(--superficie-2);color:var(--texto);border:1px solid var(--borda);border-radius:10px;padding:8px 14px;font-size:13.5px;cursor:pointer}.botao:hover:not([disabled]){border-color:var(--magenta)}.botao.principal{background:var(--magenta);color:#1a002e;border-color:var(--magenta);font-weight:600}.botao.principal:hover:not([disabled]){background:#e600e6}
 
   .duas{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
   @media (max-width:1000px){.duas{grid-template-columns:1fr}}
@@ -165,14 +167,17 @@ button[disabled]{opacity:.45;cursor:not-allowed}
   <div class="produto"><b data-t="AutoSeguro">AutoSeguro</b><span>agente de cotação · console</span></div>
   <nav class="menu">
     <div class="grupo">Atendimento</div>
-    <a href="index.html"><span class="ic">💬</span> Conversas <span class="cont">3</span></a>
-    <a href="handoffs.html"><span class="ic">🙋</span> Fila humana </a>
+    <a href="/"><span class="ic">💬</span> Conversas </a>
+    <a href="/painel/index.html?status=aguardando_corretor"><span class="ic">🙋</span> Fila humana </a>
     <div class="grupo">Observabilidade</div>
-    <a href="rastreio.html" aria-current="page"><span class="ic">🧭</span> Rastreio </a>
-    <a href="cotacoes.html"><span class="ic">📈</span> Cotações </a>
-    <a href="avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/rastreio.html" aria-current="page"><span class="ic">🧭</span> Rastreio </a>
+    <a href="/painel/cotacoes.html"><span class="ic">📈</span> Cotações </a>
+    <a href="/painel/avaliacao.html"><span class="ic">🎯</span> Avaliação </a>
+    <a href="/painel/index.html"><span class="ic">📚</span> Histórico de atendimentos <span class="cont">3</span></a>
     <div class="grupo">Configuração</div>
-    <a href="regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <a href="/painel/regras.html"><span class="ic">⚖️</span> Regras e política </a>
+    <div class="grupo">Insumos</div>
+    <a href="/conhecimento"><span class="ic">🧠</span> Base de conhecimento </a>
   </nav>
   <div class="selo"><small>desafio técnico FDE<br>painel gerado da trilha real</small></div>
 </aside>
@@ -189,104 +194,329 @@ button[disabled]{opacity:.45;cursor:not-allowed}
 <div class="duas">
   <nav class="painel" aria-label="Conversas">
     <header><h2>Conversas</h2><span class="aux">3</span></header>
-    <a href="#conv-4e14f305" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-4e14f305</span></span><span class="chip cotada" style="margin-top:6px">cotada</span></a>
-<a href="#conv-9a861a37" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-9a861a37</span></span><span class="chip handoff" style="margin-top:6px">handoff</span></a>
-<a href="#conv-d656ea8c" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-d656ea8c</span></span><span class="chip cotada" style="margin-top:6px">cotada</span></a>
+    <a href="#conv-198a633b" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-198a633b</span></span><span class="chip alerta" style="margin-top:6px">aguardando_corretor</span></a>
+<a href="#conv-2bdc86e8" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-2bdc86e8</span></span><span class="chip ok" style="margin-top:6px">cotada</span></a>
+<a href="#conv-c254c560" class="item" style="text-decoration:none;display:block"><span class="l1"><span class="nome">conv-c254c560</span></span><span class="chip alerta" style="margin-top:6px">aguardando_corretor</span></a>
   </nav>
   <div style="display:grid;gap:16px">
-    <section class="painel" id="conv-4e14f305">
-  <header><h2>conv-4e14f305</h2><span class="aux">cotada</span></header>
+    <section class="painel" id="conv-198a633b">
+  <header><h2>conv-198a633b</h2><span class="aux">aguardando_corretor</span></header>
   <div class="tempo">
-    <div class="ev lead">
-      <div class="meta"><span class="quem">lead</span><span>2026-09-12T21:29:48.973494+00:00</span><span>msg_ffcbe7cc</span></div>
-      <div class="balao">idade=35; veiculo_ano=2019; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-01</div>
-    </div><div class="ev cotacao">
-      <div class="meta"><span class="quem">cotação</span><span>2026-09-12T21:29:49.206673+00:00</span><span>ab8aa6bb963e4d459e4f80bd8885a755</span></div>
-      <div class="tentativas"><div class="tent boa"><span class="n">1ª</span><span class="estado">200 sucesso</span><span class="ms">232 ms</span></div></div>
-      <div class="prova"><header>cotação obtida</header><div class="corpo">
-          <div><span class="rot">prêmio</span><div class="val grande">241.38</div></div>
-          <div><span class="rot">franquia</span><div class="val">3000</div></div>
-          <div><span class="rot">orçamento restante</span><div class="val">9768 ms</div></div>
-        </div></div>
-    </div><div class="ev decisao">
-      <div class="meta"><span class="quem">decisão</span><span>2026-09-12T21:29:49.208017+00:00</span><span>dec_aec2ae31</span></div>
-      <div class="balao">explicar_cotacao</div>
-    </div><div class="ev agente">
-      <div class="meta"><span class="quem">agente</span><span>2026-09-12T21:29:49.208610+00:00</span><span>msg_d6cc1ed0</span></div>
-      <div class="balao">Plano Completo: R$ 241.38/mês, franquia R$ 3000.00. Coberturas: colisao, roubo, furto, terceiros, vidros. Carência de 30 dias para: roubo, furto.</div>
+    <div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.066655+00:00</span><span>msg_coleta_0_enviada</span></div>
+      <div class="balao">Qual a sua idade?</div>
       <details class="proveniencia">
       <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
       <div class="corpo">
-        <div class="par"><span class="rot">decisão</span><span class="val">dec_aec2ae31</span></div>
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_0</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.067264+00:00</span><span>msg_coleta_0_recebida</span></div>
+      <div class="balao">80</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.067746+00:00</span><span>msg_coleta_1_enviada</span></div>
+      <div class="balao">Ano do veículo?</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_1</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.068429+00:00</span><span>msg_coleta_1_recebida</span></div>
+      <div class="balao">2020</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.068812+00:00</span><span>msg_coleta_2_enviada</span></div>
+      <div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_2</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.069186+00:00</span><span>msg_coleta_2_recebida</span></div>
+      <div class="balao">[REDIGIDO]</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.069507+00:00</span><span>msg_coleta_3_enviada</span></div>
+      <div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_3</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.069951+00:00</span><span>msg_coleta_3_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.070316+00:00</span><span>msg_coleta_4_enviada</span></div>
+      <div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_4</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.070706+00:00</span><span>msg_coleta_4_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:44.071200+00:00</span><span>msg_ce3e6950</span></div>
+      <div class="balao">idade=80; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
+    </div><div class="ev cotacao">
+      <div class="meta"><span class="quem">cotação</span><span>2026-09-14T02:51:44.102596+00:00</span><span>275ca98323b948d1b2bc2b24d839e00b</span></div>
+      <div class="tentativas"><div class="tent ruim"><span class="n">1ª</span><span class="estado">422 recusa_de_negocio</span><span class="ms">31 ms</span></div></div>
+      
+    </div><div class="ev decisao">
+      <div class="meta"><span class="quem">decisão</span><span>2026-09-14T02:51:44.103597+00:00</span><span>dec_181a3d33</span></div>
+      <div class="balao">encaminhar — recusa_regra_de_aceitacao</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.104290+00:00</span><span>msg_ecd1c3fe</span></div>
+      <div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_181a3d33</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">politica.decidir:RECUSA_DE_NEGOCIO-&gt;ENCAMINHAR</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">texto_fixo:aplicacao.servico_conversa@v1</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val">tentativa:recusa_de_negocio</span></div>
+      </div>
+    </details>
+    </div><div class="ev handoff">
+      <div class="meta"><span class="quem">handoff</span><span>2026-09-14T02:51:44.105084+00:00</span><span>ho_110bbed4</span></div>
+      <div class="motivo">reason_code: recusa_regra_de_aceitacao</div>
+      <div class="balao">Sinto muito, pelas regras da seguradora não consigo cotar online neste caso: idade acima do limite de aceitação (75 anos). Um corretor pode avaliar outras opções para você e vai entrar em contato.</div>
+    </div>
+  </div>
+</section>
+<section class="painel" id="conv-2bdc86e8">
+  <header><h2>conv-2bdc86e8</h2><span class="aux">cotada</span></header>
+  <div class="tempo">
+    <div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.595957+00:00</span><span>msg_coleta_0_enviada</span></div>
+      <div class="balao">Qual a sua idade?</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_0</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.596647+00:00</span><span>msg_coleta_0_recebida</span></div>
+      <div class="balao">35</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.597084+00:00</span><span>msg_coleta_1_enviada</span></div>
+      <div class="balao">Ano do veículo?</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_1</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.599962+00:00</span><span>msg_coleta_1_recebida</span></div>
+      <div class="balao">2020</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.600479+00:00</span><span>msg_coleta_2_enviada</span></div>
+      <div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_2</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.600879+00:00</span><span>msg_coleta_2_recebida</span></div>
+      <div class="balao">[REDIGIDO]</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.601206+00:00</span><span>msg_coleta_3_enviada</span></div>
+      <div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_3</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.601584+00:00</span><span>msg_coleta_3_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.601898+00:00</span><span>msg_coleta_4_enviada</span></div>
+      <div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_4</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.602256+00:00</span><span>msg_coleta_4_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.602670+00:00</span><span>msg_6ea29ea1</span></div>
+      <div class="balao">idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
+    </div><div class="ev cotacao">
+      <div class="meta"><span class="quem">cotação</span><span>2026-09-14T02:51:36.728337+00:00</span><span>0d0e1bb0be90443c93c0c48fe48958d8</span></div>
+      <div class="tentativas"><div class="tent boa"><span class="n">1ª</span><span class="estado">200 sucesso</span><span class="ms">125 ms</span></div></div>
+      <div class="prova"><header>cotação obtida</header><div class="corpo">
+          <div><span class="rot">prêmio</span><div class="val grande">137.88</div></div>
+          <div><span class="rot">franquia</span><div class="val">4500</div></div>
+          <div><span class="rot">orçamento restante</span><div class="val">9875 ms</div></div>
+        </div></div>
+    </div><div class="ev decisao">
+      <div class="meta"><span class="quem">decisão</span><span>2026-09-14T02:51:36.729207+00:00</span><span>dec_229dfdb6</span></div>
+      <div class="balao">explicar_cotacao</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.729605+00:00</span><span>msg_6785baae</span></div>
+      <div class="balao">Plano Essencial: R$ 137,88/mês, franquia R$ 4.500,00. Coberturas: colisão, roubo, furto. Carência de 30 dias para: roubo, furto.</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_229dfdb6</span></div>
         <div class="par"><span class="rot">regra aplicada</span><span class="val">politica.decidir:SUCESSO-&gt;EXPLICAR_COTACAO</span></div>
         <div class="par"><span class="rot">texto veio de</span><span class="val">redator_deterministico:v1</span></div>
-        <div class="par"><span class="rot">dados usados</span><span class="val">ab8aa6bb963e4d459e4f80bd8885a755, estado.idade, estado.veiculo_ano, estado.cep</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val">0d0e1bb0be90443c93c0c48fe48958d8, estado.idade, estado.veiculo_ano, estado.cep</span></div>
       </div>
     </details>
     </div>
   </div>
 </section>
-<section class="painel" id="conv-9a861a37">
-  <header><h2>conv-9a861a37</h2><span class="aux">handoff</span></header>
+<section class="painel" id="conv-c254c560">
+  <header><h2>conv-c254c560</h2><span class="aux">aguardando_corretor</span></header>
   <div class="tempo">
-    <div class="ev lead">
-      <div class="meta"><span class="quem">lead</span><span>2026-09-12T19:47:44.057939+00:00</span><span>msg_4d4f6a4a</span></div>
-      <div class="balao">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</div>
+    <div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.731452+00:00</span><span>msg_coleta_0_enviada</span></div>
+      <div class="balao">Qual a sua idade?</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_0</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.732018+00:00</span><span>msg_coleta_0_recebida</span></div>
+      <div class="balao">35</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.732393+00:00</span><span>msg_coleta_1_enviada</span></div>
+      <div class="balao">Ano do veículo?</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_1</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.732965+00:00</span><span>msg_coleta_1_recebida</span></div>
+      <div class="balao">2020</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.733393+00:00</span><span>msg_coleta_2_enviada</span></div>
+      <div class="balao">Qual o seu CEP? (formato [REDIGIDO])</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_2</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.733771+00:00</span><span>msg_coleta_2_recebida</span></div>
+      <div class="balao">[REDIGIDO]</div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.734085+00:00</span><span>msg_coleta_3_enviada</span></div>
+      <div class="balao">Qual plano? (essencial/completo/premium — Enter para essencial)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_3</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.734433+00:00</span><span>msg_coleta_3_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev agente">
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:36.734742+00:00</span><span>msg_coleta_4_enviada</span></div>
+      <div class="balao">Data de início? (AAAA-MM-DD — Enter para não informar)</div>
+      <details class="proveniencia">
+      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
+      <div class="corpo">
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_coleta_4</span></div>
+        <div class="par"><span class="rot">regra aplicada</span><span class="val">coleta:pergunta</span></div>
+        <div class="par"><span class="rot">texto veio de</span><span class="val">coleta_deterministica</span></div>
+        <div class="par"><span class="rot">dados usados</span><span class="val"><span class="falta">⚠ ausente na trilha: lista vazia</span></span></div>
+      </div>
+    </details>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.735074+00:00</span><span>msg_coleta_4_recebida</span></div>
+      <div class="balao"><span class="falta">⚠ ausente na trilha: texto</span></div>
+    </div><div class="ev lead">
+      <div class="meta"><span class="quem">lead</span><span>2026-09-14T02:51:36.735475+00:00</span><span>msg_6b5ebfe8</span></div>
+      <div class="balao">idade=35; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=None; data_inicio=None</div>
     </div><div class="ev cotacao">
-      <div class="meta"><span class="quem">cotação</span><span>2026-09-12T19:47:46.857122+00:00</span><span>8f2c166db5c54e35b3aed43df6386aa1</span></div>
-      <div class="tentativas"><div class="tent ruim"><span class="n">1ª</span><span class="estado">500 indisponivel</span><span class="ms">2795 ms</span></div><div class="tent ruim"><span class="n">2ª</span><span class="estado">500 indisponivel</span><span class="ms">265 ms</span></div><div class="tent ruim"><span class="n">3ª</span><span class="estado">500 indisponivel</span><span class="ms">401 ms</span></div></div>
+      <div class="meta"><span class="quem">cotação</span><span>2026-09-14T02:51:38.789820+00:00</span><span>5f0a0420c9314897b37a7562d70040b2</span></div>
+      <div class="tentativas"><div class="tent ruim"><span class="n">1ª</span><span class="estado">sem resposta (indisponivel)</span><span class="ms">2054 ms</span></div><div class="tent ruim"><span class="n">2ª</span><span class="estado">sem resposta (indisponivel)</span><span class="ms">2028 ms</span></div><div class="tent ruim"><span class="n">3ª</span><span class="estado">sem resposta (indisponivel)</span><span class="ms">2041 ms</span></div></div>
       
     </div><div class="ev decisao">
-      <div class="meta"><span class="quem">decisão</span><span>2026-09-12T19:47:48.763200+00:00</span><span>dec_7c25b81b</span></div>
+      <div class="meta"><span class="quem">decisão</span><span>2026-09-14T02:51:44.062343+00:00</span><span>dec_cb02bc61</span></div>
       <div class="balao">encaminhar — quote_indisponivel</div>
     </div><div class="ev agente">
-      <div class="meta"><span class="quem">agente</span><span>2026-09-12T19:47:48.764228+00:00</span><span>msg_3def4cb1</span></div>
+      <div class="meta"><span class="quem">agente</span><span>2026-09-14T02:51:44.062999+00:00</span><span>msg_557fe8f4</span></div>
       <div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
       <details class="proveniencia">
       <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
       <div class="corpo">
-        <div class="par"><span class="rot">decisão</span><span class="val">dec_7c25b81b</span></div>
+        <div class="par"><span class="rot">decisão</span><span class="val">dec_cb02bc61</span></div>
         <div class="par"><span class="rot">regra aplicada</span><span class="val">politica.decidir:INDISPONIVEL-&gt;ENCAMINHAR</span></div>
         <div class="par"><span class="rot">texto veio de</span><span class="val">texto_fixo:aplicacao.servico_conversa@v1</span></div>
         <div class="par"><span class="rot">dados usados</span><span class="val">tentativa:indisponivel</span></div>
       </div>
     </details>
     </div><div class="ev handoff">
-      <div class="meta"><span class="quem">handoff</span><span>2026-09-12T19:47:48.766714+00:00</span><span>ho_04edfcab</span></div>
+      <div class="meta"><span class="quem">handoff</span><span>2026-09-14T02:51:44.063801+00:00</span><span>ho_d6384db7</span></div>
       <div class="motivo">reason_code: quote_indisponivel</div>
       <div class="balao">Não consegui fechar sua cotação agora — vou encaminhar para um atendente.</div>
-    </div>
-  </div>
-</section>
-<section class="painel" id="conv-d656ea8c">
-  <header><h2>conv-d656ea8c</h2><span class="aux">cotada</span></header>
-  <div class="tempo">
-    <div class="ev lead">
-      <div class="meta"><span class="quem">lead</span><span>2026-09-12T18:57:07.279602+00:00</span><span>msg_1c143469</span></div>
-      <div class="balao">idade=30; veiculo_ano=2020; cep=[REDIGIDO]; plano_id=completo; data_inicio=2026-10-15</div>
-    </div><div class="ev cotacao">
-      <div class="meta"><span class="quem">cotação</span><span>2026-09-12T18:57:07.617212+00:00</span><span>7fbbeb74e02c48c9a06372b5c3ba223c</span></div>
-      <div class="tentativas"><div class="tent ruim"><span class="n">1ª</span><span class="estado">502 indisponivel</span><span class="ms">336 ms</span></div><div class="tent ruim"><span class="n">2ª</span><span class="estado">502 indisponivel</span><span class="ms">58 ms</span></div><div class="tent boa"><span class="n">3ª</span><span class="estado">200 sucesso</span><span class="ms">38 ms</span></div></div>
-      <div class="prova"><header>cotação obtida</header><div class="corpo">
-          <div><span class="rot">prêmio</span><div class="val grande">241.38</div></div>
-          <div><span class="rot">franquia</span><div class="val">3000</div></div>
-          <div><span class="rot">orçamento restante</span><div class="val">8364 ms</div></div>
-        </div></div>
-    </div><div class="ev decisao">
-      <div class="meta"><span class="quem">decisão</span><span>2026-09-12T18:57:08.920352+00:00</span><span>dec_94b4bc10</span></div>
-      <div class="balao">explicar_cotacao</div>
-    </div><div class="ev agente">
-      <div class="meta"><span class="quem">agente</span><span>2026-09-12T18:57:08.921506+00:00</span><span>msg_71e7cc15</span></div>
-      <div class="balao">Plano Completo: R$ 241.38/mês, franquia R$ 3000.00. Coberturas: colisao, roubo, furto, terceiros, vidros. Carência de 30 dias para: roubo, furto. Primeiro pagamento proporcional: R$ 132.37 (17 de 31 dias).</div>
-      <details class="proveniencia">
-      <summary style="cursor:pointer;padding:8px 13px;color:var(--texto-fraco);font-size:12px">de onde veio esta resposta</summary>
-      <div class="corpo">
-        <div class="par"><span class="rot">decisão</span><span class="val">dec_94b4bc10</span></div>
-        <div class="par"><span class="rot">regra aplicada</span><span class="val">politica.decidir:SUCESSO-&gt;EXPLICAR_COTACAO</span></div>
-        <div class="par"><span class="rot">texto veio de</span><span class="val">redator_deterministico:v1</span></div>
-        <div class="par"><span class="rot">dados usados</span><span class="val">8011f68ed6604071b5224ba436c21801, estado.idade, estado.veiculo_ano, estado.cep</span></div>
-      </div>
-    </details>
     </div>
   </div>
 </section>
